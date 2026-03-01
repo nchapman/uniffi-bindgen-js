@@ -12,6 +12,6 @@ export class Counter {
   decrement(): void { this._inner.decrement(); }
   get(): bigint { return this._inner.get(); }
   increment(): void { this._inner.increment(); }
-  resetTo(value: bigint): void { this._inner.resetTo(value); }
+  resetTo(value: bigint): void { this._inner.reset_to(value); }
   free(): void { this._inner.free(); }
 }

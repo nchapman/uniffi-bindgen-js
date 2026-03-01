@@ -928,12 +928,10 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
                 .unwrap_or_else(|| "void".to_string())
         };
         let call_args: Vec<String> = m.args.iter().map(|a| camel_case(&a.name)).collect();
-        // wasm-bindgen converts Rust method names to camelCase in its JS glue.
-        let raw_call = format!(
-            "this._inner.{}({})",
-            camel_case(&m.name),
-            call_args.join(", ")
-        );
+        // wasm-bindgen preserves Rust method names verbatim (snake_case) in its JS glue.
+        // The public TypeScript name is camelCase (via `exported`), but the inner call
+        // must match the wasm-pack output exactly.
+        let raw_call = format!("this._inner.{}({})", m.name, call_args.join(", "));
         let lifted_call = lift_return(&raw_call, m.return_type.as_ref());
         let call_expr = if m.is_async {
             format!("await {lifted_call}")

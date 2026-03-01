@@ -53,7 +53,7 @@ export class SafeDivider {
   /**
    * Asynchronously compute the square — exercises [Async] method on interface.
    */
-  async squareAsync(): Promise<number> { return await this._inner.squareAsync(); }
+  async squareAsync(): Promise<number> { return await this._inner.square_async(); }
   free(): void { this._inner.free(); }
 }
 
