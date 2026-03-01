@@ -1,0 +1,41 @@
+/// Error raised by the safe divider.
+[Error]
+enum DivError {
+    "DivByZero",
+    "Overflow",
+};
+
+/// An async transform callback — exercises [Async] on a callback interface method.
+callback interface Transformer {
+    /// Synchronous transform.
+    string transform(string input);
+    /// Asynchronous transform — return type must be Promise<string> in generated TS.
+    [Async]
+    string transform_async(string input);
+};
+
+/// Exercises three regression cases on a single object:
+/// 1. A named constructor with [Throws].
+/// 2. A method that throws AND returns a value (the try-return branch).
+/// 3. An [Async] method.
+interface SafeDivider {
+    /// Default constructor — always succeeds.
+    constructor(i32 initial);
+
+    /// Named constructor that can fail — exercises named-ctor [Throws] path.
+    [Name=from_positive, Throws=DivError]
+    constructor(i32 initial);
+
+    /// Divide and return the result — exercises method [Throws] + return branch.
+    [Throws=DivError]
+    i32 divide(i32 divisor);
+
+    /// Asynchronously compute the square — exercises [Async] method on interface.
+    [Async]
+    i32 square_async();
+};
+
+namespace regression {
+    /// Apply a transformer to a value.
+    string apply(Transformer t, string value);
+};

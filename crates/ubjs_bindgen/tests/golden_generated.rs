@@ -100,3 +100,8 @@ fn golden_docstrings_fixture() {
 fn golden_ext_types_demo_fixture() {
     run_golden("ext-types-demo", "ext_types_demo.udl", "ext_types_demo.ts");
 }
+
+#[test]
+fn golden_regression_fixture() {
+    run_golden("regression", "regression.udl", "regression.ts");
+}
