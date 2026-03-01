@@ -29,8 +29,14 @@ Build an idiomatic, production-grade JavaScript/TypeScript UniFFI backend using 
 3. Idiomatic JS/TS API surface (not Rust-shaped JS).
 4. Strict lint/test gates enforced before merges.
 
+## Reference Baselines
+- `/Users/nchapman/Drive/Code/lessisbetter/refs/uniffi-rs`
+  - Canonical UniFFI semantics and behavior.
+- `/Users/nchapman/Drive/Code/uniffi-bindgen-dart`
+  - Primary template for backend structure, testing workflow, and implementation sequencing.
+
 ## UDL Coverage Ledger
-Track parity row-by-row against `/Users/nchapman/Drive/Code/lessisbetter/refs/uniffi-rs`.
+Track parity row-by-row against `/Users/nchapman/Drive/Code/lessisbetter/refs/uniffi-rs`, and use `/Users/nchapman/Drive/Code/uniffi-bindgen-dart` as the implementation/template baseline.
 
 | UDL Unit | Status | Notes |
 |---|---|---|

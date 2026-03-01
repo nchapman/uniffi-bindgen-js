@@ -68,13 +68,9 @@ All must be true before stable release:
 
 ## Reference Baselines
 - `/Users/nchapman/Drive/Code/lessisbetter/refs/uniffi-rs`
-  - Canonical architecture and semantics for Swift/Kotlin/Python.
-- `/Users/nchapman/Drive/Code/lessisbetter/refs/uniffi-bindgen-react-native`
-  - External generator structure, CLI composition, test utility patterns.
-- `/Users/nchapman/Drive/Code/lessisbetter/refs/uniffi-bindgen-go`
-  - Host-language integration-test package layout, artifact-split CI, compatibility versioning strategy.
-- `OFFICIAL_INTEROP_REF`
-  - Authoritative host-language interop and native-asset guidance; use as primary style/packaging reference.
+  - Canonical UniFFI semantics and behavior.
+- `/Users/nchapman/Drive/Code/uniffi-bindgen-dart`
+  - Primary template for backend structure, testing workflow, and implementation sequencing.
 
 ## Repository Blueprint
 ```text
