@@ -4,14 +4,34 @@ export { __init as init };
 
 export class Counter {
   private readonly _inner: __bg.Counter;
+  private _freed = false;
+  private _assertLive(): void {
+    if (this._freed) throw new Error('Counter object has been freed');
+  }
   private constructor(inner: __bg.Counter) {
     this._inner = inner;
   }
   static _fromInner(inner: __bg.Counter): Counter { return new Counter(inner); }
   static new(start: bigint): Counter { return Counter._fromInner(new __bg.Counter(start)); }
-  decrement(): void { this._inner.decrement(); }
-  get(): bigint { return this._inner.get(); }
-  increment(): void { this._inner.increment(); }
-  resetTo(value: bigint): void { this._inner.reset_to(value); }
-  free(): void { this._inner.free(); }
+  decrement(): void {
+    this._assertLive();
+    this._inner.decrement();
+  }
+  get(): bigint {
+    this._assertLive();
+    return this._inner.get();
+  }
+  increment(): void {
+    this._assertLive();
+    this._inner.increment();
+  }
+  resetTo(value: bigint): void {
+    this._assertLive();
+    this._inner.reset_to(value);
+  }
+  free(): void {
+    if (this._freed) return;
+    this._freed = true;
+    this._inner.free();
+  }
 }

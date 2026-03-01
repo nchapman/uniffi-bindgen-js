@@ -34,6 +34,10 @@ export interface Transformer {
  */
 export class SafeDivider {
   private readonly _inner: __bg.SafeDivider;
+  private _freed = false;
+  private _assertLive(): void {
+    if (this._freed) throw new Error('SafeDivider object has been freed');
+  }
   private constructor(inner: __bg.SafeDivider) {
     this._inner = inner;
   }
@@ -48,13 +52,21 @@ export class SafeDivider {
    * Divide and return the result — exercises method [Throws] + return branch.
    */
   divide(divisor: number): number {
+    this._assertLive();
     try { return this._inner.divide(divisor); } catch (e) { return _liftDivError(e); }
   }
   /**
    * Asynchronously compute the square — exercises [Async] method on interface.
    */
-  async squareAsync(): Promise<number> { return await this._inner.square_async(); }
-  free(): void { this._inner.free(); }
+  async squareAsync(): Promise<number> {
+    this._assertLive();
+    return await this._inner.square_async();
+  }
+  free(): void {
+    if (this._freed) return;
+    this._freed = true;
+    this._inner.free();
+  }
 }
 
 function _liftDivError(e: unknown): never {

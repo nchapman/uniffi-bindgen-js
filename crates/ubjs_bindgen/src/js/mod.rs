@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use uniffi_bindgen::interface::{AsType, ComponentInterface, Type};
+use uniffi_bindgen::interface::{AsType, ComponentInterface, DefaultValue, Literal, Type};
 
 use crate::cli::GenerateArgs;
 
@@ -52,14 +52,17 @@ struct UdlFunction {
 struct UdlArg {
     name: String,
     type_: Type,
+    default: Option<DefaultValue>,
 }
 
-/// A variant field (used in rich error variants and data enum variants).
+/// A variant field (used in rich error variants and data enum variants),
+/// or a record field (used in dictionary declarations).
 #[derive(Debug)]
 struct UdlField {
     name: String,
     type_: Type,
     docstring: Option<String>,
+    default: Option<DefaultValue>,
 }
 
 /// One variant of an enum or error type.
@@ -69,6 +72,8 @@ struct UdlVariant {
     /// Empty for flat variants (no associated data).
     fields: Vec<UdlField>,
     docstring: Option<String>,
+    /// Explicit discriminant value (e.g. `= 10`), if declared.
+    discr: Option<Literal>,
 }
 
 /// A [Error] enum — generates a TypeScript error class.
@@ -78,6 +83,8 @@ struct UdlError {
     variants: Vec<UdlVariant>,
     is_flat: bool,
     docstring: Option<String>,
+    /// Methods declared on the error enum.
+    methods: Vec<UdlMethod>,
 }
 
 /// A plain enum or [Enum] interface — generates a TypeScript union type.
@@ -88,6 +95,8 @@ struct UdlEnum {
     /// true ↔ all variants are unit variants (no fields); serialises as a string.
     is_flat: bool,
     docstring: Option<String>,
+    /// Methods declared on the enum (from `impl` blocks).
+    methods: Vec<UdlMethod>,
 }
 
 /// A `dictionary` declaration — generates a TypeScript interface.
@@ -105,6 +114,7 @@ struct UdlConstructor {
     name: String,
     args: Vec<UdlArg>,
     throws_type: Option<Type>,
+    is_async: bool,
     docstring: Option<String>,
 }
 
@@ -204,6 +214,7 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
                 .map(|a| UdlArg {
                     name: a.name().to_string(),
                     type_: a.as_type(),
+                    default: a.default_value().cloned(),
                 })
                 .collect(),
             return_type: f.return_type().cloned(),
@@ -227,6 +238,7 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
                     name: f.name().to_string(),
                     type_: f.as_type(),
                     docstring: f.docstring().map(ToOwned::to_owned),
+                    default: f.default_value().cloned(),
                 })
                 .collect(),
             docstring: r.docstring().map(ToOwned::to_owned),
@@ -249,31 +261,18 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
                         .map(|a| UdlArg {
                             name: a.name().to_string(),
                             type_: a.as_type(),
+                            default: a.default_value().cloned(),
                         })
                         .collect(),
                     throws_type: c.throws_type().cloned(),
+                    is_async: c.is_async(),
                     docstring: c.docstring().map(ToOwned::to_owned),
                 })
                 .collect(),
-            methods: o
-                .methods()
-                .iter()
-                .map(|m| UdlMethod {
-                    name: m.name().to_string(),
-                    args: m
-                        .arguments()
-                        .into_iter()
-                        .map(|a| UdlArg {
-                            name: a.name().to_string(),
-                            type_: a.as_type(),
-                        })
-                        .collect(),
-                    return_type: m.return_type().cloned(),
-                    throws_type: m.throws_type().cloned(),
-                    is_async: m.is_async(),
-                    docstring: m.docstring().map(ToOwned::to_owned),
-                })
-                .collect(),
+            methods: {
+                let ms: Vec<_> = o.methods().into_iter().cloned().collect();
+                parse_methods(&ms)
+            },
             docstring: o.docstring().map(ToOwned::to_owned),
         })
         .collect();
@@ -294,6 +293,7 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
                         .map(|a| UdlArg {
                             name: a.name().to_string(),
                             type_: a.as_type(),
+                            default: a.default_value().cloned(),
                         })
                         .collect(),
                     return_type: m.return_type().cloned(),
@@ -340,15 +340,39 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
     })
 }
 
+fn parse_methods(methods: &[uniffi_bindgen::interface::Method]) -> Vec<UdlMethod> {
+    methods
+        .iter()
+        .map(|m| UdlMethod {
+            name: m.name().to_string(),
+            args: m
+                .arguments()
+                .into_iter()
+                .map(|a| UdlArg {
+                    name: a.name().to_string(),
+                    type_: a.as_type(),
+                    default: a.default_value().cloned(),
+                })
+                .collect(),
+            return_type: m.return_type().cloned(),
+            throws_type: m.throws_type().cloned(),
+            is_async: m.is_async(),
+            docstring: m.docstring().map(ToOwned::to_owned),
+        })
+        .collect()
+}
+
 fn parse_enums(ci: &ComponentInterface) -> (Vec<UdlError>, Vec<UdlEnum>) {
     let mut errors = Vec::new();
     let mut enums = Vec::new();
 
     for e in ci.enum_definitions() {
-        let variants = e
+        let has_discr = e.variant_discr_type().is_some();
+        let variants: Vec<UdlVariant> = e
             .variants()
             .iter()
-            .map(|v| UdlVariant {
+            .enumerate()
+            .map(|(i, v)| UdlVariant {
                 name: v.name().to_string(),
                 fields: v
                     .fields()
@@ -357,11 +381,19 @@ fn parse_enums(ci: &ComponentInterface) -> (Vec<UdlError>, Vec<UdlEnum>) {
                         name: f.name().to_string(),
                         type_: f.as_type(),
                         docstring: f.docstring().map(ToOwned::to_owned),
+                        default: None,
                     })
                     .collect(),
                 docstring: v.docstring().map(ToOwned::to_owned),
+                discr: if has_discr {
+                    e.variant_discr(i).ok()
+                } else {
+                    None
+                },
             })
             .collect();
+
+        let methods = parse_methods(e.methods());
 
         if ci.is_name_used_as_error(e.name()) {
             errors.push(UdlError {
@@ -369,6 +401,7 @@ fn parse_enums(ci: &ComponentInterface) -> (Vec<UdlError>, Vec<UdlEnum>) {
                 variants,
                 is_flat: e.is_flat(),
                 docstring: e.docstring().map(ToOwned::to_owned),
+                methods,
             });
         } else {
             enums.push(UdlEnum {
@@ -376,6 +409,7 @@ fn parse_enums(ci: &ComponentInterface) -> (Vec<UdlError>, Vec<UdlEnum>) {
                 variants,
                 is_flat: e.is_flat(),
                 docstring: e.docstring().map(ToOwned::to_owned),
+                methods,
             });
         }
     }
@@ -452,7 +486,7 @@ fn render_ts(
     for e in &metadata.errors {
         if !cfg.exclude.contains(&e.name) {
             out.push('\n');
-            out.push_str(&render_error_class(e));
+            out.push_str(&render_error_class(e, cfg));
         }
     }
 
@@ -468,7 +502,7 @@ fn render_ts(
     for e in &metadata.enums {
         if !cfg.exclude.contains(&e.name) {
             out.push('\n');
-            out.push_str(&render_enum_type(e));
+            out.push_str(&render_enum_type(e, cfg));
         }
     }
 
@@ -502,7 +536,26 @@ fn render_ts(
             }
         }
         for o in &metadata.objects {
+            for c in &o.constructors {
+                if let Some(t) = &c.throws_type {
+                    names.insert(type_name(t));
+                }
+            }
             for m in &o.methods {
+                if let Some(t) = &m.throws_type {
+                    names.insert(type_name(t));
+                }
+            }
+        }
+        for e in &metadata.enums {
+            for m in &e.methods {
+                if let Some(t) = &m.throws_type {
+                    names.insert(type_name(t));
+                }
+            }
+        }
+        for e in &metadata.errors {
+            for m in &e.methods {
                 if let Some(t) = &m.throws_type {
                     names.insert(type_name(t));
                 }
@@ -550,7 +603,7 @@ fn render_ts(
 // Error class generation
 // ---------------------------------------------------------------------------
 
-fn render_error_class(e: &UdlError) -> String {
+fn render_error_class(e: &UdlError, cfg: &config::JsBindingsConfig) -> String {
     let mut out = String::new();
     let name = &e.name;
 
@@ -576,6 +629,7 @@ fn render_error_class(e: &UdlError) -> String {
                 v.name, v.name
             ));
         }
+        out.push_str(&render_enum_methods_on_class(&e.methods, name, cfg));
         out.push_str("}\n");
     } else {
         // Rich error: each variant may have different fields; use a discriminated
@@ -627,9 +681,82 @@ fn render_error_class(e: &UdlError) -> String {
                 params.join(", ")
             ));
         }
+        out.push_str(&render_enum_methods_on_class(&e.methods, name, cfg));
         out.push_str("}\n");
     }
 
+    out
+}
+
+/// Render methods on an error class (instance methods that delegate to wasm-bindgen).
+/// Error enum methods are exported by wasm-bindgen as `{snake_case_enum}_{method_name}(self, ...)`.
+fn render_enum_methods_on_class(
+    methods: &[UdlMethod],
+    enum_name: &str,
+    cfg: &config::JsBindingsConfig,
+) -> String {
+    let mut out = String::new();
+    let bg_name = snake_case(enum_name);
+    for m in methods {
+        if cfg.exclude.contains(&format!("{enum_name}.{}", m.name)) {
+            continue;
+        }
+        let exported = cfg
+            .rename
+            .get(&format!("{enum_name}.{}", m.name))
+            .cloned()
+            .unwrap_or_else(|| camel_case(&m.name));
+        let params: Vec<String> = m.args.iter().map(render_param).collect();
+        let ts_ret = if m.is_async {
+            format!(
+                "Promise<{}>",
+                m.return_type
+                    .as_ref()
+                    .map(ts_type_str)
+                    .unwrap_or_else(|| "void".to_string())
+            )
+        } else {
+            m.return_type
+                .as_ref()
+                .map(ts_type_str)
+                .unwrap_or_else(|| "void".to_string())
+        };
+        let call_args: Vec<String> = m.args.iter().map(|a| camel_case(&a.name)).collect();
+        let self_plus_args = if call_args.is_empty() {
+            "this".to_string()
+        } else {
+            format!("this, {}", call_args.join(", "))
+        };
+        let raw_call = format!("__bg.{bg_name}_{}({self_plus_args})", m.name);
+        let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async);
+        let async_kw = if m.is_async { "async " } else { "" };
+
+        out.push_str(&render_jsdoc(m.docstring.as_deref(), "  "));
+        if let Some(throws) = &m.throws_type {
+            let lift = format!("_lift{}", type_name(throws));
+            if m.return_type.is_some() {
+                out.push_str(&format!(
+                    "  {async_kw}{exported}({}): {ts_ret} {{\n    try {{ return {call_expr}; }} catch (e) {{ return {lift}(e); }}\n  }}\n",
+                    params.join(", ")
+                ));
+            } else {
+                out.push_str(&format!(
+                    "  {async_kw}{exported}({}): {ts_ret} {{\n    try {{ {call_expr}; }} catch (e) {{ {lift}(e); }}\n  }}\n",
+                    params.join(", ")
+                ));
+            }
+        } else if m.return_type.is_some() {
+            out.push_str(&format!(
+                "  {async_kw}{exported}({}): {ts_ret} {{ return {call_expr}; }}\n",
+                params.join(", ")
+            ));
+        } else {
+            out.push_str(&format!(
+                "  {async_kw}{exported}({}): {ts_ret} {{ {call_expr}; }}\n",
+                params.join(", ")
+            ));
+        }
+    }
     out
 }
 
@@ -702,7 +829,9 @@ fn render_record_interface(r: &UdlRecord) -> String {
         let ts_name = camel_case(&f.name);
         let ts_type = ts_type_str(&f.type_);
         out.push_str(&render_jsdoc(f.docstring.as_deref(), "  "));
-        out.push_str(&format!("  {ts_name}: {ts_type};\n"));
+        // Fields with defaults are optional (callers may omit them).
+        let optional = if f.default.is_some() { "?" } else { "" };
+        out.push_str(&format!("  {ts_name}{optional}: {ts_type};\n"));
     }
     out.push_str("}\n");
     out
@@ -712,22 +841,33 @@ fn render_record_interface(r: &UdlRecord) -> String {
 // Enum type generation
 // ---------------------------------------------------------------------------
 
-fn render_enum_type(e: &UdlEnum) -> String {
+fn render_enum_type(e: &UdlEnum, cfg: &config::JsBindingsConfig) -> String {
     let mut out = String::new();
     if e.is_flat {
         // Flat enum → TypeScript union of string literals.
         // Individual variant docstrings have no JSDoc anchor in a union type, so
         // any variant docs are folded into the parent type's JSDoc as a bullet list.
-        let has_variant_docs = e.variants.iter().any(|v| v.docstring.is_some());
+        let has_variant_docs = e
+            .variants
+            .iter()
+            .any(|v| v.docstring.is_some() || v.discr.is_some());
         let doc = if has_variant_docs {
             let base = e.docstring.as_deref().unwrap_or("").trim().to_string();
             let bullets: Vec<String> = e
                 .variants
                 .iter()
                 .filter_map(|v| {
-                    v.docstring
-                        .as_deref()
-                        .map(|d| format!("- `{}`: {}", v.name, d.trim()))
+                    let doc = v.docstring.as_deref().map(|d| d.trim().to_string());
+                    let discr_info = v
+                        .discr
+                        .as_ref()
+                        .map(|l| format!("(= {})", render_literal(l)));
+                    match (doc, discr_info) {
+                        (Some(d), Some(disc)) => Some(format!("- `{}` {}: {}", v.name, disc, d)),
+                        (Some(d), None) => Some(format!("- `{}`: {}", v.name, d)),
+                        (None, Some(disc)) => Some(format!("- `{}` {}", v.name, disc)),
+                        (None, None) => None,
+                    }
                 })
                 .collect();
             let joined = bullets.join("\n");
@@ -770,6 +910,67 @@ fn render_enum_type(e: &UdlEnum) -> String {
             }
         }
     }
+
+    // Enum methods are emitted as functions in a companion namespace (TS declaration
+    // merging allows a namespace with the same name as a type alias).
+    if !e.methods.is_empty() {
+        let name = &e.name;
+        let bg_name = snake_case(name);
+        out.push_str(&format!("export namespace {name} {{\n"));
+        for m in &e.methods {
+            if cfg.exclude.contains(&format!("{name}.{}", m.name)) {
+                continue;
+            }
+            let exported = cfg
+                .rename
+                .get(&format!("{name}.{}", m.name))
+                .cloned()
+                .unwrap_or_else(|| camel_case(&m.name));
+            let self_param = format!("self: {name}");
+            let other_params: Vec<String> = m.args.iter().map(render_param).collect();
+            let all_params = if other_params.is_empty() {
+                self_param
+            } else {
+                format!("{self_param}, {}", other_params.join(", "))
+            };
+            let ts_ret = if m.is_async {
+                format!(
+                    "Promise<{}>",
+                    m.return_type
+                        .as_ref()
+                        .map(ts_type_str)
+                        .unwrap_or_else(|| "void".to_string())
+                )
+            } else {
+                m.return_type
+                    .as_ref()
+                    .map(ts_type_str)
+                    .unwrap_or_else(|| "void".to_string())
+            };
+            let call_args: Vec<String> = m.args.iter().map(|a| camel_case(&a.name)).collect();
+            let self_plus_args = if call_args.is_empty() {
+                "self".to_string()
+            } else {
+                format!("self, {}", call_args.join(", "))
+            };
+            let raw_call = format!("__bg.{bg_name}_{}({self_plus_args})", m.name);
+            let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async);
+            let async_kw = if m.is_async { "async " } else { "" };
+
+            out.push_str(&render_jsdoc(m.docstring.as_deref(), "  "));
+            if m.return_type.is_some() {
+                out.push_str(&format!(
+                    "  export {async_kw}function {exported}({all_params}): {ts_ret} {{ return {call_expr}; }}\n",
+                ));
+            } else {
+                out.push_str(&format!(
+                    "  export {async_kw}function {exported}({all_params}): {ts_ret} {{ {call_expr}; }}\n",
+                ));
+            }
+        }
+        out.push_str("}\n");
+    }
+
     out
 }
 
@@ -792,11 +993,7 @@ fn render_callback_interface(cb: &UdlCallbackInterface, cfg: &config::JsBindings
             .get(&format!("{name}.{}", m.name))
             .cloned()
             .unwrap_or_else(|| camel_case(&m.name));
-        let params: Vec<String> = m
-            .args
-            .iter()
-            .map(|a| format!("{}: {}", camel_case(&a.name), ts_type_str(&a.type_)))
-            .collect();
+        let params: Vec<String> = m.args.iter().map(render_param).collect();
         let ts_ret = if m.is_async {
             format!(
                 "Promise<{}>",
@@ -822,6 +1019,44 @@ fn render_callback_interface(cb: &UdlCallbackInterface, cfg: &config::JsBindings
 // Object class generation
 // ---------------------------------------------------------------------------
 
+/// Render a single constructor (primary or named) as a static factory method.
+fn render_ctor(
+    ctor: &UdlConstructor,
+    class_name: &str,
+    call_prefix: &str,
+    exported: &str,
+    _bg_name: &str,
+    _cfg: &config::JsBindingsConfig,
+) -> String {
+    let mut out = String::new();
+    let params: Vec<String> = ctor.args.iter().map(render_param).collect();
+    let args: Vec<String> = ctor.args.iter().map(|a| camel_case(&a.name)).collect();
+    let inner_expr = format!("{call_prefix}({})", args.join(", "));
+
+    let async_kw = if ctor.is_async { "async " } else { "" };
+    let await_kw = if ctor.is_async { "await " } else { "" };
+    let ret_type = if ctor.is_async {
+        format!("Promise<{class_name}>")
+    } else {
+        class_name.to_string()
+    };
+
+    out.push_str(&render_jsdoc(ctor.docstring.as_deref(), "  "));
+    if let Some(throws) = &ctor.throws_type {
+        let lift = format!("_lift{}", type_name(throws));
+        out.push_str(&format!(
+            "  static {async_kw}{exported}({}): {ret_type} {{\n    try {{ return {class_name}._fromInner({await_kw}{inner_expr}); }} catch (e) {{ return {lift}(e); }}\n  }}\n",
+            params.join(", ")
+        ));
+    } else {
+        out.push_str(&format!(
+            "  static {async_kw}{exported}({}): {ret_type} {{ return {class_name}._fromInner({await_kw}{inner_expr}); }}\n",
+            params.join(", ")
+        ));
+    }
+    out
+}
+
 fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindingsConfig) -> String {
     let mut out = String::new();
     let name = &o.name;
@@ -830,6 +1065,10 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
     out.push_str(&render_jsdoc(o.docstring.as_deref(), ""));
     out.push_str(&format!("export class {name} {{\n"));
     out.push_str(&format!("  private readonly _inner: __bg.{name};\n"));
+    out.push_str("  private _freed = false;\n");
+    out.push_str(&format!(
+        "  private _assertLive(): void {{\n    if (this._freed) throw new Error('{name} object has been freed');\n  }}\n"
+    ));
 
     // Constructors — the primary constructor wraps the wasm-bindgen `new` call.
     // Named constructors become static factory methods.
@@ -847,26 +1086,14 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
     ));
 
     if let Some(ctor) = primary_ctor {
-        let params: Vec<String> = ctor
-            .args
-            .iter()
-            .map(|a| format!("{}: {}", camel_case(&a.name), ts_type_str(&a.type_)))
-            .collect();
-        let args: Vec<String> = ctor.args.iter().map(|a| camel_case(&a.name)).collect();
-        let inner_expr = format!("new __bg.{name}({})", args.join(", "));
-        out.push_str(&render_jsdoc(ctor.docstring.as_deref(), "  "));
-        if let Some(throws) = &ctor.throws_type {
-            let lift = format!("_lift{}", type_name(throws));
-            out.push_str(&format!(
-                "  static new({}): {name} {{\n    try {{ return {name}._fromInner({inner_expr}); }} catch (e) {{ return {lift}(e); }}\n  }}\n",
-                params.join(", ")
-            ));
-        } else {
-            out.push_str(&format!(
-                "  static new({}): {name} {{ return {name}._fromInner({inner_expr}); }}\n",
-                params.join(", ")
-            ));
-        }
+        out.push_str(&render_ctor(
+            ctor,
+            name,
+            &format!("new __bg.{name}"),
+            "new",
+            &bg_name,
+            cfg,
+        ));
     }
 
     for ctor in named_ctors {
@@ -875,27 +1102,15 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
             .get(&format!("{}.{}", name, ctor.name))
             .cloned()
             .unwrap_or_else(|| camel_case(&ctor.name));
-        let params: Vec<String> = ctor
-            .args
-            .iter()
-            .map(|a| format!("{}: {}", camel_case(&a.name), ts_type_str(&a.type_)))
-            .collect();
-        let args: Vec<String> = ctor.args.iter().map(|a| camel_case(&a.name)).collect();
         let ctor_fn = format!("{bg_name}_{}", ctor.name);
-        let inner_expr = format!("__bg.{}({})", ctor_fn, args.join(", "));
-        out.push_str(&render_jsdoc(ctor.docstring.as_deref(), "  "));
-        if let Some(throws) = &ctor.throws_type {
-            let lift = format!("_lift{}", type_name(throws));
-            out.push_str(&format!(
-                "  static {exported}({}): {name} {{\n    try {{ return {name}._fromInner({inner_expr}); }} catch (e) {{ return {lift}(e); }}\n  }}\n",
-                params.join(", ")
-            ));
-        } else {
-            out.push_str(&format!(
-                "  static {exported}({}): {name} {{ return {name}._fromInner({inner_expr}); }}\n",
-                params.join(", ")
-            ));
-        }
+        out.push_str(&render_ctor(
+            ctor,
+            name,
+            &format!("__bg.{ctor_fn}"),
+            &exported,
+            &bg_name,
+            cfg,
+        ));
     }
 
     // Methods
@@ -908,11 +1123,7 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
             .get(&format!("{}.{}", name, m.name))
             .cloned()
             .unwrap_or_else(|| camel_case(&m.name));
-        let params: Vec<String> = m
-            .args
-            .iter()
-            .map(|a| format!("{}: {}", camel_case(&a.name), ts_type_str(&a.type_)))
-            .collect();
+        let params: Vec<String> = m.args.iter().map(render_param).collect();
         let ts_ret = if m.is_async {
             format!(
                 "Promise<{}>",
@@ -932,12 +1143,7 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
         // The public TypeScript name is camelCase (via `exported`), but the inner call
         // must match the wasm-pack output exactly.
         let raw_call = format!("this._inner.{}({})", m.name, call_args.join(", "));
-        let lifted_call = lift_return(&raw_call, m.return_type.as_ref());
-        let call_expr = if m.is_async {
-            format!("await {lifted_call}")
-        } else {
-            lifted_call
-        };
+        let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async);
 
         let async_kw = if m.is_async { "async " } else { "" };
 
@@ -946,30 +1152,31 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
             let lift = format!("_lift{}", type_name(throws));
             if m.return_type.is_some() {
                 out.push_str(&format!(
-                    "  {async_kw}{exported}({}): {ts_ret} {{\n    try {{ return {call_expr}; }} catch (e) {{ return {lift}(e); }}\n  }}\n",
+                    "  {async_kw}{exported}({}): {ts_ret} {{\n    this._assertLive();\n    try {{ return {call_expr}; }} catch (e) {{ return {lift}(e); }}\n  }}\n",
                     params.join(", ")
                 ));
             } else {
                 out.push_str(&format!(
-                    "  {async_kw}{exported}({}): {ts_ret} {{\n    try {{ {call_expr}; }} catch (e) {{ {lift}(e); }}\n  }}\n",
+                    "  {async_kw}{exported}({}): {ts_ret} {{\n    this._assertLive();\n    try {{ {call_expr}; }} catch (e) {{ {lift}(e); }}\n  }}\n",
                     params.join(", ")
                 ));
             }
         } else if m.return_type.is_some() {
             out.push_str(&format!(
-                "  {async_kw}{exported}({}): {ts_ret} {{ return {call_expr}; }}\n",
+                "  {async_kw}{exported}({}): {ts_ret} {{\n    this._assertLive();\n    return {call_expr};\n  }}\n",
                 params.join(", ")
             ));
         } else {
             out.push_str(&format!(
-                "  {async_kw}{exported}({}): {ts_ret} {{ {call_expr}; }}\n",
+                "  {async_kw}{exported}({}): {ts_ret} {{\n    this._assertLive();\n    {call_expr};\n  }}\n",
                 params.join(", ")
             ));
         }
     }
 
-    // free() — wasm-bindgen generates this on all object classes
-    out.push_str("  free(): void { this._inner.free(); }\n");
+    // free() — wasm-bindgen generates this on all object classes.
+    // Guarded against double-free; marks the object as freed.
+    out.push_str("  free(): void {\n    if (this._freed) return;\n    this._freed = true;\n    this._inner.free();\n  }\n");
 
     out.push_str("}\n");
     out
@@ -988,11 +1195,7 @@ fn render_function(f: &UdlFunction, cfg: &config::JsBindingsConfig) -> String {
         .cloned()
         .unwrap_or_else(|| camel_case(&f.name));
 
-    let params: Vec<String> = f
-        .args
-        .iter()
-        .map(|a| format!("{}: {}", camel_case(&a.name), ts_type_str(&a.type_)))
-        .collect();
+    let params: Vec<String> = f.args.iter().map(render_param).collect();
 
     let ts_ret = if f.is_async {
         format!(
@@ -1013,12 +1216,7 @@ fn render_function(f: &UdlFunction, cfg: &config::JsBindingsConfig) -> String {
     // wasm-pack exports top-level functions under their original snake_case Rust names;
     // object methods are camelCase in the JS glue. Do not apply camel_case here.
     let raw_call = format!("__bg.{}({})", f.name, call_args.join(", "));
-    let lifted_call = lift_return(&raw_call, f.return_type.as_ref());
-    let call_expr = if f.is_async {
-        format!("await {lifted_call}")
-    } else {
-        lifted_call
-    };
+    let call_expr = lift_return(&raw_call, f.return_type.as_ref(), f.is_async);
 
     let async_kw = if f.is_async { "async " } else { "" };
 
@@ -1102,11 +1300,33 @@ fn collect_external_imports(
                 visit!(&f.type_);
             }
         }
+        for m in &e.methods {
+            for a in &m.args {
+                visit!(&a.type_);
+            }
+            if let Some(r) = &m.return_type {
+                visit!(r);
+            }
+            if let Some(t) = &m.throws_type {
+                visit!(t);
+            }
+        }
     }
     for e in &metadata.enums {
         for v in &e.variants {
             for f in &v.fields {
                 visit!(&f.type_);
+            }
+        }
+        for m in &e.methods {
+            for a in &m.args {
+                visit!(&a.type_);
+            }
+            if let Some(r) = &m.return_type {
+                visit!(r);
+            }
+            if let Some(t) = &m.throws_type {
+                visit!(t);
             }
         }
     }
@@ -1242,6 +1462,14 @@ fn ts_type_str(t: &Type) -> String {
         Type::Int64 | Type::UInt64 => "bigint".to_string(),
         Type::Float32 | Type::Float64 => "number".to_string(),
         Type::Bytes => "Uint8Array".to_string(),
+        // Duration serialises via serde as { secs: number, nanos: number }.
+        // We emit `number` (seconds, float) as the idiomatic JS representation;
+        // the wasm fixture crate is responsible for converting to/from f64 seconds.
+        Type::Duration => "number".to_string(),
+        // Timestamp serialises via serde as a duration-since-epoch.
+        // We emit `Date` as the idiomatic JS type; the wasm fixture crate is
+        // responsible for converting to/from a JS Date object.
+        Type::Timestamp => "Date".to_string(),
         Type::Optional { inner_type } => format!("{} | null", ts_type_str(inner_type)),
         Type::Sequence { inner_type } => format!("{}[]", ts_type_str(inner_type)),
         Type::Map {
@@ -1259,7 +1487,6 @@ fn ts_type_str(t: &Type) -> String {
         // Custom types appear in signatures by their user-facing name; the WASM
         // boundary passes the underlying builtin transparently.
         Type::Custom { name, .. } => name.clone(),
-        _ => "unknown".to_string(),
     }
 }
 
@@ -1283,15 +1510,19 @@ fn is_local_module(module_path: &str) -> bool {
 /// Local object types are lifted via their static `_fromInner` factory so the caller
 /// receives the TypeScript wrapper class rather than the raw wasm-bindgen instance.
 /// External object types are returned as-is (their package owns the wrapping).
-fn lift_return(raw_call: &str, return_type: Option<&Type>) -> String {
+///
+/// When `is_async` is true, `await` is placed **inside** the lift expression so that
+/// `_fromInner` (or the IIFE / `.map()`) receives the resolved value, not a `Promise`.
+fn lift_return(raw_call: &str, return_type: Option<&Type>, is_async: bool) -> String {
+    let await_kw = if is_async { "await " } else { "" };
     match return_type {
         Some(Type::Object {
             name, module_path, ..
         }) => {
             if is_local_module(module_path) {
-                format!("{name}._fromInner({raw_call})")
+                format!("{name}._fromInner({await_kw}{raw_call})")
             } else {
-                raw_call.to_string()
+                format!("{await_kw}{raw_call}")
             }
         }
         Some(Type::Optional { inner_type }) => match inner_type.as_ref() {
@@ -1299,22 +1530,26 @@ fn lift_return(raw_call: &str, return_type: Option<&Type>) -> String {
                 name, module_path, ..
             } if is_local_module(module_path) => {
                 // Evaluate the raw call once via an IIFE, then conditionally lift.
-                format!("((__v) => __v == null ? null : {name}._fromInner(__v))({raw_call})")
+                if is_async {
+                    format!("((__v) => __v == null ? null : {name}._fromInner(__v))({await_kw}{raw_call})")
+                } else {
+                    format!("((__v) => __v == null ? null : {name}._fromInner(__v))({raw_call})")
+                }
             }
-            _ => raw_call.to_string(),
+            _ => format!("{await_kw}{raw_call}"),
         },
         Some(Type::Sequence { inner_type }) => match inner_type.as_ref() {
             Type::Object {
                 name, module_path, ..
             } if is_local_module(module_path) => {
-                format!("{raw_call}.map((__v) => {name}._fromInner(__v))")
+                format!("({await_kw}{raw_call}).map((__v) => {name}._fromInner(__v))")
             }
-            _ => raw_call.to_string(),
+            _ => format!("{await_kw}{raw_call}"),
         },
         // Map<_, Object> is not lifted element-wise: UniFFI does not commonly use
         // Map with Object values, and the marshaling shape depends heavily on how
         // wasm-bindgen serialises the map.  Add explicit handling if this becomes needed.
-        _ => raw_call.to_string(),
+        _ => format!("{await_kw}{raw_call}"),
     }
 }
 
@@ -1391,11 +1626,71 @@ fn render_jsdoc(docstring: Option<&str>, indent: &str) -> String {
     }
 }
 
+/// Render a function/method parameter as `name: Type`, `name: Type = default`,
+/// or `name?: Type` (when the default is unspecified).
+fn render_param(arg: &UdlArg) -> String {
+    let ts_name = camel_case(&arg.name);
+    let ts_type = ts_type_str(&arg.type_);
+    match &arg.default {
+        Some(DefaultValue::Literal(lit)) => {
+            format!("{ts_name}: {ts_type} = {}", render_literal(lit))
+        }
+        Some(DefaultValue::Default) => {
+            // "unspecified default" — the Rust side uses a type-level default.
+            // Make the parameter optional so the caller can omit it.
+            format!("{ts_name}?: {ts_type}")
+        }
+        None => format!("{ts_name}: {ts_type}"),
+    }
+}
+
+/// Render a UDL default value as a TypeScript literal expression.
+fn render_default_value(dv: &DefaultValue) -> String {
+    match dv {
+        DefaultValue::Default => "undefined".to_string(),
+        DefaultValue::Literal(lit) => render_literal(lit),
+    }
+}
+
+fn render_literal(lit: &Literal) -> String {
+    match lit {
+        Literal::Boolean(b) => b.to_string(),
+        Literal::String(s) => format!("'{}'", s.replace('\\', "\\\\").replace('\'', "\\'")),
+        Literal::UInt(v, _, t) => {
+            if matches!(t, Type::Int64 | Type::UInt64) {
+                format!("{v}n")
+            } else {
+                v.to_string()
+            }
+        }
+        Literal::Int(v, _, t) => {
+            if matches!(t, Type::Int64 | Type::UInt64) {
+                format!("{v}n")
+            } else {
+                v.to_string()
+            }
+        }
+        Literal::Float(s, _) => s.clone(),
+        Literal::Enum(variant_name, _) => format!("'{variant_name}'"),
+        Literal::EmptySequence => "[]".to_string(),
+        Literal::EmptyMap => "new Map()".to_string(),
+        Literal::None => "null".to_string(),
+        Literal::Some { inner } => render_default_value(inner),
+    }
+}
+
 fn snake_case(input: &str) -> String {
     let mut out = String::new();
-    for (i, ch) in input.chars().enumerate() {
+    let chars: Vec<char> = input.chars().collect();
+    for (i, &ch) in chars.iter().enumerate() {
         if ch.is_ascii_uppercase() && i > 0 {
-            out.push('_');
+            let prev_upper = chars[i - 1].is_ascii_uppercase();
+            let next_lower = chars.get(i + 1).is_some_and(|c| c.is_ascii_lowercase());
+            // Insert underscore before: a lone uppercase after lowercase, OR
+            // the last letter of an acronym run when the next char is lowercase.
+            if !prev_upper || next_lower {
+                out.push('_');
+            }
         }
         out.push(ch.to_ascii_lowercase());
     }
@@ -1427,6 +1722,9 @@ mod tests {
     fn snake_case_handles_pascal() {
         assert_eq!(snake_case("Counter"), "counter");
         assert_eq!(snake_case("MyCounter"), "my_counter");
+        assert_eq!(snake_case("MyHTTPClient"), "my_http_client");
+        assert_eq!(snake_case("URLError"), "url_error");
+        assert_eq!(snake_case("ABC"), "abc");
     }
 
     #[test]

@@ -4,13 +4,27 @@ export { __init as init };
 
 export class Drawable {
   private readonly _inner: __bg.Drawable;
+  private _freed = false;
+  private _assertLive(): void {
+    if (this._freed) throw new Error('Drawable object has been freed');
+  }
   private constructor(inner: __bg.Drawable) {
     this._inner = inner;
   }
   static _fromInner(inner: __bg.Drawable): Drawable { return new Drawable(inner); }
-  area(): number { return this._inner.area(); }
-  describe(): string { return this._inner.describe(); }
-  free(): void { this._inner.free(); }
+  area(): number {
+    this._assertLive();
+    return this._inner.area();
+  }
+  describe(): string {
+    this._assertLive();
+    return this._inner.describe();
+  }
+  free(): void {
+    if (this._freed) return;
+    this._freed = true;
+    this._inner.free();
+  }
 }
 
 export namespace Traits {

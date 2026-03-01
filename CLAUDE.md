@@ -107,6 +107,18 @@ All planned UDL features are implemented and golden-tested (13 fixtures):
 | `[External="crate"]` cross-package types | `ext-types-demo` |
 | Regression: named ctor throws, method throws+return, async method | `regression` |
 
+Additional features (cross-checked against first-party Kotlin/Swift/Python/Ruby backends):
+
+| Feature | Notes |
+|---------|-------|
+| `Duration` / `Timestamp` types | `number` (seconds) / `Date` |
+| Default argument values | `= literal` in TS signatures; `?` for unspecified defaults |
+| Record field defaults | `?:` on optional fields |
+| Async constructors | `static async` returning `Promise<ClassName>` |
+| Enum methods | Companion namespace for union types; instance methods on error classes |
+| Enum discriminant values | Folded into JSDoc (informational for WASM target) |
+| Object lifecycle safety | `_freed` flag, `_assertLive()` guard, double-free-safe `free()` |
+
 ### External Type Support
 
 External types are declared in UDL with `[External="crate_name"]` and configured in `uniffi.toml`:

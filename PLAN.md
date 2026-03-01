@@ -49,9 +49,29 @@ export namespace {ModuleName} {
 - Phase 3b: External/remote types — detect `[External="crate"]` types by module_path, emit named imports from `external_packages` config, error on missing entries, deduplicate across usages. `ext-types-demo` golden fixture with Optional/Sequence coverage.
 - Phase 3c: Regression coverage fixture — named constructor with [Throws], object method with [Throws]+return, async interface method, async callback method.
 
-### Remaining
-- Nothing on the original roadmap. All planned UDL features are implemented and golden-tested.
-- Future: consider wasm smoke tests for docstrings/ext-types/regression fixtures; publish to crates.io.
+### Remaining — Parity Gaps (cross-checked against Kotlin/Swift/Python/Ruby first-party backends)
+
+#### Phase 4a: Missing Built-in Types & Defaults (Critical/High) ✅
+- ✅ **Duration & Timestamp types**: `Type::Duration` → `number`, `Type::Timestamp` → `Date`.
+- ✅ **Default argument values**: `Argument::default_value()` parsed; `render_default_value()` + `render_param()` helpers; `= literal` in TS signatures.
+- ✅ **Record field defaults**: `Field::default_value()` parsed; `?:` on fields with defaults.
+- ✅ **Async constructors**: `Constructor::is_async()` → `static async` returning `Promise<ClassName>`.
+
+#### Phase 4b: Enum Feature Completeness (High) ✅
+- ✅ **Enum methods**: `Enum::methods()` parsed; companion namespace for union types, instance methods on error classes.
+- ✅ **Enum discriminant values**: `variant_discr()` parsed; folded into JSDoc as informational annotations (WASM uses string names, not discriminants).
+
+#### Phase 4c: Object & Enum Ergonomics (Medium) ✅
+- N/A **UniFFI trait impls**: Requires UniFFI FFI scaffolding layer, not applicable to wasm-bindgen architecture.
+- N/A **Object equality/hashing**: Same — requires FFI-backed trait dispatch.
+- ✅ **Object lifecycle safety**: `_freed` flag + `_assertLive()` guard on all methods; double-free-safe `free()`.
+- ✅ **Error on destroyed access**: `Error('{ClassName} object has been freed')`.
+- **Map key validation**: Deferred (low impact).
+
+#### Future (not yet prioritised)
+- Callback/trait vtable FFI glue (largest architectural gap — JS objects as Rust trait impls).
+- Wasm smoke tests for docstrings/ext-types/regression fixtures.
+- Publish to crates.io.
 
 ## Quality Bar
 1. Deterministic generation outputs for golden-tested fixtures.
@@ -85,6 +105,15 @@ Track parity row-by-row against `/Users/nchapman/Drive/Code/lessisbetter/refs/un
 | External/remote types | Done | ext-types-demo fixture; named imports; missing-entry error; Optional/Sequence coverage |
 | Docstrings | Done | JSDoc on all symbols; flat-enum variant bullets; 8 unit tests |
 | Regression rows | Done | named ctor throws; method throws+return; async interface/callback methods |
+| Duration type | Done | `Type::Duration` → `number`; `Type::Timestamp` → `Date` |
+| Timestamp type | Done | See above |
+| Default argument values | Done | `Argument::default_value()` parsed; `= literal` in TS signatures |
+| Record field defaults | Done | `Field::default_value()` parsed; `?:` on optional fields |
+| Async constructors | Done | `is_async` on constructors; `static async` returning `Promise<T>` |
+| Enum methods | Done | `Enum::methods()` parsed; companion namespace for union types, instance methods on error classes |
+| Enum discriminant values | Done | `variant_discr()` parsed; folded into JSDoc (informational for WASM target) |
+| UniFFI trait impls | N/A | Requires UniFFI FFI scaffolding; not applicable to WASM/wasm-bindgen architecture |
+| Object lifecycle safety | Done | `_freed` flag + `_assertLive()` guard on all methods; double-free-safe `free()` |
 
 ## Git Commit Workflow
 - Initialize Git at project start and keep history linear.

@@ -28,6 +28,10 @@ export interface Processor {
 /** A counter that can be incremented and decremented. */
 export class Counter {
   private readonly _inner: __bg.Counter;
+  private _freed = false;
+  private _assertLive(): void {
+    if (this._freed) throw new Error('Counter object has been freed');
+  }
   private constructor(inner: __bg.Counter) {
     this._inner = inner;
   }
@@ -35,10 +39,20 @@ export class Counter {
   /** Creates a new counter starting at the given value. */
   static new(start: bigint): Counter { return Counter._fromInner(new __bg.Counter(start)); }
   /** Returns the current value. */
-  get(): bigint { return this._inner.get(); }
+  get(): bigint {
+    this._assertLive();
+    return this._inner.get();
+  }
   /** Increments the counter by one. */
-  increment(): void { this._inner.increment(); }
-  free(): void { this._inner.free(); }
+  increment(): void {
+    this._assertLive();
+    this._inner.increment();
+  }
+  free(): void {
+    if (this._freed) return;
+    this._freed = true;
+    this._inner.free();
+  }
 }
 
 export namespace Docstrings {
