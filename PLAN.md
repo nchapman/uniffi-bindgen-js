@@ -38,13 +38,14 @@ export namespace {ModuleName} {
 }
 ```
 
-## Progress Snapshot (March 1, 2026)
+## Progress Snapshot (February 28, 2026)
 ### Completed
 - Phase 0: Bootstrap scaffold (workspace, CLI, docs, fixture/golden test harness).
 - Phase 1a: UDL parsing via `ComponentInterface::from_webidl()`, TypeScript generator for WASM wrapper format, golden tests for `simple` and `simple-fns` fixtures, wasm-pack fixture crate, JS smoke tests (vitest) with `init()` + namespace assertions, build/test scripts.
+- Phase 1b: Full UDL type surface: flat errors, rich errors, records, flat enums, data enums, objects/interfaces (with constructor + methods), async functions. Golden tests + wasm fixture crates + JS smoke tests for all four new feature fixtures (arithmetic, geometry, counter, rich-errors).
 
 ### Next
-- Phase 1b: Expand UDL coverage — start with `[Throws]` error propagation, then records, enums, objects.
+- Phase 2: Remaining surface — trait methods, callback interfaces, custom types, external/remote types, rename/exclude config, docstrings.
 
 ## Quality Bar
 1. Deterministic generation outputs for golden-tested fixtures.
@@ -63,17 +64,19 @@ Track parity row-by-row against `/Users/nchapman/Drive/Code/lessisbetter/refs/un
 
 | UDL Unit | Status | Notes |
 |---|---|---|
+| UDL Unit | Status | Notes |
 | Top-level functions (sync) | Done | golden + smoke tests green |
-| Top-level functions (`[Throws]`) | Not started | |
-| Records (defaults/mutability) | Not started | |
-| Enums (flat/data-carrying) | Not started | |
-| Objects/interfaces lifecycle | Not started | |
+| Top-level functions (`[Throws]`) | Done | flat + rich errors; arithmetic + rich-errors fixtures |
+| Records (dictionaries) | Done | geometry fixture; serde-wasm-bindgen pass-through |
+| Enums (flat) | Done | geometry fixture; string literal union |
+| Enums (data-carrying) | Done | geometry fixture; discriminated union with `tag` |
+| Objects/interfaces | Done | counter fixture; wraps wasm-bindgen class |
+| Async functions | Done | simple-fns fixture; `[Async]` → `Promise<T>` |
 | Trait methods | Not started | |
-| Async futures | Not started | |
 | Callback interfaces (sync/async) | Not started | |
 | Custom types | Not started | |
 | External/remote types | Not started | include `*FfiCodec`/exception codec cross-package contract |
-| Rename/exclude/docstrings | Not started | |
+| Rename/exclude/docstrings | Not started | config wiring exists; golden coverage needed |
 | Regression rows (`regressions/*`) | Not started | |
 
 ## Git Commit Workflow
