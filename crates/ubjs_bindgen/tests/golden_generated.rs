@@ -125,3 +125,8 @@ fn golden_type_zoo_fixture() {
 fn golden_keywords_demo_fixture() {
     run_golden("keywords-demo", "keywords_demo.udl", "keywords_demo.ts");
 }
+
+#[test]
+fn golden_type_limits_demo_fixture() {
+    run_golden("type-limits-demo", "type_limits_demo.udl", "type_limits_demo.ts");
+}
