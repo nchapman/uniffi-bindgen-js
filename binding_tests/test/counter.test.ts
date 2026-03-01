@@ -53,4 +53,16 @@ describe('Counter', () => {
     expect(c.get()).toBe(42n);
     c.free();
   });
+
+  it('double-free does not throw', () => {
+    const c = Counter.new(0n);
+    c.free();
+    expect(() => c.free()).not.toThrow();
+  });
+
+  it('use after free throws', () => {
+    const c = Counter.new(0n);
+    c.free();
+    expect(() => c.get()).toThrow(/has been freed/);
+  });
 });

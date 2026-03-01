@@ -1,0 +1,22 @@
+namespace type_zoo {
+    bytes echo_bytes(bytes data);
+    duration echo_duration(duration d);
+    timestamp echo_timestamp(timestamp t);
+    i8 echo_i8(i8 v);
+    i16 echo_i16(i16 v);
+    i32 echo_i32(i32 v);
+    u8 echo_u8(u8 v);
+    u16 echo_u16(u16 v);
+    u32 echo_u32(u32 v);
+    i64 echo_i64(i64 v);
+    u64 echo_u64(u64 v);
+    f32 echo_f32(f32 v);
+    f64 echo_f64(f64 v);
+    boolean echo_bool(boolean v);
+    string echo_string(string v);
+    string? maybe_string(string? input);
+    sequence<string> echo_strings(sequence<string> items);
+    record<string, i32> echo_map(record<string, i32> m);
+    sequence<i64> echo_bigints(sequence<i64> items);
+    record<string, boolean> echo_bool_map(record<string, boolean> m);
+};

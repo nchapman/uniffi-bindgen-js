@@ -1780,4 +1780,450 @@ mod tests {
             "expected block format, got: {result}"
         );
     }
+
+    // -----------------------------------------------------------------------
+    // render_literal tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn render_literal_boolean() {
+        assert_eq!(render_literal(&Literal::Boolean(true)), "true");
+        assert_eq!(render_literal(&Literal::Boolean(false)), "false");
+    }
+
+    #[test]
+    fn render_literal_string() {
+        assert_eq!(render_literal(&Literal::String("hello".into())), "'hello'");
+        // Escapes single quotes and backslashes
+        assert_eq!(
+            render_literal(&Literal::String("it's a \\path".into())),
+            "'it\\'s a \\\\path'"
+        );
+    }
+
+    #[test]
+    fn render_literal_uint() {
+        // Small uint → plain number
+        assert_eq!(
+            render_literal(&Literal::UInt(
+                42,
+                uniffi_bindgen::interface::Radix::Decimal,
+                Type::UInt32
+            )),
+            "42"
+        );
+        // u64 → bigint suffix
+        assert_eq!(
+            render_literal(&Literal::UInt(
+                100,
+                uniffi_bindgen::interface::Radix::Decimal,
+                Type::UInt64
+            )),
+            "100n"
+        );
+        // i64 → bigint suffix
+        assert_eq!(
+            render_literal(&Literal::UInt(
+                7,
+                uniffi_bindgen::interface::Radix::Decimal,
+                Type::Int64
+            )),
+            "7n"
+        );
+    }
+
+    #[test]
+    fn render_literal_int() {
+        assert_eq!(
+            render_literal(&Literal::Int(
+                -5,
+                uniffi_bindgen::interface::Radix::Decimal,
+                Type::Int32
+            )),
+            "-5"
+        );
+        assert_eq!(
+            render_literal(&Literal::Int(
+                -99,
+                uniffi_bindgen::interface::Radix::Decimal,
+                Type::Int64
+            )),
+            "-99n"
+        );
+    }
+
+    #[test]
+    fn render_literal_float() {
+        assert_eq!(
+            render_literal(&Literal::Float("3.14".into(), Type::Float64)),
+            "3.14"
+        );
+    }
+
+    #[test]
+    fn render_literal_enum() {
+        assert_eq!(
+            render_literal(&Literal::Enum("North".into(), Type::String)),
+            "'North'"
+        );
+    }
+
+    #[test]
+    fn render_literal_empty_sequence() {
+        assert_eq!(render_literal(&Literal::EmptySequence), "[]");
+    }
+
+    #[test]
+    fn render_literal_empty_map() {
+        assert_eq!(render_literal(&Literal::EmptyMap), "new Map()");
+    }
+
+    #[test]
+    fn render_literal_none() {
+        assert_eq!(render_literal(&Literal::None), "null");
+    }
+
+    #[test]
+    fn render_literal_some() {
+        assert_eq!(
+            render_literal(&Literal::Some {
+                inner: Box::new(DefaultValue::Literal(Literal::String("x".into())))
+            }),
+            "'x'"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // render_param tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn render_param_no_default() {
+        let arg = UdlArg {
+            name: "user_name".into(),
+            type_: Type::String,
+            default: None,
+        };
+        assert_eq!(render_param(&arg), "userName: string");
+    }
+
+    #[test]
+    fn render_param_literal_default() {
+        let arg = UdlArg {
+            name: "count".into(),
+            type_: Type::Int32,
+            default: Some(DefaultValue::Literal(Literal::UInt(
+                0,
+                uniffi_bindgen::interface::Radix::Decimal,
+                Type::Int32,
+            ))),
+        };
+        assert_eq!(render_param(&arg), "count: number = 0");
+    }
+
+    #[test]
+    fn render_param_unspecified_default() {
+        let arg = UdlArg {
+            name: "label".into(),
+            type_: Type::String,
+            default: Some(DefaultValue::Default),
+        };
+        assert_eq!(render_param(&arg), "label?: string");
+    }
+
+    // -----------------------------------------------------------------------
+    // lift_return tests for Optional<Object> and Sequence<Object>
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn lift_return_optional_object_sync() {
+        let result = lift_return(
+            "__bg.find_item()",
+            Some(&Type::Optional {
+                inner_type: Box::new(Type::Object {
+                    name: "Item".into(),
+                    module_path: "crate_name::mod".into(),
+                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
+                }),
+            }),
+            false,
+        );
+        assert_eq!(
+            result,
+            "((__v) => __v == null ? null : Item._fromInner(__v))(__bg.find_item())"
+        );
+    }
+
+    #[test]
+    fn lift_return_optional_object_async() {
+        let result = lift_return(
+            "__bg.find_item()",
+            Some(&Type::Optional {
+                inner_type: Box::new(Type::Object {
+                    name: "Item".into(),
+                    module_path: "crate_name::mod".into(),
+                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
+                }),
+            }),
+            true,
+        );
+        assert_eq!(
+            result,
+            "((__v) => __v == null ? null : Item._fromInner(__v))(await __bg.find_item())"
+        );
+    }
+
+    #[test]
+    fn lift_return_sequence_object_sync() {
+        let result = lift_return(
+            "__bg.list_items()",
+            Some(&Type::Sequence {
+                inner_type: Box::new(Type::Object {
+                    name: "Item".into(),
+                    module_path: "crate_name::mod".into(),
+                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
+                }),
+            }),
+            false,
+        );
+        assert_eq!(
+            result,
+            "(__bg.list_items()).map((__v) => Item._fromInner(__v))"
+        );
+    }
+
+    #[test]
+    fn lift_return_sequence_object_async() {
+        let result = lift_return(
+            "__bg.list_items()",
+            Some(&Type::Sequence {
+                inner_type: Box::new(Type::Object {
+                    name: "Item".into(),
+                    module_path: "crate_name::mod".into(),
+                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
+                }),
+            }),
+            true,
+        );
+        assert_eq!(
+            result,
+            "(await __bg.list_items()).map((__v) => Item._fromInner(__v))"
+        );
+    }
+
+    #[test]
+    fn lift_return_external_object_not_lifted() {
+        let result = lift_return(
+            "__bg.get_ext()",
+            Some(&Type::Object {
+                name: "ExtObj".into(),
+                module_path: "other_crate::mod".into(),
+                imp: uniffi_bindgen::interface::ObjectImpl::Struct,
+            }),
+            false,
+        );
+        assert_eq!(result, "__bg.get_ext()");
+    }
+
+    // -----------------------------------------------------------------------
+    // render_enum_methods_on_class tests
+    // -----------------------------------------------------------------------
+
+    fn make_method(name: &str, return_type: Option<Type>, is_async: bool) -> UdlMethod {
+        UdlMethod {
+            name: name.into(),
+            args: vec![],
+            return_type,
+            throws_type: None,
+            is_async,
+            docstring: None,
+        }
+    }
+
+    #[test]
+    fn render_enum_methods_on_class_instance_method() {
+        let methods = vec![make_method("describe", Some(Type::String), false)];
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_enum_methods_on_class(&methods, "StatusCode", &cfg);
+        assert!(
+            result.contains("describe(): string { return __bg.status_code_describe(this); }"),
+            "got: {result}"
+        );
+    }
+
+    #[test]
+    fn render_enum_methods_on_class_async_method() {
+        let methods = vec![make_method("process", None, true)];
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_enum_methods_on_class(&methods, "Task", &cfg);
+        assert!(
+            result.contains("async process(): Promise<void>"),
+            "got: {result}"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // render_enum_type companion namespace tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn render_enum_type_with_methods_has_companion_namespace() {
+        let e = UdlEnum {
+            name: "Shape".into(),
+            variants: vec![UdlVariant {
+                name: "Circle".into(),
+                fields: vec![],
+                docstring: None,
+                discr: None,
+            }],
+            is_flat: true,
+            docstring: None,
+            methods: vec![make_method("area", Some(Type::Float64), false)],
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_enum_type(&e, &cfg);
+        assert!(
+            result.contains("export type Shape = 'Circle';"),
+            "got: {result}"
+        );
+        assert!(result.contains("export namespace Shape {"), "got: {result}");
+        assert!(
+            result.contains(
+                "export function area(self: Shape): number { return __bg.shape_area(self); }"
+            ),
+            "got: {result}"
+        );
+    }
+
+    #[test]
+    fn render_enum_type_without_methods_no_namespace() {
+        let e = UdlEnum {
+            name: "Dir".into(),
+            variants: vec![UdlVariant {
+                name: "Up".into(),
+                fields: vec![],
+                docstring: None,
+                discr: None,
+            }],
+            is_flat: true,
+            docstring: None,
+            methods: vec![],
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_enum_type(&e, &cfg);
+        assert!(!result.contains("namespace"), "got: {result}");
+    }
+
+    // -----------------------------------------------------------------------
+    // pascal_case edge case
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn pascal_case_empty_returns_fallback() {
+        assert_eq!(pascal_case(""), "UniffiBindings");
+    }
+
+    // -----------------------------------------------------------------------
+    // Generator error-path tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn missing_external_package_errors_for_object() {
+        let metadata = UdlMetadata {
+            functions: vec![UdlFunction {
+                name: "get_ext".into(),
+                args: vec![],
+                return_type: Some(Type::Object {
+                    name: "ExtObj".into(),
+                    module_path: "other_crate::mod".into(),
+                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
+                }),
+                throws_type: None,
+                is_async: false,
+                docstring: None,
+            }],
+            ..Default::default()
+        };
+        let empty_packages = HashMap::new();
+        let result = collect_external_imports(&metadata, &empty_packages);
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("external_packages"),
+            "error should mention external_packages, got: {msg}"
+        );
+        assert!(
+            msg.contains("other_crate"),
+            "error should mention the crate name, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn missing_external_package_errors_for_custom_type() {
+        let metadata = UdlMetadata {
+            custom_types: vec![UdlCustomType {
+                name: "RemoteUrl".into(),
+                builtin: Type::String,
+                module_path: "remote_crate::types".into(),
+            }],
+            ..Default::default()
+        };
+        let empty_packages = HashMap::new();
+        let result = collect_external_imports(&metadata, &empty_packages);
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("remote_crate"),
+            "error should mention the crate name, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn external_package_with_config_succeeds() {
+        let metadata = UdlMetadata {
+            functions: vec![UdlFunction {
+                name: "get_ext".into(),
+                args: vec![],
+                return_type: Some(Type::Object {
+                    name: "ExtObj".into(),
+                    module_path: "other_crate::mod".into(),
+                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
+                }),
+                throws_type: None,
+                is_async: false,
+                docstring: None,
+            }],
+            ..Default::default()
+        };
+        let mut packages = HashMap::new();
+        packages.insert("other_crate".into(), "./other.js".into());
+        let result = collect_external_imports(&metadata, &packages);
+        assert!(result.is_ok());
+        let imports = result.unwrap();
+        assert!(imports.contains_key("./other.js"));
+        assert!(imports["./other.js"].contains("ExtObj"));
+    }
+
+    #[test]
+    fn local_types_not_treated_as_external() {
+        let metadata = UdlMetadata {
+            functions: vec![UdlFunction {
+                name: "get_local".into(),
+                args: vec![],
+                return_type: Some(Type::Object {
+                    name: "LocalObj".into(),
+                    module_path: "crate_name::mod".into(),
+                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
+                }),
+                throws_type: None,
+                is_async: false,
+                docstring: None,
+            }],
+            ..Default::default()
+        };
+        let empty_packages = HashMap::new();
+        let result = collect_external_imports(&metadata, &empty_packages);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
 }

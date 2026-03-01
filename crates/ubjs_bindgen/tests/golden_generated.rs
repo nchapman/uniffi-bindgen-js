@@ -32,6 +32,14 @@ fn run_golden_impl(fixture_name: &str, udl_file: &str, ts_file: &str, config: Op
     .expect("generation should succeed");
 
     let generated = fs::read_to_string(out_dir.join(ts_file)).expect("generated file");
+
+    // When UPDATE_GOLDEN is set, overwrite the expected file instead of asserting.
+    if std::env::var("UPDATE_GOLDEN").is_ok() {
+        fs::create_dir_all(expected.parent().unwrap()).expect("create expected dir");
+        fs::write(&expected, &generated).expect("update golden file");
+        return;
+    }
+
     let expected = fs::read_to_string(expected).expect("expected file");
     assert_eq!(generated, expected);
 }
@@ -104,4 +112,9 @@ fn golden_ext_types_demo_fixture() {
 #[test]
 fn golden_regression_fixture() {
     run_golden("regression", "regression.udl", "regression.ts");
+}
+
+#[test]
+fn golden_type_zoo_fixture() {
+    run_golden("type-zoo", "type_zoo.udl", "type_zoo.ts");
 }
