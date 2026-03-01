@@ -16,7 +16,7 @@ Legend:
 | Records | Implemented | TypeScript `interface` types with field defaults (`?:` syntax); serde-wasm-bindgen pass-through for runtime marshalling |
 | Enums | Implemented | flat enums as string literal unions; data-carrying enums as discriminated unions with `tag` field; enum methods via companion namespace; enum discriminant values in JSDoc |
 | Errors (`[Error]` + `[Throws]`) | Implemented | flat error classes with `tag` property; rich error classes with discriminated `variant` property and static factory methods; error lifting via `_liftErrorName()` JSON deserialization; non-exhaustive error support |
-| Optionals/sequences/maps | Implemented | `T \| null` for optionals, `T[]` for sequences, `Map<K, V>` for maps |
+| Optionals/sequences/maps | Partial | `T \| null` for optionals, `T[]` for sequences, `Map<K, V>` for string-keyed maps; non-string map keys (`record<u32, u64>`) are not yet supported |
 | Builtins | Implemented | int/float/bool/string/bytes (`Uint8Array`)/timestamp (`Date`)/duration (`number` ms) |
 | Async futures | Implemented | `[Async]` maps to `Promise<T>` APIs; async functions, methods, and constructors (`static async`) all supported |
 | Callback interfaces | Partial | `export interface` declarations with camelCase methods and `[Async]` → `Promise<T>` support; callback/trait vtable FFI glue (JS objects as Rust trait impls) is N/A for WASM target |
@@ -28,7 +28,11 @@ Legend:
 | Async constructors | Implemented | `Constructor::is_async()` → `static async` returning `Promise<ClassName>` |
 | Object lifecycle safety | Implemented | `_freed` flag + `_assertLive()` guard on all methods; `Error('{ClassName} object has been freed')` on destroyed access |
 
+## Known Limitations
+- **Non-string map keys**: `record<u32, u64>` and similar non-string-keyed maps are not yet supported. Only `record<string, V>` maps work correctly.
+- **Callback/trait FFI glue**: WASM target means JavaScript objects cannot be passed as Rust trait implementations — callback interfaces generate TypeScript interface declarations only.
+
 ## Notes
-- Current fixture coverage includes 14 golden tests and 9 JS smoke test files across all major feature domains.
+- Current fixture coverage includes 17 golden tests and 9 JS smoke test files across all major feature domains, anchored by `coverall-demo` (comprehensive feature combinations).
 - Strict hygiene gate includes `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check`, and full `./scripts/test_bindings.sh`.
 - WASM/wasm-pack architecture means some UniFFI features that require native FFI scaffolding (trait vtable glue, object equality/hashing via Rust traits) are not applicable.
