@@ -1,0 +1,202 @@
+// ---------------------------------------------------------------------------
+// Object class and top-level function generation
+// ---------------------------------------------------------------------------
+
+use super::config;
+use super::naming::{camel_case, safe_js_identifier, snake_case};
+use super::render_helpers::{
+    render_call_body, render_jsdoc, render_param, ts_return_type, type_name,
+};
+use super::type_lifting::lift_return;
+use super::types::*;
+
+/// Render a single constructor (primary or named) as a static factory method.
+pub(super) fn render_ctor(
+    ctor: &UdlConstructor,
+    class_name: &str,
+    call_prefix: &str,
+    exported: &str,
+) -> String {
+    let mut out = String::new();
+    let params: Vec<String> = ctor.args.iter().map(render_param).collect();
+    let args: Vec<String> = ctor
+        .args
+        .iter()
+        .map(|a| safe_js_identifier(&camel_case(&a.name)))
+        .collect();
+    let inner_expr = format!("{call_prefix}({})", args.join(", "));
+
+    let async_kw = if ctor.is_async { "async " } else { "" };
+    let await_kw = if ctor.is_async { "await " } else { "" };
+    let ret_type = if ctor.is_async {
+        format!("Promise<{class_name}>")
+    } else {
+        class_name.to_string()
+    };
+
+    out.push_str(&render_jsdoc(ctor.docstring.as_deref(), "  "));
+    if let Some(throws) = &ctor.throws_type {
+        let lift = format!("_lift{}", type_name(throws));
+        out.push_str(&format!(
+            "  static {async_kw}{exported}({}): {ret_type} {{\n    try {{ return {class_name}._fromInner({await_kw}{inner_expr}); }} catch (e) {{ return {lift}(e); }}\n  }}\n",
+            params.join(", ")
+        ));
+    } else {
+        out.push_str(&format!(
+            "  static {async_kw}{exported}({}): {ret_type} {{ return {class_name}._fromInner({await_kw}{inner_expr}); }}\n",
+            params.join(", ")
+        ));
+    }
+    out
+}
+
+pub(super) fn render_object_class(
+    o: &UdlObject,
+    cfg: &config::JsBindingsConfig,
+    local_crate: &str,
+) -> String {
+    let mut out = String::new();
+    let name = &o.name;
+    let bg_name = snake_case(name); // wasm-bindgen uses the Rust struct name
+
+    out.push_str(&render_jsdoc(o.docstring.as_deref(), ""));
+    out.push_str(&format!("export class {name} {{\n"));
+    out.push_str(&format!("  private readonly _inner: __bg.{name};\n"));
+    out.push_str("  private _freed = false;\n");
+    out.push_str(&format!(
+        "  private _assertLive(): void {{\n    if (this._freed) throw new Error('{name} object has been freed');\n  }}\n"
+    ));
+
+    // Constructors — the primary constructor wraps the wasm-bindgen `new` call.
+    // Named constructors become static factory methods.
+    let primary_ctor = o.constructors.iter().find(|c| c.name == "new");
+    let named_ctors: Vec<&UdlConstructor> =
+        o.constructors.iter().filter(|c| c.name != "new").collect();
+
+    // Private base constructor — always present for internal use
+    out.push_str(&format!("  private constructor(inner: __bg.{name}) {{\n"));
+    out.push_str("    this._inner = inner;\n");
+    out.push_str("  }\n");
+    // Internal factory used when lifting an object returned by a WASM function or method.
+    out.push_str("  /** @internal */\n");
+    out.push_str(&format!(
+        "  static _fromInner(inner: __bg.{name}): {name} {{ return new {name}(inner); }}\n"
+    ));
+
+    if let Some(ctor) = primary_ctor {
+        out.push_str(&render_ctor(ctor, name, &format!("new __bg.{name}"), "new"));
+    }
+
+    for ctor in named_ctors {
+        let exported = cfg
+            .rename
+            .get(&format!("{}.{}", name, ctor.name))
+            .map(|s| safe_js_identifier(s))
+            .unwrap_or_else(|| safe_js_identifier(&camel_case(&ctor.name)));
+        let ctor_fn = format!("{bg_name}_{}", ctor.name);
+        out.push_str(&render_ctor(
+            ctor,
+            name,
+            &format!("__bg.{ctor_fn}"),
+            &exported,
+        ));
+    }
+
+    // Methods
+    for m in &o.methods {
+        if cfg.exclude.contains(&format!("{}.{}", name, m.name)) {
+            continue;
+        }
+        let exported = cfg
+            .rename
+            .get(&format!("{}.{}", name, m.name))
+            .map(|s| safe_js_identifier(s))
+            .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
+        let params: Vec<String> = m.args.iter().map(render_param).collect();
+        let ts_ret = ts_return_type(m.return_type.as_ref(), m.is_async);
+        let call_args: Vec<String> = m
+            .args
+            .iter()
+            .map(|a| safe_js_identifier(&camel_case(&a.name)))
+            .collect();
+        // wasm-bindgen preserves Rust method names verbatim (snake_case) in its JS glue.
+        // The public TypeScript name is camelCase (via `exported`), but the inner call
+        // must match the wasm-pack output exactly.
+        let raw_call = format!("this._inner.{}({})", m.name, call_args.join(", "));
+        let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
+
+        let async_kw = if m.is_async { "async " } else { "" };
+        let throws_name = m.throws_type.as_ref().map(type_name);
+        let body = render_call_body(
+            &call_expr,
+            m.return_type.is_some(),
+            throws_name.as_deref(),
+            Some("this._assertLive();"),
+        );
+
+        out.push_str(&render_jsdoc(m.docstring.as_deref(), "  "));
+        out.push_str(&format!(
+            "  {async_kw}{exported}({}): {ts_ret} {{{body}}}\n",
+            params.join(", ")
+        ));
+    }
+
+    // free() — wasm-bindgen generates this on all object classes.
+    // Guarded against double-free; marks the object as freed.
+    out.push_str("  /** Releases the underlying WASM resource. Safe to call more than once. */\n");
+    out.push_str("  free(): void {\n    if (this._freed) return;\n    this._freed = true;\n    this._inner.free();\n  }\n");
+
+    // Symbol.dispose — enables `using obj = Foo.new(...)` for automatic cleanup.
+    out.push_str("  [Symbol.dispose](): void { this.free(); }\n");
+
+    out.push_str("}\n");
+    out
+}
+
+// ---------------------------------------------------------------------------
+// Top-level function generation
+// ---------------------------------------------------------------------------
+
+pub(super) fn render_function(
+    f: &UdlFunction,
+    cfg: &config::JsBindingsConfig,
+    local_crate: &str,
+) -> String {
+    let mut out = String::new();
+
+    let exported = cfg
+        .rename
+        .get(&f.name)
+        .map(|s| safe_js_identifier(s))
+        .unwrap_or_else(|| safe_js_identifier(&camel_case(&f.name)));
+
+    let params: Vec<String> = f.args.iter().map(render_param).collect();
+    let ts_ret = ts_return_type(f.return_type.as_ref(), f.is_async);
+
+    let call_args: Vec<String> = f
+        .args
+        .iter()
+        .map(|a| safe_js_identifier(&camel_case(&a.name)))
+        .collect();
+    // wasm-pack exports top-level functions under their original snake_case Rust names;
+    // object methods are camelCase in the JS glue. Do not apply camel_case here.
+    let raw_call = format!("__bg.{}({})", f.name, call_args.join(", "));
+    let call_expr = lift_return(&raw_call, f.return_type.as_ref(), f.is_async, local_crate);
+
+    let async_kw = if f.is_async { "async " } else { "" };
+    let throws_name = f.throws_type.as_ref().map(type_name);
+    let body = render_call_body(
+        &call_expr,
+        f.return_type.is_some(),
+        throws_name.as_deref(),
+        None,
+    );
+
+    out.push_str(&render_jsdoc(f.docstring.as_deref(), "  "));
+    out.push_str(&format!(
+        "  export {async_kw}function {exported}({}): {ts_ret} {{{body}}}\n",
+        params.join(", ")
+    ));
+
+    out
+}
