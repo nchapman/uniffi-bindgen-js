@@ -1,0 +1,2 @@
+[bindings.js]
+external_packages = { other_crate = "./other_bindings.js" }

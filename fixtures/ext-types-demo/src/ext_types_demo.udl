@@ -1,0 +1,25 @@
+[External="other_crate"]
+typedef dictionary RemoteThing;
+
+[External="other_crate"]
+typedef enum RemoteState;
+
+[External="other_crate"]
+typedef interface RemoteCounter;
+
+namespace ext_types_demo {
+    /// Echo a RemoteThing back to the caller.
+    RemoteThing echo_remote(RemoteThing input);
+
+    /// Echo a nullable RemoteThing (tests Optional<ExternalRecord> import deduplication).
+    RemoteThing? maybe_remote(RemoteThing? input);
+
+    /// Echo a list of RemoteThings (tests Sequence<ExternalRecord> recursive visitor).
+    sequence<RemoteThing> list_remote(sequence<RemoteThing> input);
+
+    /// Echo a RemoteState back to the caller.
+    RemoteState echo_remote_state(RemoteState input);
+
+    /// Echo a RemoteCounter back to the caller.
+    RemoteCounter echo_remote_counter(RemoteCounter input);
+};

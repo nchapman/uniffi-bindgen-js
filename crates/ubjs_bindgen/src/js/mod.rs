@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
@@ -26,7 +27,7 @@ pub fn generate_bindings(args: &GenerateArgs) -> Result<()> {
     fs::create_dir_all(&args.out_dir)
         .with_context(|| format!("failed to create output dir: {}", args.out_dir.display()))?;
 
-    let content = render_ts(&module_name, &namespace, &metadata, &cfg);
+    let content = render_ts(&module_name, &namespace, &metadata, &cfg)?;
     fs::write(&out_file, &content)
         .with_context(|| format!("failed to write: {}", out_file.display()))?;
 
@@ -134,6 +135,8 @@ struct UdlCustomType {
     name: String,
     /// The underlying builtin type (e.g. `Type::String`).
     builtin: Type,
+    /// The `module_path` from the source `Type::Custom` — used to detect external custom types.
+    module_path: String,
 }
 
 /// A method on a `callback interface` — generates a method signature in a TS interface.
@@ -187,7 +190,7 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
 
     let udl = fs::read_to_string(source)
         .with_context(|| format!("failed to read UDL: {}", source.display()))?;
-    let ci = ComponentInterface::from_webidl(&udl, "crate_name")
+    let ci = ComponentInterface::from_webidl(&udl, LOCAL_CRATE_SENTINEL)
         .with_context(|| format!("failed to parse UDL: {}", source.display()))?;
 
     let functions = ci
@@ -304,14 +307,20 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
 
     // Collect all [Custom] typedefs from the type universe, sorted by name for
     // deterministic output (iter_local_types order is not guaranteed by uniffi-bindgen).
-    let mut seen_custom: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut seen_custom: HashSet<String> = HashSet::new();
     let mut custom_types: Vec<UdlCustomType> = Vec::new();
     for t in ci.iter_local_types() {
-        if let Type::Custom { name, builtin, .. } = t {
+        if let Type::Custom {
+            name,
+            builtin,
+            module_path,
+        } = t
+        {
             if seen_custom.insert(name.clone()) {
                 custom_types.push(UdlCustomType {
                     name: name.clone(),
                     builtin: *builtin.clone(),
+                    module_path: module_path.clone(),
                 });
             }
         }
@@ -395,7 +404,7 @@ fn render_ts(
     namespace: &str,
     metadata: &UdlMetadata,
     cfg: &config::JsBindingsConfig,
-) -> String {
+) -> Result<String> {
     let mut out = String::new();
 
     // Header
@@ -404,6 +413,16 @@ fn render_ts(
         "import __init, * as __bg from './{namespace}_bg.js';\n"
     ));
     out.push_str("export { __init as init };\n");
+
+    // External type imports — one import statement per external package, types sorted for determinism.
+    let external_imports = collect_external_imports(metadata, &cfg.external_packages)?;
+    for (import_path, type_names) in &external_imports {
+        let names: Vec<&str> = type_names.iter().map(String::as_str).collect();
+        out.push_str(&format!(
+            "import {{ {} }} from '{import_path}';\n",
+            names.join(", ")
+        ));
+    }
 
     // Namespace-level docstring — emitted at module top regardless of whether there
     // are any free functions, so it serves as module documentation even for type-only files.
@@ -475,8 +494,8 @@ fn render_ts(
     }
 
     // Error lift helpers (private, before namespace)
-    let all_throws: std::collections::HashSet<String> = {
-        let mut names: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let all_throws: HashSet<String> = {
+        let mut names: HashSet<String> = HashSet::new();
         for f in &metadata.functions {
             if let Some(t) = &f.throws_type {
                 names.insert(type_name(t));
@@ -524,7 +543,7 @@ fn render_ts(
         out.push_str("}\n");
     }
 
-    out
+    Ok(out)
 }
 
 // ---------------------------------------------------------------------------
@@ -1035,6 +1054,184 @@ fn render_function(f: &UdlFunction, cfg: &config::JsBindingsConfig) -> String {
 }
 
 // ---------------------------------------------------------------------------
+// External type import collection
+// ---------------------------------------------------------------------------
+
+/// Collect all external types referenced in `metadata` and map them to TypeScript
+/// import statements.  Returns a `BTreeMap<import_path, sorted_type_names>` so
+/// that callers get deterministic output without any extra sorting step.
+///
+/// "External" means: a named type whose `module_path` does not begin with
+/// `LOCAL_CRATE`.  That string matches the literal we pass to
+/// `ComponentInterface::from_webidl(…, "crate_name")`, so it is the module
+/// prefix of every type that is defined in the current UDL file.
+/// The crate name sentinel used when parsing UDL via `ComponentInterface::from_webidl`.
+/// All local types will have a `module_path` whose first `::` segment equals this value.
+/// External types declared with `[External="crate_name"]` will differ.
+const LOCAL_CRATE_SENTINEL: &str = "crate_name";
+
+fn collect_external_imports(
+    metadata: &UdlMetadata,
+    external_packages: &HashMap<String, String>,
+) -> Result<BTreeMap<String, BTreeSet<String>>> {
+    let mut map: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+
+    macro_rules! visit {
+        ($t:expr) => {
+            visit_type_for_external($t, external_packages, &mut map)?
+        };
+    }
+
+    for f in &metadata.functions {
+        for a in &f.args {
+            visit!(&a.type_);
+        }
+        if let Some(r) = &f.return_type {
+            visit!(r);
+        }
+        if let Some(t) = &f.throws_type {
+            visit!(t);
+        }
+    }
+    for r in &metadata.records {
+        for f in &r.fields {
+            visit!(&f.type_);
+        }
+    }
+    for e in &metadata.errors {
+        for v in &e.variants {
+            for f in &v.fields {
+                visit!(&f.type_);
+            }
+        }
+    }
+    for e in &metadata.enums {
+        for v in &e.variants {
+            for f in &v.fields {
+                visit!(&f.type_);
+            }
+        }
+    }
+    for o in &metadata.objects {
+        for c in &o.constructors {
+            for a in &c.args {
+                visit!(&a.type_);
+            }
+            if let Some(t) = &c.throws_type {
+                visit!(t);
+            }
+        }
+        for m in &o.methods {
+            for a in &m.args {
+                visit!(&a.type_);
+            }
+            if let Some(r) = &m.return_type {
+                visit!(r);
+            }
+            if let Some(t) = &m.throws_type {
+                visit!(t);
+            }
+        }
+    }
+    for cb in &metadata.callback_interfaces {
+        for m in &cb.methods {
+            for a in &m.args {
+                visit!(&a.type_);
+            }
+            if let Some(r) = &m.return_type {
+                visit!(r);
+            }
+        }
+    }
+    // Custom types carry their own module_path, so an external `[Custom]` typedef
+    // must also be imported from the appropriate package.
+    for ct in &metadata.custom_types {
+        let crate_name = ct.module_path.split("::").next().unwrap_or("");
+        if crate_name != LOCAL_CRATE_SENTINEL && !crate_name.is_empty() {
+            match external_packages.get(crate_name) {
+                Some(import_path) => {
+                    map.entry(import_path.clone())
+                        .or_default()
+                        .insert(ct.name.clone());
+                }
+                None => {
+                    anyhow::bail!(
+                        "external custom type `{}` (crate `{}`) has no entry in \
+                         [bindings.js] external_packages — add `{} = \"./path.js\"` \
+                         to uniffi.toml",
+                        ct.name,
+                        crate_name,
+                        crate_name,
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(map)
+}
+
+fn visit_type_for_external(
+    t: &Type,
+    external_packages: &HashMap<String, String>,
+    imports: &mut BTreeMap<String, BTreeSet<String>>,
+) -> Result<()> {
+    match t {
+        Type::Optional { inner_type } => {
+            visit_type_for_external(inner_type, external_packages, imports)
+        }
+        Type::Sequence { inner_type } => {
+            visit_type_for_external(inner_type, external_packages, imports)
+        }
+        Type::Map {
+            key_type,
+            value_type,
+        } => {
+            visit_type_for_external(key_type, external_packages, imports)?;
+            visit_type_for_external(value_type, external_packages, imports)
+        }
+        _ => {
+            let crate_name = match t {
+                Type::Object { module_path, .. }
+                | Type::Record { module_path, .. }
+                | Type::Enum { module_path, .. }
+                | Type::CallbackInterface { module_path, .. }
+                | Type::Custom { module_path, .. } => module_path.split("::").next(),
+                _ => None,
+            };
+            let type_name = match t {
+                Type::Object { name, .. }
+                | Type::Record { name, .. }
+                | Type::Enum { name, .. }
+                | Type::CallbackInterface { name, .. }
+                | Type::Custom { name, .. } => Some(name.as_str()),
+                _ => None,
+            };
+            if let (Some(crate_name), Some(type_name)) = (crate_name, type_name) {
+                if crate_name != LOCAL_CRATE_SENTINEL {
+                    match external_packages.get(crate_name) {
+                        Some(import_path) => {
+                            imports
+                                .entry(import_path.clone())
+                                .or_default()
+                                .insert(type_name.to_string());
+                        }
+                        None => {
+                            anyhow::bail!(
+                                "external type `{type_name}` (crate `{crate_name}`) has no \
+                                 entry in [bindings.js] external_packages — add \
+                                 `{crate_name} = \"./path.js\"` to uniffi.toml"
+                            );
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Type helpers
 // ---------------------------------------------------------------------------
 
@@ -1078,25 +1275,47 @@ fn type_name(t: &Type) -> String {
     }
 }
 
+/// Return `true` if `module_path` belongs to the current (local) crate.
+/// See `LOCAL_CRATE_SENTINEL` for why the sentinel value is `"crate_name"`.
+fn is_local_module(module_path: &str) -> bool {
+    module_path.split("::").next() == Some(LOCAL_CRATE_SENTINEL)
+}
+
 /// Wrap a raw WASM call expression with the appropriate lift for its return type.
-/// Object types are lifted via their static `_fromInner` factory so the caller
+/// Local object types are lifted via their static `_fromInner` factory so the caller
 /// receives the TypeScript wrapper class rather than the raw wasm-bindgen instance.
+/// External object types are returned as-is (their package owns the wrapping).
 fn lift_return(raw_call: &str, return_type: Option<&Type>) -> String {
     match return_type {
-        Some(Type::Object { name, .. }) => format!("{name}._fromInner({raw_call})"),
+        Some(Type::Object {
+            name, module_path, ..
+        }) => {
+            if is_local_module(module_path) {
+                format!("{name}._fromInner({raw_call})")
+            } else {
+                raw_call.to_string()
+            }
+        }
         Some(Type::Optional { inner_type }) => match inner_type.as_ref() {
-            Type::Object { name, .. } => {
+            Type::Object {
+                name, module_path, ..
+            } if is_local_module(module_path) => {
                 // Evaluate the raw call once via an IIFE, then conditionally lift.
                 format!("((__v) => __v == null ? null : {name}._fromInner(__v))({raw_call})")
             }
             _ => raw_call.to_string(),
         },
         Some(Type::Sequence { inner_type }) => match inner_type.as_ref() {
-            Type::Object { name, .. } => {
+            Type::Object {
+                name, module_path, ..
+            } if is_local_module(module_path) => {
                 format!("{raw_call}.map((__v) => {name}._fromInner(__v))")
             }
             _ => raw_call.to_string(),
         },
+        // Map<_, Object> is not lifted element-wise: UniFFI does not commonly use
+        // Map with Object values, and the marshaling shape depends heavily on how
+        // wasm-bindgen serialises the map.  Add explicit handling if this becomes needed.
         _ => raw_call.to_string(),
     }
 }

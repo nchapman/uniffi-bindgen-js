@@ -95,3 +95,8 @@ fn golden_callbacks_fixture() {
 fn golden_docstrings_fixture() {
     run_golden("docstrings", "docstrings.udl", "docstrings.ts");
 }
+
+#[test]
+fn golden_ext_types_demo_fixture() {
+    run_golden("ext-types-demo", "ext_types_demo.udl", "ext_types_demo.ts");
+}
