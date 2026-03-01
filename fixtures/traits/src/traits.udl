@@ -1,0 +1,10 @@
+namespace traits {
+    Drawable make_circle(f64 radius);
+    Drawable make_rect(f64 width, f64 height);
+};
+
+[Trait]
+interface Drawable {
+    string describe();
+    f64 area();
+};

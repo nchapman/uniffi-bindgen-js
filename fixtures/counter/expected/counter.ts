@@ -7,7 +7,8 @@ export class Counter {
   private constructor(inner: __bg.Counter) {
     this._inner = inner;
   }
-  static new(start: bigint): Counter { return new Counter(new __bg.Counter(start)); }
+  static _fromInner(inner: __bg.Counter): Counter { return new Counter(inner); }
+  static new(start: bigint): Counter { return Counter._fromInner(new __bg.Counter(start)); }
   decrement(): void { this._inner.decrement(); }
   get(): bigint { return this._inner.get(); }
   increment(): void { this._inner.increment(); }

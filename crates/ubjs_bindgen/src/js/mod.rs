@@ -383,23 +383,17 @@ fn render_ts(
     }
 
     // Error lift helpers (private, before namespace)
-    let all_throws: Vec<String> = {
-        let mut names: Vec<String> = Vec::new();
+    let all_throws: std::collections::HashSet<String> = {
+        let mut names: std::collections::HashSet<String> = std::collections::HashSet::new();
         for f in &metadata.functions {
             if let Some(t) = &f.throws_type {
-                let n = type_name(t);
-                if !names.contains(&n) {
-                    names.push(n);
-                }
+                names.insert(type_name(t));
             }
         }
         for o in &metadata.objects {
             for m in &o.methods {
                 if let Some(t) = &m.throws_type {
-                    let n = type_name(t);
-                    if !names.contains(&n) {
-                        names.push(n);
-                    }
+                    names.insert(type_name(t));
                 }
             }
         }
@@ -656,6 +650,10 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
     out.push_str(&format!("  private constructor(inner: __bg.{name}) {{\n"));
     out.push_str("    this._inner = inner;\n");
     out.push_str("  }\n");
+    // Internal factory used when lifting an object returned by a WASM function or method.
+    out.push_str(&format!(
+        "  static _fromInner(inner: __bg.{name}): {name} {{ return new {name}(inner); }}\n"
+    ));
 
     if let Some(ctor) = primary_ctor {
         let params: Vec<String> = ctor
@@ -664,16 +662,16 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
             .map(|a| format!("{}: {}", camel_case(&a.name), ts_type_str(&a.type_)))
             .collect();
         let args: Vec<String> = ctor.args.iter().map(|a| camel_case(&a.name)).collect();
-        let body = format!("new __bg.{name}({})", args.join(", "));
+        let inner_expr = format!("new __bg.{name}({})", args.join(", "));
         if let Some(throws) = &ctor.throws_type {
             let lift = format!("_lift{}", type_name(throws));
             out.push_str(&format!(
-                "  static new({}): {name} {{\n    try {{ return new {name}({body}); }} catch (e) {{ return {lift}(e); }}\n  }}\n",
+                "  static new({}): {name} {{\n    try {{ return {name}._fromInner({inner_expr}); }} catch (e) {{ return {lift}(e); }}\n  }}\n",
                 params.join(", ")
             ));
         } else {
             out.push_str(&format!(
-                "  static new({}): {name} {{ return new {name}({body}); }}\n",
+                "  static new({}): {name} {{ return {name}._fromInner({inner_expr}); }}\n",
                 params.join(", ")
             ));
         }
@@ -692,16 +690,16 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
             .collect();
         let args: Vec<String> = ctor.args.iter().map(|a| camel_case(&a.name)).collect();
         let ctor_fn = format!("{bg_name}_{}", ctor.name);
-        let body = format!("{ctor_fn}({})", args.join(", "));
+        let inner_expr = format!("__bg.{}({})", ctor_fn, args.join(", "));
         if let Some(throws) = &ctor.throws_type {
             let lift = format!("_lift{}", type_name(throws));
             out.push_str(&format!(
-                "  static {exported}({}): {name} {{\n    try {{ return new {name}(__bg.{body}); }} catch (e) {{ return {lift}(e); }}\n  }}\n",
+                "  static {exported}({}): {name} {{\n    try {{ return {name}._fromInner({inner_expr}); }} catch (e) {{ return {lift}(e); }}\n  }}\n",
                 params.join(", ")
             ));
         } else {
             out.push_str(&format!(
-                "  static {exported}({}): {name} {{ return new {name}(__bg.{body}); }}\n",
+                "  static {exported}({}): {name} {{ return {name}._fromInner({inner_expr}); }}\n",
                 params.join(", ")
             ));
         }
@@ -743,10 +741,11 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
             camel_case(&m.name),
             call_args.join(", ")
         );
+        let lifted_call = lift_return(&raw_call, m.return_type.as_ref());
         let call_expr = if m.is_async {
-            format!("await {raw_call}")
+            format!("await {lifted_call}")
         } else {
-            raw_call
+            lifted_call
         };
 
         let async_kw = if m.is_async { "async " } else { "" };
@@ -819,11 +818,14 @@ fn render_function(f: &UdlFunction, cfg: &config::JsBindingsConfig) -> String {
     };
 
     let call_args: Vec<String> = f.args.iter().map(|a| camel_case(&a.name)).collect();
+    // wasm-pack exports top-level functions under their original snake_case Rust names;
+    // object methods are camelCase in the JS glue. Do not apply camel_case here.
     let raw_call = format!("__bg.{}({})", f.name, call_args.join(", "));
+    let lifted_call = lift_return(&raw_call, f.return_type.as_ref());
     let call_expr = if f.is_async {
-        format!("await {raw_call}")
+        format!("await {lifted_call}")
     } else {
-        raw_call
+        lifted_call
     };
 
     let async_kw = if f.is_async { "async " } else { "" };
@@ -897,6 +899,29 @@ fn type_name(t: &Type) -> String {
         | Type::Object { name, .. }
         | Type::CallbackInterface { name, .. } => name.clone(),
         _ => ts_type_str(t),
+    }
+}
+
+/// Wrap a raw WASM call expression with the appropriate lift for its return type.
+/// Object types are lifted via their static `_fromInner` factory so the caller
+/// receives the TypeScript wrapper class rather than the raw wasm-bindgen instance.
+fn lift_return(raw_call: &str, return_type: Option<&Type>) -> String {
+    match return_type {
+        Some(Type::Object { name, .. }) => format!("{name}._fromInner({raw_call})"),
+        Some(Type::Optional { inner_type }) => match inner_type.as_ref() {
+            Type::Object { name, .. } => {
+                // Evaluate the raw call once via an IIFE, then conditionally lift.
+                format!("((__v) => __v == null ? null : {name}._fromInner(__v))({raw_call})")
+            }
+            _ => raw_call.to_string(),
+        },
+        Some(Type::Sequence { inner_type }) => match inner_type.as_ref() {
+            Type::Object { name, .. } => {
+                format!("{raw_call}.map((__v) => {name}._fromInner(__v))")
+            }
+            _ => raw_call.to_string(),
+        },
+        _ => raw_call.to_string(),
     }
 }
 

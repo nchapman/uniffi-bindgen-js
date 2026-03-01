@@ -80,3 +80,8 @@ fn golden_rename_exclude_fixture() {
 fn golden_custom_types_fixture() {
     run_golden("custom-types", "custom_types.udl", "custom_types.ts");
 }
+
+#[test]
+fn golden_traits_fixture() {
+    run_golden("traits", "traits.udl", "traits.ts");
+}
