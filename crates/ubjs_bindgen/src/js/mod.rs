@@ -458,13 +458,6 @@ fn render_ts(
         ));
     }
 
-    // Namespace-level docstring — emitted at module top regardless of whether there
-    // are any free functions, so it serves as module documentation even for type-only files.
-    if let Some(doc) = &metadata.namespace_docstring {
-        out.push('\n');
-        out.push_str(&render_jsdoc(Some(doc.as_str()), ""));
-    }
-
     // Custom type aliases (top-level, before everything else)
     for ct in &metadata.custom_types {
         if !cfg.exclude.contains(&ct.name) {
@@ -589,6 +582,7 @@ fn render_ts(
 
     if !visible_fns.is_empty() {
         out.push('\n');
+        out.push_str(&render_jsdoc(metadata.namespace_docstring.as_deref(), ""));
         out.push_str(&format!("export namespace {module_name} {{\n"));
         for f in &visible_fns {
             out.push_str(&render_function(f, cfg));
@@ -613,14 +607,12 @@ fn render_error_class(e: &UdlError, cfg: &config::JsBindingsConfig) -> String {
 
         out.push_str(&render_jsdoc(e.docstring.as_deref(), ""));
         out.push_str(&format!("export class {name} extends Error {{\n"));
-        out.push_str(&format!("  readonly tag: {};\n", tag_union.join(" | ")));
+        out.push_str(&format!("  override readonly name = '{name}' as const;\n"));
         out.push_str(&format!(
-            "  constructor(tag: {}) {{\n",
+            "  constructor(public readonly tag: {}) {{\n",
             tag_union.join(" | ")
         ));
         out.push_str("    super(tag);\n");
-        out.push_str(&format!("    this.name = '{name}';\n"));
-        out.push_str("    this.tag = tag;\n");
         out.push_str("  }\n");
         for v in &e.variants {
             out.push_str(&render_jsdoc(v.docstring.as_deref(), "  "));
@@ -647,19 +639,20 @@ fn render_error_class(e: &UdlError, cfg: &config::JsBindingsConfig) -> String {
                     .map(|f| format!("{}: {}", camel_case(&f.name), ts_type_str(&f.type_)))
                     .collect();
                 out.push_str(&format!(
-                    "  | {{ tag: '{}'; {} }}{sep}\n",
+                    "  | {{ tag: '{}', {} }}{sep}\n",
                     v.name,
-                    fields.join("; ")
+                    fields.join(", ")
                 ));
             }
         }
+        out.push('\n');
         out.push_str(&render_jsdoc(e.docstring.as_deref(), ""));
         out.push_str(&format!("export class {name} extends Error {{\n"));
+        out.push_str(&format!("  override readonly name = '{name}' as const;\n"));
         out.push_str(&format!(
             "  constructor(public readonly variant: {variant_type}) {{\n"
         ));
         out.push_str("    super(variant.tag);\n");
-        out.push_str(&format!("    this.name = '{name}';\n"));
         out.push_str("  }\n");
         for v in &e.variants {
             let params: Vec<String> = v
@@ -903,9 +896,9 @@ fn render_enum_type(e: &UdlEnum, cfg: &config::JsBindingsConfig) -> String {
                     .map(|f| format!("{}: {}", camel_case(&f.name), ts_type_str(&f.type_)))
                     .collect();
                 out.push_str(&format!(
-                    "  | {{ tag: '{}'; {} }}{sep}\n",
+                    "  | {{ tag: '{}', {} }}{sep}\n",
                     v.name,
-                    fields.join("; ")
+                    fields.join(", ")
                 ));
             }
         }
@@ -1081,6 +1074,7 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
     out.push_str("    this._inner = inner;\n");
     out.push_str("  }\n");
     // Internal factory used when lifting an object returned by a WASM function or method.
+    out.push_str("  /** @internal */\n");
     out.push_str(&format!(
         "  static _fromInner(inner: __bg.{name}): {name} {{ return new {name}(inner); }}\n"
     ));
@@ -1176,6 +1170,7 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
 
     // free() — wasm-bindgen generates this on all object classes.
     // Guarded against double-free; marks the object as freed.
+    out.push_str("  /** Releases the underlying WASM resource. Safe to call more than once. */\n");
     out.push_str("  free(): void {\n    if (this._freed) return;\n    this._freed = true;\n    this._inner.free();\n  }\n");
 
     out.push_str("}\n");
@@ -1471,7 +1466,19 @@ fn ts_type_str(t: &Type) -> String {
         // responsible for converting to/from a JS Date object.
         Type::Timestamp => "Date".to_string(),
         Type::Optional { inner_type } => format!("{} | null", ts_type_str(inner_type)),
-        Type::Sequence { inner_type } => format!("{}[]", ts_type_str(inner_type)),
+        Type::Sequence { inner_type } => {
+            let inner = ts_type_str(inner_type);
+            // Parenthesize compound inner types to avoid precedence issues
+            // e.g. `(string | null)[]` not `string | null[]`
+            if matches!(
+                inner_type.as_ref(),
+                Type::Optional { .. } | Type::Map { .. }
+            ) {
+                format!("({inner})[]")
+            } else {
+                format!("{inner}[]")
+            }
+        }
         Type::Map {
             key_type,
             value_type,
@@ -2121,6 +2128,28 @@ mod tests {
     #[test]
     fn pascal_case_empty_returns_fallback() {
         assert_eq!(pascal_case(""), "UniffiBindings");
+    }
+
+    // -----------------------------------------------------------------------
+    // ts_type_str: Sequence<Optional<T>> parenthesization
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn sequence_of_optional_parenthesized() {
+        let t = Type::Sequence {
+            inner_type: Box::new(Type::Optional {
+                inner_type: Box::new(Type::String),
+            }),
+        };
+        assert_eq!(ts_type_str(&t), "(string | null)[]");
+    }
+
+    #[test]
+    fn sequence_of_plain_not_parenthesized() {
+        let t = Type::Sequence {
+            inner_type: Box::new(Type::String),
+        };
+        assert_eq!(ts_type_str(&t), "string[]");
     }
 
     // -----------------------------------------------------------------------

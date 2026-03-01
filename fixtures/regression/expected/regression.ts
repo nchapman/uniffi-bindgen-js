@@ -4,11 +4,9 @@ export { __init as init };
 
 /** Error raised by the safe divider. */
 export class DivError extends Error {
-  readonly tag: 'DivByZero' | 'Overflow';
-  constructor(tag: 'DivByZero' | 'Overflow') {
+  override readonly name = 'DivError' as const;
+  constructor(public readonly tag: 'DivByZero' | 'Overflow') {
     super(tag);
-    this.name = 'DivError';
-    this.tag = tag;
   }
   static DivByZero(): DivError { return new DivError('DivByZero'); }
   static Overflow(): DivError { return new DivError('Overflow'); }
@@ -41,6 +39,7 @@ export class SafeDivider {
   private constructor(inner: __bg.SafeDivider) {
     this._inner = inner;
   }
+  /** @internal */
   static _fromInner(inner: __bg.SafeDivider): SafeDivider { return new SafeDivider(inner); }
   /** Default constructor — always succeeds. */
   static new(initial: number): SafeDivider { return SafeDivider._fromInner(new __bg.SafeDivider(initial)); }
@@ -62,6 +61,7 @@ export class SafeDivider {
     this._assertLive();
     return await this._inner.square_async();
   }
+  /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
     if (this._freed) return;
     this._freed = true;

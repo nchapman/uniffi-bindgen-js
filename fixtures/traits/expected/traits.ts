@@ -11,6 +11,7 @@ export class Drawable {
   private constructor(inner: __bg.Drawable) {
     this._inner = inner;
   }
+  /** @internal */
   static _fromInner(inner: __bg.Drawable): Drawable { return new Drawable(inner); }
   area(): number {
     this._assertLive();
@@ -20,6 +21,7 @@ export class Drawable {
     this._assertLive();
     return this._inner.describe();
   }
+  /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
     if (this._freed) return;
     this._freed = true;

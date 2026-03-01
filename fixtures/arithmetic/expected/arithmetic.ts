@@ -3,11 +3,9 @@ import __init, * as __bg from './arithmetic_bg.js';
 export { __init as init };
 
 export class MathError extends Error {
-  readonly tag: 'DivisionByZero' | 'NegativeSquareRoot';
-  constructor(tag: 'DivisionByZero' | 'NegativeSquareRoot') {
+  override readonly name = 'MathError' as const;
+  constructor(public readonly tag: 'DivisionByZero' | 'NegativeSquareRoot') {
     super(tag);
-    this.name = 'MathError';
-    this.tag = tag;
   }
   static DivisionByZero(): MathError { return new MathError('DivisionByZero'); }
   static NegativeSquareRoot(): MathError { return new MathError('NegativeSquareRoot'); }

@@ -3,14 +3,15 @@ import __init, * as __bg from './rich_errors_bg.js';
 export { __init as init };
 
 export type NetworkErrorVariant =
-  | { tag: 'NotFound'; url: string }
-  | { tag: 'Timeout'; url: string; elapsedMs: number }
-  | { tag: 'ServerError'; statusCode: number }
+  | { tag: 'NotFound', url: string }
+  | { tag: 'Timeout', url: string, elapsedMs: number }
+  | { tag: 'ServerError', statusCode: number }
   | { tag: 'Unknown' };
+
 export class NetworkError extends Error {
+  override readonly name = 'NetworkError' as const;
   constructor(public readonly variant: NetworkErrorVariant) {
     super(variant.tag);
-    this.name = 'NetworkError';
   }
   static NotFound(url: string): NetworkError { return new NetworkError({ tag: 'NotFound', url }); }
   static Timeout(url: string, elapsedMs: number): NetworkError { return new NetworkError({ tag: 'Timeout', url, elapsedMs }); }

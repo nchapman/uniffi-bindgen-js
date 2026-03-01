@@ -2,8 +2,6 @@
 import __init, * as __bg from './docstrings_bg.js';
 export { __init as init };
 
-/** The docstrings demo namespace. */
-
 /** A 2D point value. */
 export interface Point {
   /** Horizontal position. */
@@ -35,6 +33,7 @@ export class Counter {
   private constructor(inner: __bg.Counter) {
     this._inner = inner;
   }
+  /** @internal */
   static _fromInner(inner: __bg.Counter): Counter { return new Counter(inner); }
   /** Creates a new counter starting at the given value. */
   static new(start: bigint): Counter { return Counter._fromInner(new __bg.Counter(start)); }
@@ -48,6 +47,7 @@ export class Counter {
     this._assertLive();
     this._inner.increment();
   }
+  /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
     if (this._freed) return;
     this._freed = true;
@@ -55,6 +55,7 @@ export class Counter {
   }
 }
 
+/** The docstrings demo namespace. */
 export namespace Docstrings {
   /**
    * Returns a greeting for the given name.

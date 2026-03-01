@@ -10,8 +10,8 @@ export interface Point {
 export type Direction = 'North' | 'South' | 'East' | 'West';
 
 export type Shape =
-  | { tag: 'Circle'; radius: number }
-  | { tag: 'Rectangle'; width: number; height: number }
+  | { tag: 'Circle', radius: number }
+  | { tag: 'Rectangle', width: number, height: number }
   | { tag: 'Point' };
 
 export namespace Geometry {

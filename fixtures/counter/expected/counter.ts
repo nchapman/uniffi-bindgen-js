@@ -11,6 +11,7 @@ export class Counter {
   private constructor(inner: __bg.Counter) {
     this._inner = inner;
   }
+  /** @internal */
   static _fromInner(inner: __bg.Counter): Counter { return new Counter(inner); }
   static new(start: bigint): Counter { return Counter._fromInner(new __bg.Counter(start)); }
   decrement(): void {
@@ -29,6 +30,7 @@ export class Counter {
     this._assertLive();
     this._inner.reset_to(value);
   }
+  /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
     if (this._freed) return;
     this._freed = true;
