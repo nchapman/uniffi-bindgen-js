@@ -37,6 +37,12 @@ export namespace RichErrors {
   export function fetchData(url: string): string {
     try { return __bg.fetch_data(url); } catch (e) { return _liftNetworkError(e); }
   }
+  export async function fetchDataAsync(url: string): Promise<string> {
+    try { return await __bg.fetch_data_async(url); } catch (e) { return _liftNetworkError(e); }
+  }
+  export async function fetchWithRetryAsync(url: string, maxRetries: number): Promise<string> {
+    try { return await __bg.fetch_with_retry_async(url, maxRetries); } catch (e) { return _liftNetworkError(e); }
+  }
   export function fetchWithTimeout(url: string, timeoutMs: number): string {
     try { return __bg.fetch_with_timeout(url, timeoutMs); } catch (e) { return _liftNetworkError(e); }
   }

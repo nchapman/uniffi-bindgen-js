@@ -128,9 +128,9 @@ pub(super) struct UdlCustomType {
 
 /// A method on a `callback interface` — generates a method signature in a TS interface.
 ///
-/// `throws_type` is intentionally absent: UniFFI UDL does not support `[Throws]` on
-/// callback interface methods (errors flow outward from the JS implementor into Rust,
-/// not inward from the generated binding).
+/// `throws_type` is intentionally omitted: TypeScript interfaces have no `throws`
+/// annotation syntax, so there is nothing to emit. Errors flow outward from the JS
+/// implementor into Rust; the TypeScript interface only describes the return type.
 ///
 /// `is_async` IS expressible in UDL (`[Async]` on a callback method). The generator
 /// emits `Promise<T>` for the method return type, which is the correct TypeScript

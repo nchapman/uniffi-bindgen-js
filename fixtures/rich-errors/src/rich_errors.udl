@@ -4,6 +4,12 @@ namespace rich_errors {
 
     [Throws=NetworkError]
     string fetch_with_timeout(string url, u32 timeout_ms);
+
+    [Async, Throws=NetworkError]
+    string fetch_data_async(string url);
+
+    [Async, Throws=NetworkError]
+    string fetch_with_retry_async(string url, u32 max_retries);
 };
 
 [Error]

@@ -2,10 +2,10 @@ use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 /// Mirrors the [Error] interface NetworkError from the UDL.
-/// Field names must match what the TypeScript lift function expects (snake_case,
-/// since Rust serde serialises with the original field names by default).
+/// Field names are serialised as camelCase to match what the generated
+/// TypeScript lift function reads (e.g. `elapsedMs`, `statusCode`).
 #[derive(Serialize)]
-#[serde(tag = "tag")]
+#[serde(tag = "tag", rename_all = "camelCase")]
 enum NetworkError {
     NotFound { url: String },
     Timeout { url: String, elapsed_ms: u32 },
@@ -48,4 +48,20 @@ pub fn fetch_data(url: &str) -> Result<String, JsValue> {
 #[wasm_bindgen]
 pub fn fetch_with_timeout(url: &str, _timeout_ms: u32) -> Result<String, JsValue> {
     fetch_data(url)
+}
+
+// Note: async wasm-bindgen functions require owned `String`, not `&str`,
+// because the borrow cannot outlive the async suspension point.
+
+/// Async version of fetch_data — exercises [Async, Throws=NetworkError].
+#[wasm_bindgen]
+pub async fn fetch_data_async(url: String) -> Result<String, JsValue> {
+    fetch_data(&url)
+}
+
+/// Async version with a retry count parameter — exercises multi-argument
+/// [Async, Throws=NetworkError].
+#[wasm_bindgen]
+pub async fn fetch_with_retry_async(url: String, _max_retries: u32) -> Result<String, JsValue> {
+    fetch_data(&url)
 }
