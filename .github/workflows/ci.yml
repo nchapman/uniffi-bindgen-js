@@ -1,18 +1,70 @@
-name: ci
+name: CI
 
 on:
   push:
+    branches: ["main"]
   pull_request:
 
 jobs:
-  rust:
+  lint-and-unit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: fmt
+        with:
+          components: clippy, rustfmt
+      - name: Format check
         run: cargo fmt --check
-      - name: clippy
+      - name: Clippy (deny warnings)
         run: cargo clippy --all-targets -- -D warnings
-      - name: test
+      - name: Test workspace
         run: cargo test --workspace
+
+  build-runtime-artifacts:
+    needs: lint-and-unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: binding_tests/pnpm-lock.yaml
+      - name: Build WASM fixtures and generate TypeScript bindings
+        run: ./scripts/build_bindings.sh
+      - name: Upload runtime artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-artifacts
+          path: |
+            binding_tests/generated
+            binding_tests/node_modules
+
+  test-bindings-runtime:
+    needs: build-runtime-artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download runtime artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: runtime-artifacts
+          path: binding_tests
+      - name: TypeScript type check
+        run: cd binding_tests && pnpm typecheck
+      - name: Run JS smoke tests
+        run: cd binding_tests && pnpm test

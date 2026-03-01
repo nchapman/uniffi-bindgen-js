@@ -40,8 +40,8 @@ cd binding_tests && pnpm test
 ### Crate Layout
 
 - **`crates/ubjs_bindgen`** — Main code generator. CLI entrypoint, config parsing, JS/TS output.
-- **`crates/ubjs_runtime`** — Runtime support library (scaffold, not yet implemented).
-- **`crates/ubjs_testing`** — Test utilities (scaffold, not yet implemented).
+- **`crates/ubjs_runtime`** — Runtime support library for generated JS bindings.
+- **`crates/ubjs_testing`** — Shared test utilities for fixture and integration testing.
 
 ### Generator Pipeline
 

@@ -1,3 +1,3 @@
 # binding_tests
 
-Reserved for JS/TS host runtime integration tests. Scaffold only for now.
+JS/TS host runtime integration tests. Uses vitest to exercise generated TypeScript bindings against compiled WASM fixtures.
