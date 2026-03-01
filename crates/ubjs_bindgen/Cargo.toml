@@ -1,7 +1,13 @@
 [package]
 name = "ubjs_bindgen"
-version = "0.1.0"
-edition = "2021"
+description = "TypeScript/JavaScript bindings generator for UniFFI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [lib]
 name = "ubjs_bindgen"

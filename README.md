@@ -1,8 +1,9 @@
 # uniffi-bindgen-js
 
-Generate idiomatic [TypeScript](https://www.typescriptlang.org/) bindings for [UniFFI](https://github.com/mozilla/uniffi-rs) components, targeting WebAssembly via [wasm-pack](https://rustwasm.github.io/wasm-bindgen/).
-
 [![CI](https://github.com/aspect-build/uniffi-bindgen-js/actions/workflows/ci.yml/badge.svg)](https://github.com/aspect-build/uniffi-bindgen-js/actions/workflows/ci.yml)
+[![License: MPL-2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](https://opensource.org/licenses/MPL-2.0)
+
+Generate idiomatic [TypeScript](https://www.typescriptlang.org/) bindings for [UniFFI](https://github.com/mozilla/uniffi-rs) components, targeting WebAssembly via [wasm-pack](https://rustwasm.github.io/wasm-bindgen/).
 
 `uniffi-bindgen-js` is a third-party bindings generator that produces
 production-grade TypeScript wrappers from UniFFI interface definitions. It

@@ -1,7 +1,13 @@
 [package]
 name = "ubjs_runtime"
-version = "0.1.0"
-edition = "2021"
+description = "Runtime support library for uniffi-bindgen-js generated bindings"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [lib]
 path = "src/lib.rs"
