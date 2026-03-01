@@ -252,6 +252,8 @@ export namespace CoverallDemo {
   export function divideByText(value: number, divisor: string): number {
     try { return __bg.divide_by_text(value, divisor); } catch (e) { return _liftComplexError(e); }
   }
+  /** Round-trip a map with non-string keys (record<u32, u64>). */
+  export function getIntMap(key: number, value: bigint): Map<number, bigint> { return __bg.get_int_map(key, value); }
   /** Return an enum variant based on a numeric selector. */
   export function getMaybeSimpleDict(index: number): MaybeSimpleDict { return __bg.get_maybe_simple_dict(index); }
   /**
