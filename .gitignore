@@ -1,5 +1,7 @@
 /target
 Cargo.lock
+# native-lib sub-workspaces have their own target directories
+fixtures/*/native-lib/target/
 binding_tests/generated/
 node_modules/
 .DS_Store
