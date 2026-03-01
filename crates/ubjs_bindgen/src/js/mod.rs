@@ -3,6 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use camino::Utf8Path;
 use uniffi_bindgen::interface::{AsType, ComponentInterface, DefaultValue, Literal, Type};
 
 use crate::cli::GenerateArgs;
@@ -11,7 +12,7 @@ pub mod config;
 
 pub fn generate_bindings(args: &GenerateArgs) -> Result<()> {
     let cfg = config::load(args)?;
-    let metadata = parse_udl_metadata(&args.source)?;
+    let metadata = parse_udl_metadata(&args.source, args.crate_name.as_deref(), args.library)?;
     let namespace = if metadata.namespace.is_empty() {
         namespace_from_source(&args.source)?
     } else {
@@ -82,9 +83,12 @@ struct UdlError {
     name: String,
     variants: Vec<UdlVariant>,
     is_flat: bool,
+    is_non_exhaustive: bool,
     docstring: Option<String>,
     /// Methods declared on the error enum.
     methods: Vec<UdlMethod>,
+    /// Constructors declared on the error enum (proc-macro only).
+    constructors: Vec<UdlConstructor>,
 }
 
 /// A plain enum or [Enum] interface — generates a TypeScript union type.
@@ -94,9 +98,12 @@ struct UdlEnum {
     variants: Vec<UdlVariant>,
     /// true ↔ all variants are unit variants (no fields); serialises as a string.
     is_flat: bool,
+    is_non_exhaustive: bool,
     docstring: Option<String>,
     /// Methods declared on the enum (from `impl` blocks).
     methods: Vec<UdlMethod>,
+    /// Constructors declared on the enum (proc-macro only).
+    constructors: Vec<UdlConstructor>,
 }
 
 /// A `dictionary` declaration — generates a TypeScript interface.
@@ -176,10 +183,13 @@ struct UdlCallbackInterface {
     docstring: Option<String>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct UdlMetadata {
     namespace: String,
     namespace_docstring: Option<String>,
+    /// The module_path prefix for types local to this crate.
+    /// For UDL mode this is `LOCAL_CRATE_SENTINEL`; for library mode it is the actual crate name.
+    local_crate: String,
     functions: Vec<UdlFunction>,
     errors: Vec<UdlError>,
     enums: Vec<UdlEnum>,
@@ -189,20 +199,78 @@ struct UdlMetadata {
     callback_interfaces: Vec<UdlCallbackInterface>,
 }
 
+impl Default for UdlMetadata {
+    fn default() -> Self {
+        Self {
+            namespace: String::new(),
+            namespace_docstring: None,
+            local_crate: LOCAL_CRATE_SENTINEL.to_string(),
+            functions: Vec::new(),
+            errors: Vec::new(),
+            enums: Vec::new(),
+            records: Vec::new(),
+            objects: Vec::new(),
+            custom_types: Vec::new(),
+            callback_interfaces: Vec::new(),
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // UDL parsing via uniffi_bindgen ComponentInterface
 // ---------------------------------------------------------------------------
 
-fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
+fn parse_udl_metadata(
+    source: &Path,
+    crate_name: Option<&str>,
+    library_mode: bool,
+) -> Result<UdlMetadata> {
     if source.extension().and_then(|e| e.to_str()) != Some("udl") {
-        return Ok(UdlMetadata::default());
+        if !library_mode {
+            anyhow::bail!(
+                "source '{}' is not a UDL file; pass --library to extract metadata from a compiled library",
+                source.display()
+            );
+        }
+        // Library mode: extract metadata from a compiled cdylib.
+        let source_str = source
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("library source path must be valid UTF-8"))?;
+        let source_utf8 = Utf8Path::new(source_str);
+        let cis = uniffi_bindgen::library_mode::find_cis(
+            source_utf8,
+            &uniffi_bindgen::EmptyCrateConfigSupplier,
+        )
+        .with_context(|| format!("failed to parse library metadata: {}", source.display()))?;
+        let ci = if let Some(crate_name) = crate_name {
+            cis.into_iter()
+                .find(|ci| ci.crate_name() == crate_name)
+                .ok_or_else(|| {
+                    anyhow::anyhow!("crate '{crate_name}' not found in library metadata")
+                })?
+        } else {
+            cis.into_iter()
+                .next()
+                .ok_or_else(|| anyhow::anyhow!("no UniFFI components found in library metadata"))?
+        };
+        let local_crate = ci.crate_name().to_string();
+        return component_interface_to_metadata(ci, &local_crate);
     }
 
     let udl = fs::read_to_string(source)
         .with_context(|| format!("failed to read UDL: {}", source.display()))?;
     let ci = ComponentInterface::from_webidl(&udl, LOCAL_CRATE_SENTINEL)
         .with_context(|| format!("failed to parse UDL: {}", source.display()))?;
+    component_interface_to_metadata(ci, LOCAL_CRATE_SENTINEL)
+}
 
+/// Convert a `ComponentInterface` into our internal `UdlMetadata`.
+/// `local_crate` is the module-path prefix for types defined in this crate
+/// (for UDL: `LOCAL_CRATE_SENTINEL`, for library mode: the actual crate name).
+fn component_interface_to_metadata(
+    ci: ComponentInterface,
+    local_crate: &str,
+) -> Result<UdlMetadata> {
     let functions = ci
         .function_definitions()
         .iter()
@@ -330,6 +398,7 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
     Ok(UdlMetadata {
         namespace: ci.namespace().to_string(),
         namespace_docstring: ci.namespace_docstring().map(ToOwned::to_owned),
+        local_crate: local_crate.to_string(),
         functions,
         errors,
         enums,
@@ -358,6 +427,29 @@ fn parse_methods(methods: &[uniffi_bindgen::interface::Method]) -> Vec<UdlMethod
             throws_type: m.throws_type().cloned(),
             is_async: m.is_async(),
             docstring: m.docstring().map(ToOwned::to_owned),
+        })
+        .collect()
+}
+
+fn parse_constructors(
+    constructors: &[uniffi_bindgen::interface::Constructor],
+) -> Vec<UdlConstructor> {
+    constructors
+        .iter()
+        .map(|c| UdlConstructor {
+            name: c.name().to_string(),
+            args: c
+                .arguments()
+                .into_iter()
+                .map(|a| UdlArg {
+                    name: a.name().to_string(),
+                    type_: a.as_type(),
+                    default: a.default_value().cloned(),
+                })
+                .collect(),
+            throws_type: c.throws_type().cloned(),
+            is_async: c.is_async(),
+            docstring: c.docstring().map(ToOwned::to_owned),
         })
         .collect()
 }
@@ -394,22 +486,27 @@ fn parse_enums(ci: &ComponentInterface) -> (Vec<UdlError>, Vec<UdlEnum>) {
             .collect();
 
         let methods = parse_methods(e.methods());
+        let constructors = parse_constructors(e.constructors());
 
         if ci.is_name_used_as_error(e.name()) {
             errors.push(UdlError {
                 name: e.name().to_string(),
                 variants,
                 is_flat: e.is_flat(),
+                is_non_exhaustive: e.is_non_exhaustive(),
                 docstring: e.docstring().map(ToOwned::to_owned),
                 methods,
+                constructors,
             });
         } else {
             enums.push(UdlEnum {
                 name: e.name().to_string(),
                 variants,
                 is_flat: e.is_flat(),
+                is_non_exhaustive: e.is_non_exhaustive(),
                 docstring: e.docstring().map(ToOwned::to_owned),
                 methods,
+                constructors,
             });
         }
     }
@@ -449,7 +546,8 @@ fn render_ts(
     out.push_str("export { __init as init };\n");
 
     // External type imports — one import statement per external package, types sorted for determinism.
-    let external_imports = collect_external_imports(metadata, &cfg.external_packages)?;
+    let external_imports =
+        collect_external_imports(metadata, &cfg.external_packages, &metadata.local_crate)?;
     for (import_path, type_names) in &external_imports {
         let names: Vec<&str> = type_names.iter().map(String::as_str).collect();
         out.push_str(&format!(
@@ -479,7 +577,7 @@ fn render_ts(
     for e in &metadata.errors {
         if !cfg.exclude.contains(&e.name) {
             out.push('\n');
-            out.push_str(&render_error_class(e, cfg));
+            out.push_str(&render_error_class(e, cfg, &metadata.local_crate));
         }
     }
 
@@ -495,7 +593,7 @@ fn render_ts(
     for e in &metadata.enums {
         if !cfg.exclude.contains(&e.name) {
             out.push('\n');
-            out.push_str(&render_enum_type(e, cfg));
+            out.push_str(&render_enum_type(e, cfg, &metadata.local_crate));
         }
     }
 
@@ -516,7 +614,12 @@ fn render_ts(
     if !visible_objects.is_empty() {
         out.push('\n');
         for o in &visible_objects {
-            out.push_str(&render_object_class(o, namespace, cfg));
+            out.push_str(&render_object_class(
+                o,
+                namespace,
+                cfg,
+                &metadata.local_crate,
+            ));
         }
     }
 
@@ -541,6 +644,11 @@ fn render_ts(
             }
         }
         for e in &metadata.enums {
+            for c in &e.constructors {
+                if let Some(t) = &c.throws_type {
+                    names.insert(type_name(t));
+                }
+            }
             for m in &e.methods {
                 if let Some(t) = &m.throws_type {
                     names.insert(type_name(t));
@@ -548,6 +656,11 @@ fn render_ts(
             }
         }
         for e in &metadata.errors {
+            for c in &e.constructors {
+                if let Some(t) = &c.throws_type {
+                    names.insert(type_name(t));
+                }
+            }
             for m in &e.methods {
                 if let Some(t) = &m.throws_type {
                     names.insert(type_name(t));
@@ -585,7 +698,7 @@ fn render_ts(
         out.push_str(&render_jsdoc(metadata.namespace_docstring.as_deref(), ""));
         out.push_str(&format!("export namespace {module_name} {{\n"));
         for f in &visible_fns {
-            out.push_str(&render_function(f, cfg));
+            out.push_str(&render_function(f, cfg, &metadata.local_crate));
         }
         out.push_str("}\n");
     }
@@ -597,20 +710,24 @@ fn render_ts(
 // Error class generation
 // ---------------------------------------------------------------------------
 
-fn render_error_class(e: &UdlError, cfg: &config::JsBindingsConfig) -> String {
+fn render_error_class(e: &UdlError, cfg: &config::JsBindingsConfig, local_crate: &str) -> String {
     let mut out = String::new();
     let name = &e.name;
 
     if e.is_flat {
         // Flat error: single `tag` string property, no variant fields
-        let tag_union: Vec<String> = e.variants.iter().map(|v| format!("'{}'", v.name)).collect();
+        let mut tag_parts: Vec<String> =
+            e.variants.iter().map(|v| format!("'{}'", v.name)).collect();
+        if e.is_non_exhaustive {
+            tag_parts.push("string".to_string());
+        }
 
         out.push_str(&render_jsdoc(e.docstring.as_deref(), ""));
         out.push_str(&format!("export class {name} extends Error {{\n"));
         out.push_str(&format!("  override readonly name = '{name}' as const;\n"));
         out.push_str(&format!(
             "  constructor(public readonly tag: {}) {{\n",
-            tag_union.join(" | ")
+            tag_parts.join(" | ")
         ));
         out.push_str("    super(tag);\n");
         out.push_str("  }\n");
@@ -621,15 +738,30 @@ fn render_error_class(e: &UdlError, cfg: &config::JsBindingsConfig) -> String {
                 v.name, v.name
             ));
         }
-        out.push_str(&render_enum_methods_on_class(&e.methods, name, cfg));
+        out.push_str(&render_enum_constructors_on_class(
+            &e.constructors,
+            name,
+            cfg,
+        ));
+        out.push_str(&render_enum_methods_on_class(
+            &e.methods,
+            name,
+            cfg,
+            local_crate,
+        ));
         out.push_str("}\n");
     } else {
         // Rich error: each variant may have different fields; use a discriminated
         // union stored in `variant` and expose a flat set of optional field getters.
         let variant_type = format!("{name}Variant");
+        let last_known = e.variants.len().saturating_sub(1);
         out.push_str(&format!("export type {variant_type} =\n"));
         for (i, v) in e.variants.iter().enumerate() {
-            let sep = if i == e.variants.len() - 1 { ";" } else { "" };
+            let sep = if !e.is_non_exhaustive && i == last_known {
+                ";"
+            } else {
+                ""
+            };
             if v.fields.is_empty() {
                 out.push_str(&format!("  | {{ tag: '{}' }}{sep}\n", v.name));
             } else {
@@ -644,6 +776,9 @@ fn render_error_class(e: &UdlError, cfg: &config::JsBindingsConfig) -> String {
                     fields.join(", ")
                 ));
             }
+        }
+        if e.is_non_exhaustive {
+            out.push_str("  | { tag: string; [key: string]: unknown };\n");
         }
         out.push('\n');
         out.push_str(&render_jsdoc(e.docstring.as_deref(), ""));
@@ -674,10 +809,92 @@ fn render_error_class(e: &UdlError, cfg: &config::JsBindingsConfig) -> String {
                 params.join(", ")
             ));
         }
-        out.push_str(&render_enum_methods_on_class(&e.methods, name, cfg));
+        out.push_str(&render_enum_constructors_on_class(
+            &e.constructors,
+            name,
+            cfg,
+        ));
+        out.push_str(&render_enum_methods_on_class(
+            &e.methods,
+            name,
+            cfg,
+            local_crate,
+        ));
         out.push_str("}\n");
     }
 
+    out
+}
+
+/// Render enum constructors as static methods on a class or in a companion namespace.
+/// Enum constructors are exported by wasm-bindgen as `{snake_case_enum}_{ctor_name}(...)`.
+fn render_enum_constructors_on_class(
+    constructors: &[UdlConstructor],
+    enum_name: &str,
+    cfg: &config::JsBindingsConfig,
+) -> String {
+    render_enum_constructors(constructors, enum_name, cfg, "static")
+}
+
+/// Render enum constructors as static functions in a companion namespace.
+fn render_enum_constructors_in_namespace(
+    constructors: &[UdlConstructor],
+    enum_name: &str,
+    cfg: &config::JsBindingsConfig,
+) -> String {
+    render_enum_constructors(constructors, enum_name, cfg, "export function")
+}
+
+/// Shared implementation for rendering enum constructors.
+/// `decl_kind` is either `"static"` (for class bodies) or `"export function"` (for namespaces).
+fn render_enum_constructors(
+    constructors: &[UdlConstructor],
+    enum_name: &str,
+    cfg: &config::JsBindingsConfig,
+    decl_kind: &str,
+) -> String {
+    let mut out = String::new();
+    let bg_name = snake_case(enum_name);
+    for ctor in constructors {
+        let key = format!("{enum_name}.{}", ctor.name);
+        if cfg.exclude.contains(&key) {
+            continue;
+        }
+        let exported = cfg
+            .rename
+            .get(&key)
+            .cloned()
+            .unwrap_or_else(|| camel_case(&ctor.name));
+        let params: Vec<String> = ctor.args.iter().map(render_param).collect();
+        let args: Vec<String> = ctor.args.iter().map(|a| camel_case(&a.name)).collect();
+        let async_kw = if ctor.is_async { "async " } else { "" };
+        let await_kw = if ctor.is_async { "await " } else { "" };
+        let ret_type = if ctor.is_async {
+            format!("Promise<{enum_name}>")
+        } else {
+            enum_name.to_string()
+        };
+        let ctor_fn = if ctor.name == "new" {
+            format!("new __bg.{bg_name}")
+        } else {
+            format!("__bg.{bg_name}_{}", ctor.name)
+        };
+        let inner_call = format!("{ctor_fn}({})", args.join(", "));
+
+        out.push_str(&render_jsdoc(ctor.docstring.as_deref(), "  "));
+        if let Some(throws) = &ctor.throws_type {
+            let lift = format!("_lift{}", type_name(throws));
+            out.push_str(&format!(
+                "  {decl_kind} {async_kw}{exported}({}): {ret_type} {{\n    try {{ return {await_kw}{inner_call}; }} catch (e) {{ return {lift}(e); }}\n  }}\n",
+                params.join(", ")
+            ));
+        } else {
+            out.push_str(&format!(
+                "  {decl_kind} {async_kw}{exported}({}): {ret_type} {{ return {await_kw}{inner_call}; }}\n",
+                params.join(", ")
+            ));
+        }
+    }
     out
 }
 
@@ -687,6 +904,7 @@ fn render_enum_methods_on_class(
     methods: &[UdlMethod],
     enum_name: &str,
     cfg: &config::JsBindingsConfig,
+    local_crate: &str,
 ) -> String {
     let mut out = String::new();
     let bg_name = snake_case(enum_name);
@@ -721,7 +939,7 @@ fn render_enum_methods_on_class(
             format!("this, {}", call_args.join(", "))
         };
         let raw_call = format!("__bg.{bg_name}_{}({self_plus_args})", m.name);
-        let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async);
+        let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
         let async_kw = if m.is_async { "async " } else { "" };
 
         out.push_str(&render_jsdoc(m.docstring.as_deref(), "  "));
@@ -774,6 +992,11 @@ fn render_lift_fn(e: &UdlError) -> String {
                 v.name, v.name
             ));
         }
+        if e.is_non_exhaustive {
+            out.push_str(&format!(
+                "  if (typeof tag === 'string') throw new {name}(tag);\n"
+            ));
+        }
     } else {
         // Rich error: Rust serialises variant as a JSON string {"tag":"...","field":val}
         out.push_str("  try {\n");
@@ -799,6 +1022,11 @@ fn render_lift_fn(e: &UdlError) -> String {
                     args.join(", ")
                 ));
             }
+        }
+        if e.is_non_exhaustive {
+            out.push_str(&format!(
+                "    if (typeof tag === 'string') throw new {name}(raw as {name}Variant);\n"
+            ));
         }
         out.push_str("  } catch (inner) {\n");
         out.push_str(&format!("    if (inner instanceof {name}) throw inner;\n"));
@@ -834,7 +1062,7 @@ fn render_record_interface(r: &UdlRecord) -> String {
 // Enum type generation
 // ---------------------------------------------------------------------------
 
-fn render_enum_type(e: &UdlEnum, cfg: &config::JsBindingsConfig) -> String {
+fn render_enum_type(e: &UdlEnum, cfg: &config::JsBindingsConfig, local_crate: &str) -> String {
     let mut out = String::new();
     if e.is_flat {
         // Flat enum → TypeScript union of string literals.
@@ -873,11 +1101,14 @@ fn render_enum_type(e: &UdlEnum, cfg: &config::JsBindingsConfig) -> String {
             e.docstring.clone()
         };
         out.push_str(&render_jsdoc(doc.as_deref(), ""));
-        let variants: Vec<String> = e.variants.iter().map(|v| format!("'{}'", v.name)).collect();
+        let mut parts: Vec<String> = e.variants.iter().map(|v| format!("'{}'", v.name)).collect();
+        if e.is_non_exhaustive {
+            parts.push("string".to_string());
+        }
         out.push_str(&format!(
             "export type {} = {};\n",
             e.name,
-            variants.join(" | ")
+            parts.join(" | ")
         ));
     } else {
         // Data enum → discriminated union.
@@ -885,8 +1116,13 @@ fn render_enum_type(e: &UdlEnum, cfg: &config::JsBindingsConfig) -> String {
         // docstring is the only JSDoc anchor available.
         out.push_str(&render_jsdoc(e.docstring.as_deref(), ""));
         out.push_str(&format!("export type {} =\n", e.name));
+        let last_known = e.variants.len().saturating_sub(1);
         for (i, v) in e.variants.iter().enumerate() {
-            let sep = if i == e.variants.len() - 1 { ";" } else { "" };
+            let sep = if !e.is_non_exhaustive && i == last_known {
+                ";"
+            } else {
+                ""
+            };
             if v.fields.is_empty() {
                 out.push_str(&format!("  | {{ tag: '{}' }}{sep}\n", v.name));
             } else {
@@ -902,14 +1138,27 @@ fn render_enum_type(e: &UdlEnum, cfg: &config::JsBindingsConfig) -> String {
                 ));
             }
         }
+        if e.is_non_exhaustive {
+            out.push_str("  | { tag: string; [key: string]: unknown };\n");
+        }
     }
 
-    // Enum methods are emitted as functions in a companion namespace (TS declaration
-    // merging allows a namespace with the same name as a type alias).
-    if !e.methods.is_empty() {
+    // Enum methods and constructors are emitted as functions in a companion namespace
+    // (TS declaration merging allows a namespace with the same name as a type alias).
+    let has_companion = !e.methods.is_empty() || !e.constructors.is_empty();
+    if has_companion {
         let name = &e.name;
         let bg_name = snake_case(name);
         out.push_str(&format!("export namespace {name} {{\n"));
+
+        // Constructors (static factory functions)
+        out.push_str(&render_enum_constructors_in_namespace(
+            &e.constructors,
+            name,
+            cfg,
+        ));
+
+        // Methods (instance-style, take `self` as first param)
         for m in &e.methods {
             if cfg.exclude.contains(&format!("{name}.{}", m.name)) {
                 continue;
@@ -947,7 +1196,7 @@ fn render_enum_type(e: &UdlEnum, cfg: &config::JsBindingsConfig) -> String {
                 format!("self, {}", call_args.join(", "))
             };
             let raw_call = format!("__bg.{bg_name}_{}({self_plus_args})", m.name);
-            let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async);
+            let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
             let async_kw = if m.is_async { "async " } else { "" };
 
             out.push_str(&render_jsdoc(m.docstring.as_deref(), "  "));
@@ -1018,8 +1267,6 @@ fn render_ctor(
     class_name: &str,
     call_prefix: &str,
     exported: &str,
-    _bg_name: &str,
-    _cfg: &config::JsBindingsConfig,
 ) -> String {
     let mut out = String::new();
     let params: Vec<String> = ctor.args.iter().map(render_param).collect();
@@ -1050,7 +1297,12 @@ fn render_ctor(
     out
 }
 
-fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindingsConfig) -> String {
+fn render_object_class(
+    o: &UdlObject,
+    _namespace: &str,
+    cfg: &config::JsBindingsConfig,
+    local_crate: &str,
+) -> String {
     let mut out = String::new();
     let name = &o.name;
     let bg_name = snake_case(name); // wasm-bindgen uses the Rust struct name
@@ -1080,14 +1332,7 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
     ));
 
     if let Some(ctor) = primary_ctor {
-        out.push_str(&render_ctor(
-            ctor,
-            name,
-            &format!("new __bg.{name}"),
-            "new",
-            &bg_name,
-            cfg,
-        ));
+        out.push_str(&render_ctor(ctor, name, &format!("new __bg.{name}"), "new"));
     }
 
     for ctor in named_ctors {
@@ -1102,8 +1347,6 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
             name,
             &format!("__bg.{ctor_fn}"),
             &exported,
-            &bg_name,
-            cfg,
         ));
     }
 
@@ -1137,7 +1380,7 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
         // The public TypeScript name is camelCase (via `exported`), but the inner call
         // must match the wasm-pack output exactly.
         let raw_call = format!("this._inner.{}({})", m.name, call_args.join(", "));
-        let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async);
+        let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
 
         let async_kw = if m.is_async { "async " } else { "" };
 
@@ -1184,7 +1427,7 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
 // Top-level function generation
 // ---------------------------------------------------------------------------
 
-fn render_function(f: &UdlFunction, cfg: &config::JsBindingsConfig) -> String {
+fn render_function(f: &UdlFunction, cfg: &config::JsBindingsConfig, local_crate: &str) -> String {
     let mut out = String::new();
 
     let exported = cfg
@@ -1214,7 +1457,7 @@ fn render_function(f: &UdlFunction, cfg: &config::JsBindingsConfig) -> String {
     // wasm-pack exports top-level functions under their original snake_case Rust names;
     // object methods are camelCase in the JS glue. Do not apply camel_case here.
     let raw_call = format!("__bg.{}({})", f.name, call_args.join(", "));
-    let call_expr = lift_return(&raw_call, f.return_type.as_ref(), f.is_async);
+    let call_expr = lift_return(&raw_call, f.return_type.as_ref(), f.is_async, local_crate);
 
     let async_kw = if f.is_async { "async " } else { "" };
 
@@ -1267,12 +1510,13 @@ const LOCAL_CRATE_SENTINEL: &str = "crate_name";
 fn collect_external_imports(
     metadata: &UdlMetadata,
     external_packages: &HashMap<String, String>,
+    local_crate: &str,
 ) -> Result<BTreeMap<String, BTreeSet<String>>> {
     let mut map: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
 
     macro_rules! visit {
         ($t:expr) => {
-            visit_type_for_external($t, external_packages, &mut map)?
+            visit_type_for_external($t, external_packages, local_crate, &mut map)?
         };
     }
 
@@ -1298,6 +1542,14 @@ fn collect_external_imports(
                 visit!(&f.type_);
             }
         }
+        for c in &e.constructors {
+            for a in &c.args {
+                visit!(&a.type_);
+            }
+            if let Some(t) = &c.throws_type {
+                visit!(t);
+            }
+        }
         for m in &e.methods {
             for a in &m.args {
                 visit!(&a.type_);
@@ -1314,6 +1566,14 @@ fn collect_external_imports(
         for v in &e.variants {
             for f in &v.fields {
                 visit!(&f.type_);
+            }
+        }
+        for c in &e.constructors {
+            for a in &c.args {
+                visit!(&a.type_);
+            }
+            if let Some(t) = &c.throws_type {
+                visit!(t);
             }
         }
         for m in &e.methods {
@@ -1363,7 +1623,7 @@ fn collect_external_imports(
     // must also be imported from the appropriate package.
     for ct in &metadata.custom_types {
         let crate_name = ct.module_path.split("::").next().unwrap_or("");
-        if crate_name != LOCAL_CRATE_SENTINEL && !crate_name.is_empty() {
+        if crate_name != local_crate && !crate_name.is_empty() {
             match external_packages.get(crate_name) {
                 Some(import_path) => {
                     map.entry(import_path.clone())
@@ -1390,21 +1650,22 @@ fn collect_external_imports(
 fn visit_type_for_external(
     t: &Type,
     external_packages: &HashMap<String, String>,
+    local_crate: &str,
     imports: &mut BTreeMap<String, BTreeSet<String>>,
 ) -> Result<()> {
     match t {
         Type::Optional { inner_type } => {
-            visit_type_for_external(inner_type, external_packages, imports)
+            visit_type_for_external(inner_type, external_packages, local_crate, imports)
         }
         Type::Sequence { inner_type } => {
-            visit_type_for_external(inner_type, external_packages, imports)
+            visit_type_for_external(inner_type, external_packages, local_crate, imports)
         }
         Type::Map {
             key_type,
             value_type,
         } => {
-            visit_type_for_external(key_type, external_packages, imports)?;
-            visit_type_for_external(value_type, external_packages, imports)
+            visit_type_for_external(key_type, external_packages, local_crate, imports)?;
+            visit_type_for_external(value_type, external_packages, local_crate, imports)
         }
         _ => {
             let crate_name = match t {
@@ -1424,7 +1685,7 @@ fn visit_type_for_external(
                 _ => None,
             };
             if let (Some(crate_name), Some(type_name)) = (crate_name, type_name) {
-                if crate_name != LOCAL_CRATE_SENTINEL {
+                if crate_name != local_crate {
                     match external_packages.get(crate_name) {
                         Some(import_path) => {
                             imports
@@ -1511,9 +1772,44 @@ fn type_name(t: &Type) -> String {
 }
 
 /// Return `true` if `module_path` belongs to the current (local) crate.
-/// See `LOCAL_CRATE_SENTINEL` for why the sentinel value is `"crate_name"`.
-fn is_local_module(module_path: &str) -> bool {
-    module_path.split("::").next() == Some(LOCAL_CRATE_SENTINEL)
+fn is_local_module(module_path: &str, local_crate: &str) -> bool {
+    module_path.split("::").next() == Some(local_crate)
+}
+
+/// Return `true` if the type tree contains any local `Type::Object` that needs lifting.
+fn needs_object_lifting(t: &Type, local_crate: &str) -> bool {
+    match t {
+        Type::Object { module_path, .. } => is_local_module(module_path, local_crate),
+        Type::Optional { inner_type } => needs_object_lifting(inner_type, local_crate),
+        Type::Sequence { inner_type } => needs_object_lifting(inner_type, local_crate),
+        Type::Map { value_type, .. } => needs_object_lifting(value_type, local_crate),
+        _ => false,
+    }
+}
+
+/// Build a lifting expression for a variable `var` given its type.
+/// This is the inner recursive worker — it does NOT handle `await`.
+fn lift_expr(var: &str, t: &Type, local_crate: &str) -> String {
+    match t {
+        Type::Object {
+            name, module_path, ..
+        } if is_local_module(module_path, local_crate) => {
+            format!("{name}._fromInner({var})")
+        }
+        Type::Optional { inner_type } if needs_object_lifting(inner_type, local_crate) => {
+            let inner = lift_expr("__v", inner_type, local_crate);
+            format!("((__v) => __v == null ? null : {inner})({var})")
+        }
+        Type::Sequence { inner_type } if needs_object_lifting(inner_type, local_crate) => {
+            let inner = lift_expr("__v", inner_type, local_crate);
+            format!("({var}).map((__v) => {inner})")
+        }
+        Type::Map { value_type, .. } if needs_object_lifting(value_type, local_crate) => {
+            let inner = lift_expr("__v", value_type, local_crate);
+            format!("new Map([...{var}].map(([__k, __v]) => [__k, {inner}]))")
+        }
+        _ => var.to_string(),
+    }
 }
 
 /// Wrap a raw WASM call expression with the appropriate lift for its return type.
@@ -1523,42 +1819,18 @@ fn is_local_module(module_path: &str) -> bool {
 ///
 /// When `is_async` is true, `await` is placed **inside** the lift expression so that
 /// `_fromInner` (or the IIFE / `.map()`) receives the resolved value, not a `Promise`.
-fn lift_return(raw_call: &str, return_type: Option<&Type>, is_async: bool) -> String {
+fn lift_return(
+    raw_call: &str,
+    return_type: Option<&Type>,
+    is_async: bool,
+    local_crate: &str,
+) -> String {
     let await_kw = if is_async { "await " } else { "" };
     match return_type {
-        Some(Type::Object {
-            name, module_path, ..
-        }) => {
-            if is_local_module(module_path) {
-                format!("{name}._fromInner({await_kw}{raw_call})")
-            } else {
-                format!("{await_kw}{raw_call}")
-            }
+        Some(t) if needs_object_lifting(t, local_crate) => {
+            let awaited = format!("{await_kw}{raw_call}");
+            lift_expr(&awaited, t, local_crate)
         }
-        Some(Type::Optional { inner_type }) => match inner_type.as_ref() {
-            Type::Object {
-                name, module_path, ..
-            } if is_local_module(module_path) => {
-                // Evaluate the raw call once via an IIFE, then conditionally lift.
-                if is_async {
-                    format!("((__v) => __v == null ? null : {name}._fromInner(__v))({await_kw}{raw_call})")
-                } else {
-                    format!("((__v) => __v == null ? null : {name}._fromInner(__v))({raw_call})")
-                }
-            }
-            _ => format!("{await_kw}{raw_call}"),
-        },
-        Some(Type::Sequence { inner_type }) => match inner_type.as_ref() {
-            Type::Object {
-                name, module_path, ..
-            } if is_local_module(module_path) => {
-                format!("({await_kw}{raw_call}).map((__v) => {name}._fromInner(__v))")
-            }
-            _ => format!("{await_kw}{raw_call}"),
-        },
-        // Map<_, Object> is not lifted element-wise: UniFFI does not commonly use
-        // Map with Object values, and the marshaling shape depends heavily on how
-        // wasm-bindgen serialises the map.  Add explicit handling if this becomes needed.
         _ => format!("{await_kw}{raw_call}"),
     }
 }
@@ -1654,14 +1926,6 @@ fn render_param(arg: &UdlArg) -> String {
     }
 }
 
-/// Render a UDL default value as a TypeScript literal expression.
-fn render_default_value(dv: &DefaultValue) -> String {
-    match dv {
-        DefaultValue::Default => "undefined".to_string(),
-        DefaultValue::Literal(lit) => render_literal(lit),
-    }
-}
-
 fn render_literal(lit: &Literal) -> String {
     match lit {
         Literal::Boolean(b) => b.to_string(),
@@ -1685,7 +1949,10 @@ fn render_literal(lit: &Literal) -> String {
         Literal::EmptySequence => "[]".to_string(),
         Literal::EmptyMap => "new Map()".to_string(),
         Literal::None => "null".to_string(),
-        Literal::Some { inner } => render_default_value(inner),
+        Literal::Some { inner } => match inner.as_ref() {
+            DefaultValue::Default => "undefined".to_string(),
+            DefaultValue::Literal(lit) => render_literal(lit),
+        },
     }
 }
 
@@ -1945,6 +2212,8 @@ mod tests {
     // lift_return tests for Optional<Object> and Sequence<Object>
     // -----------------------------------------------------------------------
 
+    const LC: &str = LOCAL_CRATE_SENTINEL;
+
     #[test]
     fn lift_return_optional_object_sync() {
         let result = lift_return(
@@ -1957,6 +2226,7 @@ mod tests {
                 }),
             }),
             false,
+            LC,
         );
         assert_eq!(
             result,
@@ -1976,6 +2246,7 @@ mod tests {
                 }),
             }),
             true,
+            LC,
         );
         assert_eq!(
             result,
@@ -1995,6 +2266,7 @@ mod tests {
                 }),
             }),
             false,
+            LC,
         );
         assert_eq!(
             result,
@@ -2014,6 +2286,7 @@ mod tests {
                 }),
             }),
             true,
+            LC,
         );
         assert_eq!(
             result,
@@ -2031,8 +2304,143 @@ mod tests {
                 imp: uniffi_bindgen::interface::ObjectImpl::Struct,
             }),
             false,
+            LC,
         );
         assert_eq!(result, "__bg.get_ext()");
+    }
+
+    // -----------------------------------------------------------------------
+    // lift_return: Map<K, Object> and nested types
+    // -----------------------------------------------------------------------
+
+    fn local_object(name: &str) -> Type {
+        Type::Object {
+            name: name.into(),
+            module_path: "crate_name::mod".into(),
+            imp: uniffi_bindgen::interface::ObjectImpl::Struct,
+        }
+    }
+
+    #[test]
+    fn lift_return_map_string_object_sync() {
+        let result = lift_return(
+            "__bg.get_map()",
+            Some(&Type::Map {
+                key_type: Box::new(Type::String),
+                value_type: Box::new(local_object("Item")),
+            }),
+            false,
+            LC,
+        );
+        assert_eq!(
+            result,
+            "new Map([...__bg.get_map()].map(([__k, __v]) => [__k, Item._fromInner(__v)]))"
+        );
+    }
+
+    #[test]
+    fn lift_return_map_string_object_async() {
+        let result = lift_return(
+            "__bg.get_map()",
+            Some(&Type::Map {
+                key_type: Box::new(Type::String),
+                value_type: Box::new(local_object("Item")),
+            }),
+            true,
+            LC,
+        );
+        assert_eq!(
+            result,
+            "new Map([...await __bg.get_map()].map(([__k, __v]) => [__k, Item._fromInner(__v)]))"
+        );
+    }
+
+    #[test]
+    fn lift_return_optional_sequence_object() {
+        let result = lift_return(
+            "__bg.maybe_list()",
+            Some(&Type::Optional {
+                inner_type: Box::new(Type::Sequence {
+                    inner_type: Box::new(local_object("Item")),
+                }),
+            }),
+            false,
+            LC,
+        );
+        assert_eq!(
+            result,
+            "((__v) => __v == null ? null : (__v).map((__v) => Item._fromInner(__v)))(__bg.maybe_list())"
+        );
+    }
+
+    #[test]
+    fn lift_return_sequence_optional_object() {
+        let result = lift_return(
+            "__bg.list_maybe()",
+            Some(&Type::Sequence {
+                inner_type: Box::new(Type::Optional {
+                    inner_type: Box::new(local_object("Item")),
+                }),
+            }),
+            false,
+            LC,
+        );
+        assert_eq!(
+            result,
+            "(__bg.list_maybe()).map((__v) => ((__v) => __v == null ? null : Item._fromInner(__v))(__v))"
+        );
+    }
+
+    #[test]
+    fn lift_return_no_lifting_for_plain_types() {
+        assert_eq!(
+            lift_return("__bg.foo()", Some(&Type::String), false, LC),
+            "__bg.foo()"
+        );
+        assert_eq!(
+            lift_return(
+                "__bg.foo()",
+                Some(&Type::Map {
+                    key_type: Box::new(Type::String),
+                    value_type: Box::new(Type::Int32),
+                }),
+                false,
+                LC
+            ),
+            "__bg.foo()"
+        );
+    }
+
+    #[test]
+    fn needs_object_lifting_detects_nested() {
+        assert!(needs_object_lifting(&local_object("Foo"), LC));
+        assert!(needs_object_lifting(
+            &Type::Optional {
+                inner_type: Box::new(local_object("Foo"))
+            },
+            LC
+        ));
+        assert!(needs_object_lifting(
+            &Type::Sequence {
+                inner_type: Box::new(local_object("Foo"))
+            },
+            LC
+        ));
+        assert!(needs_object_lifting(
+            &Type::Map {
+                key_type: Box::new(Type::String),
+                value_type: Box::new(local_object("Foo")),
+            },
+            LC
+        ));
+        assert!(!needs_object_lifting(&Type::String, LC));
+        assert!(!needs_object_lifting(
+            &Type::Map {
+                key_type: Box::new(Type::String),
+                value_type: Box::new(Type::Int32),
+            },
+            LC
+        ));
     }
 
     // -----------------------------------------------------------------------
@@ -2054,7 +2462,7 @@ mod tests {
     fn render_enum_methods_on_class_instance_method() {
         let methods = vec![make_method("describe", Some(Type::String), false)];
         let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_methods_on_class(&methods, "StatusCode", &cfg);
+        let result = render_enum_methods_on_class(&methods, "StatusCode", &cfg, LC);
         assert!(
             result.contains("describe(): string { return __bg.status_code_describe(this); }"),
             "got: {result}"
@@ -2065,7 +2473,7 @@ mod tests {
     fn render_enum_methods_on_class_async_method() {
         let methods = vec![make_method("process", None, true)];
         let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_methods_on_class(&methods, "Task", &cfg);
+        let result = render_enum_methods_on_class(&methods, "Task", &cfg, LC);
         assert!(
             result.contains("async process(): Promise<void>"),
             "got: {result}"
@@ -2087,11 +2495,13 @@ mod tests {
                 discr: None,
             }],
             is_flat: true,
+            is_non_exhaustive: false,
             docstring: None,
             methods: vec![make_method("area", Some(Type::Float64), false)],
+            constructors: vec![],
         };
         let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_type(&e, &cfg);
+        let result = render_enum_type(&e, &cfg, LC);
         assert!(
             result.contains("export type Shape = 'Circle';"),
             "got: {result}"
@@ -2116,11 +2526,13 @@ mod tests {
                 discr: None,
             }],
             is_flat: true,
+            is_non_exhaustive: false,
             docstring: None,
             methods: vec![],
+            constructors: vec![],
         };
         let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_type(&e, &cfg);
+        let result = render_enum_type(&e, &cfg, LC);
         assert!(!result.contains("namespace"), "got: {result}");
     }
 
@@ -2177,7 +2589,7 @@ mod tests {
             ..Default::default()
         };
         let empty_packages = HashMap::new();
-        let result = collect_external_imports(&metadata, &empty_packages);
+        let result = collect_external_imports(&metadata, &empty_packages, LC);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(
@@ -2201,7 +2613,7 @@ mod tests {
             ..Default::default()
         };
         let empty_packages = HashMap::new();
-        let result = collect_external_imports(&metadata, &empty_packages);
+        let result = collect_external_imports(&metadata, &empty_packages, LC);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(
@@ -2229,11 +2641,178 @@ mod tests {
         };
         let mut packages = HashMap::new();
         packages.insert("other_crate".into(), "./other.js".into());
-        let result = collect_external_imports(&metadata, &packages);
+        let result = collect_external_imports(&metadata, &packages, LC);
         assert!(result.is_ok());
         let imports = result.unwrap();
         assert!(imports.contains_key("./other.js"));
         assert!(imports["./other.js"].contains("ExtObj"));
+    }
+
+    // -----------------------------------------------------------------------
+    // [NonExhaustive] enum/error tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn non_exhaustive_flat_enum_appends_string_catchall() {
+        let e = UdlEnum {
+            name: "Status".into(),
+            variants: vec![
+                UdlVariant {
+                    name: "Active".into(),
+                    fields: vec![],
+                    docstring: None,
+                    discr: None,
+                },
+                UdlVariant {
+                    name: "Inactive".into(),
+                    fields: vec![],
+                    docstring: None,
+                    discr: None,
+                },
+            ],
+            is_flat: true,
+            is_non_exhaustive: true,
+            docstring: None,
+            methods: vec![],
+            constructors: vec![],
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_enum_type(&e, &cfg, LC);
+        assert!(
+            result.contains("export type Status = 'Active' | 'Inactive' | string;"),
+            "got: {result}"
+        );
+    }
+
+    #[test]
+    fn non_exhaustive_data_enum_appends_tag_string_catchall() {
+        let e = UdlEnum {
+            name: "Shape".into(),
+            variants: vec![UdlVariant {
+                name: "Circle".into(),
+                fields: vec![UdlField {
+                    name: "radius".into(),
+                    type_: Type::Float64,
+                    docstring: None,
+                    default: None,
+                }],
+                docstring: None,
+                discr: None,
+            }],
+            is_flat: false,
+            is_non_exhaustive: true,
+            docstring: None,
+            methods: vec![],
+            constructors: vec![],
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_enum_type(&e, &cfg, LC);
+        assert!(
+            result.contains("| { tag: 'Circle', radius: number }"),
+            "got: {result}"
+        );
+        assert!(
+            result.contains("| { tag: string; [key: string]: unknown };"),
+            "got: {result}"
+        );
+    }
+
+    #[test]
+    fn non_exhaustive_flat_error_appends_string_tag() {
+        let e = UdlError {
+            name: "AppError".into(),
+            variants: vec![UdlVariant {
+                name: "NotFound".into(),
+                fields: vec![],
+                docstring: None,
+                discr: None,
+            }],
+            is_flat: true,
+            is_non_exhaustive: true,
+            docstring: None,
+            methods: vec![],
+            constructors: vec![],
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_error_class(&e, &cfg, LC);
+        assert!(result.contains("tag: 'NotFound' | string"), "got: {result}");
+    }
+
+    #[test]
+    fn non_exhaustive_rich_error_appends_catchall_variant() {
+        let e = UdlError {
+            name: "NetError".into(),
+            variants: vec![UdlVariant {
+                name: "Timeout".into(),
+                fields: vec![UdlField {
+                    name: "elapsed_ms".into(),
+                    type_: Type::UInt32,
+                    docstring: None,
+                    default: None,
+                }],
+                docstring: None,
+                discr: None,
+            }],
+            is_flat: false,
+            is_non_exhaustive: true,
+            docstring: None,
+            methods: vec![],
+            constructors: vec![],
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_error_class(&e, &cfg, LC);
+        assert!(
+            result.contains("| { tag: string; [key: string]: unknown };"),
+            "got: {result}"
+        );
+    }
+
+    #[test]
+    fn non_exhaustive_flat_error_lift_has_fallback() {
+        let e = UdlError {
+            name: "AppError".into(),
+            variants: vec![UdlVariant {
+                name: "NotFound".into(),
+                fields: vec![],
+                docstring: None,
+                discr: None,
+            }],
+            is_flat: true,
+            is_non_exhaustive: true,
+            docstring: None,
+            methods: vec![],
+            constructors: vec![],
+        };
+        let result = render_lift_fn(&e);
+        assert!(
+            result.contains("if (typeof tag === 'string') throw new AppError(tag);"),
+            "got: {result}"
+        );
+    }
+
+    #[test]
+    fn non_exhaustive_rich_error_lift_has_fallback() {
+        let e = UdlError {
+            name: "NetError".into(),
+            variants: vec![UdlVariant {
+                name: "Timeout".into(),
+                fields: vec![],
+                docstring: None,
+                discr: None,
+            }],
+            is_flat: false,
+            is_non_exhaustive: true,
+            docstring: None,
+            methods: vec![],
+            constructors: vec![],
+        };
+        let result = render_lift_fn(&e);
+        assert!(
+            result.contains(
+                "if (typeof tag === 'string') throw new NetError(raw as NetErrorVariant);"
+            ),
+            "got: {result}"
+        );
     }
 
     #[test]
@@ -2254,8 +2833,117 @@ mod tests {
             ..Default::default()
         };
         let empty_packages = HashMap::new();
-        let result = collect_external_imports(&metadata, &empty_packages);
+        let result = collect_external_imports(&metadata, &empty_packages, LC);
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // Enum constructor tests
+    // -----------------------------------------------------------------------
+
+    fn make_ctor(name: &str, args: Vec<UdlArg>) -> UdlConstructor {
+        UdlConstructor {
+            name: name.into(),
+            args,
+            throws_type: None,
+            is_async: false,
+            docstring: None,
+        }
+    }
+
+    #[test]
+    fn enum_constructors_rendered_in_companion_namespace() {
+        let e = UdlEnum {
+            name: "Color".into(),
+            variants: vec![UdlVariant {
+                name: "Red".into(),
+                fields: vec![],
+                docstring: None,
+                discr: None,
+            }],
+            is_flat: true,
+            is_non_exhaustive: false,
+            docstring: None,
+            methods: vec![],
+            constructors: vec![make_ctor(
+                "from_hex",
+                vec![UdlArg {
+                    name: "hex".into(),
+                    type_: Type::String,
+                    default: None,
+                }],
+            )],
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_enum_type(&e, &cfg, LC);
+        assert!(result.contains("export namespace Color {"), "got: {result}");
+        assert!(
+            result.contains(
+                "export function fromHex(hex: string): Color { return __bg.color_from_hex(hex); }"
+            ),
+            "got: {result}"
+        );
+    }
+
+    #[test]
+    fn error_constructors_rendered_as_static_methods() {
+        let e = UdlError {
+            name: "AppError".into(),
+            variants: vec![UdlVariant {
+                name: "Generic".into(),
+                fields: vec![],
+                docstring: None,
+                discr: None,
+            }],
+            is_flat: true,
+            is_non_exhaustive: false,
+            docstring: None,
+            methods: vec![],
+            constructors: vec![make_ctor(
+                "from_code",
+                vec![UdlArg {
+                    name: "code".into(),
+                    type_: Type::Int32,
+                    default: None,
+                }],
+            )],
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_error_class(&e, &cfg, LC);
+        assert!(
+            result.contains("static fromCode(code: number): AppError { return __bg.app_error_from_code(code); }"),
+            "got: {result}"
+        );
+    }
+
+    #[test]
+    fn enum_with_constructors_and_methods_has_both() {
+        let e = UdlEnum {
+            name: "Shape".into(),
+            variants: vec![UdlVariant {
+                name: "Circle".into(),
+                fields: vec![],
+                docstring: None,
+                discr: None,
+            }],
+            is_flat: true,
+            is_non_exhaustive: false,
+            docstring: None,
+            methods: vec![make_method("area", Some(Type::Float64), false)],
+            constructors: vec![make_ctor(
+                "parse",
+                vec![UdlArg {
+                    name: "s".into(),
+                    type_: Type::String,
+                    default: None,
+                }],
+            )],
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_enum_type(&e, &cfg, LC);
+        assert!(result.contains("export namespace Shape {"), "got: {result}");
+        assert!(result.contains("export function parse("), "got: {result}");
+        assert!(result.contains("export function area("), "got: {result}");
     }
 }

@@ -21,4 +21,10 @@ pub struct GenerateArgs {
     pub out_dir: PathBuf,
     #[arg(long)]
     pub config: Option<PathBuf>,
+    /// Treat source as a compiled cdylib and extract UniFFI metadata from it.
+    #[arg(long)]
+    pub library: bool,
+    /// In library mode, generate bindings only for this crate (default: first found).
+    #[arg(long, name = "crate")]
+    pub crate_name: Option<String>,
 }

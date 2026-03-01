@@ -79,6 +79,8 @@ mod tests {
             source: std::path::PathBuf::from("/nonexistent/path.udl"),
             out_dir: std::path::PathBuf::from("/tmp"),
             config: None,
+            library: false,
+            crate_name: None,
         };
         let cfg = load(&args).unwrap();
         assert!(cfg.module_name.is_none());

@@ -28,6 +28,8 @@ fn run_golden_impl(fixture_name: &str, udl_file: &str, ts_file: &str, config: Op
         source: fixture,
         out_dir: out_dir.clone(),
         config,
+        library: false,
+        crate_name: None,
     })
     .expect("generation should succeed");
 
