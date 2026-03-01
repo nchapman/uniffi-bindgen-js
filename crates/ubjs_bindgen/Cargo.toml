@@ -1,0 +1,18 @@
+[package]
+name = "ubjs_bindgen"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ubjs_bindgen"
+path = "src/lib.rs"
+
+[[bin]]
+name = "uniffi-bindgen-js"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"

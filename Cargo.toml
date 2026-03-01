@@ -1,0 +1,7 @@
+[workspace]
+members = [
+  "crates/ubjs_bindgen",
+  "crates/ubjs_runtime",
+  "crates/ubjs_testing",
+]
+resolver = "2"
