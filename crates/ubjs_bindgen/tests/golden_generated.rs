@@ -120,3 +120,8 @@ fn golden_regression_fixture() {
 fn golden_type_zoo_fixture() {
     run_golden("type-zoo", "type_zoo.udl", "type_zoo.ts");
 }
+
+#[test]
+fn golden_keywords_demo_fixture() {
+    run_golden("keywords-demo", "keywords_demo.udl", "keywords_demo.ts");
+}

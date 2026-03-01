@@ -1,0 +1,29 @@
+namespace keywords_demo {
+  u32 class(u32 switch);
+  string return(string var);
+  boolean delete(boolean static);
+};
+
+dictionary ReturnValue {
+  string class;
+  u32 return;
+  boolean typeof;
+};
+
+enum AsyncKind {
+  "void",
+  "yield",
+  "await",
+};
+
+[Error]
+enum ThrowKind {
+  "catch",
+  "finally",
+};
+
+interface SuperWidget {
+  constructor();
+  string class(string var);
+  u32 return();
+};
