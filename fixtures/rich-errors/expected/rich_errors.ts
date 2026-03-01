@@ -24,8 +24,8 @@ function _liftNetworkError(e: unknown): never {
     const raw = typeof e === 'string' ? JSON.parse(e) : (e instanceof Error ? JSON.parse(e.message) : e);
     const tag = raw?.tag as string | undefined;
     if (tag === 'NotFound') throw NetworkError.NotFound(raw.url);
-    if (tag === 'Timeout') throw NetworkError.Timeout(raw.url, raw.elapsed_ms);
-    if (tag === 'ServerError') throw NetworkError.ServerError(raw.status_code);
+    if (tag === 'Timeout') throw NetworkError.Timeout(raw.url, raw.elapsedMs);
+    if (tag === 'ServerError') throw NetworkError.ServerError(raw.statusCode);
     if (tag === 'Unknown') throw NetworkError.Unknown();
   } catch (inner) {
     if (inner instanceof NetworkError) throw inner;

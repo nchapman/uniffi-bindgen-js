@@ -91,7 +91,7 @@ Fixtures live in `fixtures/{name}/` with UDL input at `src/{name}.udl` and expec
 
 ### UDL Feature Coverage
 
-All planned UDL features are implemented and golden-tested (13 fixtures):
+All planned UDL features are implemented and golden-tested (17 fixtures):
 
 | Feature | Fixture |
 |---------|---------|
@@ -106,6 +106,10 @@ All planned UDL features are implemented and golden-tested (13 fixtures):
 | UDL `///` docstrings as JSDoc | `docstrings` |
 | `[External="crate"]` cross-package types | `ext-types-demo` |
 | Regression: named ctor throws, method throws+return, async method | `regression` |
+| Comprehensive feature combinations (records, objects, enums, errors, callbacks, traits) | `coverall-demo` |
+| Reserved word escaping in all identifier positions | `keywords-demo` |
+| Large enum/error code-gen scale + all primitive types | `type-limits-demo` |
+| All primitive types as inputs/outputs | `type-zoo` |
 
 Additional features (cross-checked against first-party Kotlin/Swift/Python/Ruby backends):
 

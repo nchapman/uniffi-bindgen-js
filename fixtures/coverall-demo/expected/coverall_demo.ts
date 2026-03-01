@@ -225,7 +225,7 @@ function _liftComplexError(e: unknown): never {
   try {
     const raw = typeof e === 'string' ? JSON.parse(e) : (e instanceof Error ? JSON.parse(e.message) : e);
     const tag = raw?.tag as string | undefined;
-    if (tag === 'OsError') throw ComplexError.OsError(raw.code, raw.extended_code);
+    if (tag === 'OsError') throw ComplexError.OsError(raw.code, raw.extendedCode);
     if (tag === 'PermissionDenied') throw ComplexError.PermissionDenied(raw.reason);
     if (tag === 'UnknownError') throw ComplexError.UnknownError();
   } catch (inner) {

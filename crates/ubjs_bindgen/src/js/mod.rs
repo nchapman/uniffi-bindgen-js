@@ -1013,8 +1013,7 @@ fn render_lift_fn(e: &UdlError) -> String {
                 let args: Vec<String> = v
                     .fields
                     .iter()
-                    // Rust serde serialises field names as-is (snake_case by default).
-                    .map(|f| format!("raw.{}", f.name))
+                    .map(|f| format!("raw.{}", safe_js_identifier(&camel_case(&f.name))))
                     .collect();
                 out.push_str(&format!(
                     "    if (tag === '{}') throw {name}.{}({});\n",
