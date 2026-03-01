@@ -45,11 +45,13 @@ export namespace {ModuleName} {
 - Phase 1b: Full UDL type surface: flat errors, rich errors, records, flat enums, data enums, objects/interfaces (with constructor + methods), async functions. Golden tests + wasm fixture crates + JS smoke tests for all four new feature fixtures (arithmetic, geometry, counter, rich-errors).
 - Phase 2a: rename/exclude config (`[bindings.js]` TOML, per-function and per-type), custom type aliases (`[Custom] typedef`). Golden coverage + wasm fixtures.
 - Phase 2b: Trait interfaces (`[Trait]`), `_fromInner` object return lifting, `Optional<Object>` and `Sequence<Object>` lift support. Callback interfaces (`callback interface`) → `export interface` with camelCase methods. Golden + wasm + smoke tests for traits and callbacks fixtures.
+- Phase 3a: Docstrings — forward UDL `///` doc comments as JSDoc on all generated symbols. Flat enum variant docs folded into parent type JSDoc. 8 unit tests for render_jsdoc helper.
+- Phase 3b: External/remote types — detect `[External="crate"]` types by module_path, emit named imports from `external_packages` config, error on missing entries, deduplicate across usages. `ext-types-demo` golden fixture with Optional/Sequence coverage.
+- Phase 3c: Regression coverage fixture — named constructor with [Throws], object method with [Throws]+return, async interface method, async callback method.
 
 ### Remaining
-- Docstrings: forward UDL `///` doc comments as JSDoc on generated functions/methods/types.
-- External/remote types: types defined in other UniFFI components referenced across package boundaries.
-- Regression coverage: fixture rows that guard against specific known edge-case bugs.
+- Nothing on the original roadmap. All planned UDL features are implemented and golden-tested.
+- Future: consider wasm smoke tests for docstrings/ext-types/regression fixtures; publish to crates.io.
 
 ## Quality Bar
 1. Deterministic generation outputs for golden-tested fixtures.
@@ -80,9 +82,9 @@ Track parity row-by-row against `/Users/nchapman/Drive/Code/lessisbetter/refs/un
 | Callback interfaces (sync/async) | Done | callbacks fixture; `export interface`; `Promise<T>` for `[Async]` methods |
 | Custom types | Done | custom-types fixture; `export type Alias = builtin`; rename-aware |
 | Rename/exclude config | Done | rename-exclude fixture; per-function, per-type, per-method keys |
-| External/remote types | Not started | types defined in other UniFFI components; cross-package references |
-| Docstrings | Not started | forward UDL `///` comments as JSDoc on generated symbols |
-| Regression rows | Not started | specific edge-case fixtures to prevent regressions |
+| External/remote types | Done | ext-types-demo fixture; named imports; missing-entry error; Optional/Sequence coverage |
+| Docstrings | Done | JSDoc on all symbols; flat-enum variant bullets; 8 unit tests |
+| Regression rows | Done | named ctor throws; method throws+return; async interface/callback methods |
 
 ## Git Commit Workflow
 - Initialize Git at project start and keep history linear.
