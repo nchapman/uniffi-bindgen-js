@@ -11,7 +11,6 @@ use crate::cli::GenerateArgs;
 #[serde(default, deny_unknown_fields)]
 pub struct JsBindingsConfig {
     pub module_name: Option<String>,
-    pub library_name: Option<String>,
     pub rename: HashMap<String, String>,
     pub exclude: Vec<String>,
     pub external_packages: HashMap<String, String>,
@@ -83,7 +82,6 @@ mod tests {
         };
         let cfg = load(&args).unwrap();
         assert!(cfg.module_name.is_none());
-        assert!(cfg.library_name.is_none());
         assert!(cfg.rename.is_empty());
         assert!(cfg.exclude.is_empty());
     }

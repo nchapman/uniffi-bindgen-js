@@ -10,8 +10,14 @@ pub mod config;
 
 pub fn generate_bindings(args: &GenerateArgs) -> Result<()> {
     let cfg = config::load(args)?;
-    let namespace = namespace_from_source(&args.source)?;
     let metadata = parse_udl_metadata(&args.source)?;
+    // For UDL sources the namespace comes from the parsed ComponentInterface;
+    // for other sources fall back to the file stem.
+    let namespace = if metadata.namespace.is_empty() {
+        namespace_from_source(&args.source)?
+    } else {
+        metadata.namespace.clone()
+    };
 
     let module_name = cfg
         .module_name
@@ -52,7 +58,6 @@ struct UdlArg {
 
 #[derive(Debug, Default)]
 struct UdlMetadata {
-    #[allow(dead_code)] // stored for future use by sub-modules
     namespace: String,
     functions: Vec<UdlFunction>,
 }
@@ -97,40 +102,17 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
 }
 
 // ---------------------------------------------------------------------------
-// Namespace extraction (fast path without full parse)
+// Namespace extraction fallback (non-UDL sources only)
 // ---------------------------------------------------------------------------
 
+// For UDL sources, namespace_from_source is only called when the parsed
+// UdlMetadata has an empty namespace (should not happen in practice).
 fn namespace_from_source(source: &Path) -> Result<String> {
-    if let Some(ns) = extract_namespace_from_udl(source) {
-        return Ok(ns);
-    }
     source
         .file_stem()
         .and_then(|s| s.to_str())
         .map(ToOwned::to_owned)
         .ok_or_else(|| anyhow::anyhow!("source path must have a valid UTF-8 file stem"))
-}
-
-fn extract_namespace_from_udl(source: &Path) -> Option<String> {
-    if source.extension().and_then(|e| e.to_str()) != Some("udl") {
-        return None;
-    }
-    let udl = fs::read_to_string(source).ok()?;
-    let marker = "namespace";
-    let start = udl.find(marker)?;
-    let mut chars = udl[start + marker.len()..].chars().peekable();
-    while matches!(chars.peek(), Some(c) if c.is_whitespace()) {
-        chars.next();
-    }
-    let mut ns = String::new();
-    while matches!(chars.peek(), Some(c) if c.is_ascii_alphanumeric() || *c == '_') {
-        ns.push(chars.next()?);
-    }
-    if ns.is_empty() {
-        None
-    } else {
-        Some(ns)
-    }
 }
 
 // ---------------------------------------------------------------------------

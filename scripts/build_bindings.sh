@@ -12,6 +12,8 @@ GENERATED_DIR="$REPO_ROOT/binding_tests/generated"
 NAMESPACE="simple_fns"
 
 echo "==> Compiling WASM fixture..."
+# NOTE: wasm-pack appends its own _bg suffix to --out-name, so the wasm
+# binary will be ${NAMESPACE}_bg_bg.wasm (double _bg). This is expected.
 (cd "$WASM_CRATE" && wasm-pack build --target web --out-name "${NAMESPACE}_bg" --out-dir "$GENERATED_DIR")
 
 echo "==> Generating TypeScript bindings..."
@@ -20,6 +22,6 @@ cargo run --bin uniffi-bindgen-js -- generate \
   "$REPO_ROOT/fixtures/simple-fns/src/${NAMESPACE}.udl"
 
 echo "==> Installing JS dependencies..."
-(cd "$REPO_ROOT/binding_tests" && pnpm install)
+(cd "$REPO_ROOT/binding_tests" && pnpm install --frozen-lockfile)
 
 echo "Done. Run 'pnpm test' in binding_tests/ to execute the smoke tests."

@@ -16,9 +16,13 @@ import { init, SimpleFns } from '../generated/simple_fns.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 beforeAll(async () => {
+  // wasm-pack appends its own _bg.wasm suffix to --out-name, so with
+  // --out-name simple_fns_bg the binary is simple_fns_bg_bg.wasm.
   const wasmPath = resolve(__dirname, '../generated/simple_fns_bg_bg.wasm');
   const bytes = await readFile(wasmPath);
-  await init({ module_or_path: bytes.buffer });
+  // Pass the Buffer (Uint8Array) directly; using bytes.buffer is unsafe because
+  // Node.js Buffers share a slab allocator and byteOffset may not be zero.
+  await init({ module_or_path: bytes });
 });
 
 describe('SimpleFns.greet', () => {
