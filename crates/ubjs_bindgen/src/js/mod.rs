@@ -864,7 +864,7 @@ fn render_enum_constructors(
         let exported = cfg
             .rename
             .get(&key)
-            .cloned()
+            .map(|s| safe_js_identifier(&s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&ctor.name)));
         let params: Vec<String> = ctor.args.iter().map(render_param).collect();
         let args: Vec<String> = ctor.args.iter().map(|a| safe_js_identifier(&camel_case(&a.name))).collect();
@@ -916,7 +916,7 @@ fn render_enum_methods_on_class(
         let exported = cfg
             .rename
             .get(&format!("{enum_name}.{}", m.name))
-            .cloned()
+            .map(|s| safe_js_identifier(&s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
         let params: Vec<String> = m.args.iter().map(render_param).collect();
         let ts_ret = if m.is_async {
@@ -1167,7 +1167,7 @@ fn render_enum_type(e: &UdlEnum, cfg: &config::JsBindingsConfig, local_crate: &s
             let exported = cfg
                 .rename
                 .get(&format!("{name}.{}", m.name))
-                .cloned()
+                .map(|s| safe_js_identifier(&s))
                 .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
             let self_param = format!("self: {name}");
             let other_params: Vec<String> = m.args.iter().map(render_param).collect();
@@ -1234,7 +1234,7 @@ fn render_callback_interface(cb: &UdlCallbackInterface, cfg: &config::JsBindings
         let exported = cfg
             .rename
             .get(&format!("{name}.{}", m.name))
-            .cloned()
+            .map(|s| safe_js_identifier(&s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
         let params: Vec<String> = m.args.iter().map(render_param).collect();
         let ts_ret = if m.is_async {
@@ -1340,7 +1340,7 @@ fn render_object_class(
         let exported = cfg
             .rename
             .get(&format!("{}.{}", name, ctor.name))
-            .cloned()
+            .map(|s| safe_js_identifier(&s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&ctor.name)));
         let ctor_fn = format!("{bg_name}_{}", ctor.name);
         out.push_str(&render_ctor(
@@ -1359,7 +1359,7 @@ fn render_object_class(
         let exported = cfg
             .rename
             .get(&format!("{}.{}", name, m.name))
-            .cloned()
+            .map(|s| safe_js_identifier(&s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
         let params: Vec<String> = m.args.iter().map(render_param).collect();
         let ts_ret = if m.is_async {
@@ -1434,7 +1434,7 @@ fn render_function(f: &UdlFunction, cfg: &config::JsBindingsConfig, local_crate:
     let exported = cfg
         .rename
         .get(&f.name)
-        .cloned()
+        .map(|s| safe_js_identifier(&s))
         .unwrap_or_else(|| safe_js_identifier(&camel_case(&f.name)));
 
     let params: Vec<String> = f.args.iter().map(render_param).collect();

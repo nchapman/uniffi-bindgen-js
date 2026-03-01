@@ -44,9 +44,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: runtime-artifacts
-          path: |
-            binding_tests/generated
-            binding_tests/node_modules
+          path: binding_tests/generated
 
   test-bindings-runtime:
     needs: build-runtime-artifacts
@@ -64,6 +62,8 @@ jobs:
         with:
           name: runtime-artifacts
           path: binding_tests
+      - name: Install JS dependencies
+        run: cd binding_tests && pnpm install --frozen-lockfile
       - name: TypeScript type check
         run: cd binding_tests && pnpm typecheck
       - name: Run JS smoke tests

@@ -41,8 +41,47 @@ export class LargeError extends Error {
 
 export type LargeEnum = 'Variant1' | 'Variant2' | 'Variant3' | 'Variant4' | 'Variant5' | 'Variant6' | 'Variant7' | 'Variant8' | 'Variant9' | 'Variant10' | 'Variant11' | 'Variant12' | 'Variant13' | 'Variant14' | 'Variant15' | 'Variant16' | 'Variant17' | 'Variant18' | 'Variant19' | 'Variant20' | 'Variant21' | 'Variant22' | 'Variant23' | 'Variant24' | 'Variant25' | 'Variant26' | 'Variant27' | 'Variant28' | 'Variant29' | 'Variant30' | 'Variant31' | 'Variant32' | 'Variant33' | 'Variant34' | 'Variant35' | 'Variant36' | 'Variant37' | 'Variant38' | 'Variant39' | 'Variant40' | 'Variant41' | 'Variant42' | 'Variant43' | 'Variant44' | 'Variant45' | 'Variant46' | 'Variant47' | 'Variant48' | 'Variant49' | 'Variant50';
 
+function _liftLargeError(e: unknown): never {
+  const tag = typeof e === 'string' ? e : (e instanceof Error ? e.message : null);
+  if (tag === 'Case1') throw new LargeError('Case1');
+  if (tag === 'Case2') throw new LargeError('Case2');
+  if (tag === 'Case3') throw new LargeError('Case3');
+  if (tag === 'Case4') throw new LargeError('Case4');
+  if (tag === 'Case5') throw new LargeError('Case5');
+  if (tag === 'Case6') throw new LargeError('Case6');
+  if (tag === 'Case7') throw new LargeError('Case7');
+  if (tag === 'Case8') throw new LargeError('Case8');
+  if (tag === 'Case9') throw new LargeError('Case9');
+  if (tag === 'Case10') throw new LargeError('Case10');
+  if (tag === 'Case11') throw new LargeError('Case11');
+  if (tag === 'Case12') throw new LargeError('Case12');
+  if (tag === 'Case13') throw new LargeError('Case13');
+  if (tag === 'Case14') throw new LargeError('Case14');
+  if (tag === 'Case15') throw new LargeError('Case15');
+  if (tag === 'Case16') throw new LargeError('Case16');
+  if (tag === 'Case17') throw new LargeError('Case17');
+  if (tag === 'Case18') throw new LargeError('Case18');
+  if (tag === 'Case19') throw new LargeError('Case19');
+  if (tag === 'Case20') throw new LargeError('Case20');
+  if (tag === 'Case21') throw new LargeError('Case21');
+  if (tag === 'Case22') throw new LargeError('Case22');
+  if (tag === 'Case23') throw new LargeError('Case23');
+  if (tag === 'Case24') throw new LargeError('Case24');
+  if (tag === 'Case25') throw new LargeError('Case25');
+  if (tag === 'Case26') throw new LargeError('Case26');
+  if (tag === 'Case27') throw new LargeError('Case27');
+  if (tag === 'Case28') throw new LargeError('Case28');
+  if (tag === 'Case29') throw new LargeError('Case29');
+  if (tag === 'Case30') throw new LargeError('Case30');
+  throw e;
+}
+
 export namespace TypeLimitsDemo {
+  export function maybeThrow(idx: number): void {
+    try { __bg.maybe_throw(idx); } catch (e) { _liftLargeError(e); }
+  }
   export function takeBytes(v: Uint8Array): Uint8Array { return __bg.take_bytes(v); }
+  export function takeEnum(v: LargeEnum): LargeEnum { return __bg.take_enum(v); }
   export function takeF32(v: number): number { return __bg.take_f32(v); }
   export function takeF64(v: number): number { return __bg.take_f64(v); }
   export function takeI16(v: number): number { return __bg.take_i16(v); }
