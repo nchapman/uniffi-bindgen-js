@@ -130,3 +130,8 @@ fn golden_keywords_demo_fixture() {
 fn golden_type_limits_demo_fixture() {
     run_golden("type-limits-demo", "type_limits_demo.udl", "type_limits_demo.ts");
 }
+
+#[test]
+fn golden_coverall_demo_fixture() {
+    run_golden("coverall-demo", "coverall_demo.udl", "coverall_demo.ts");
+}
