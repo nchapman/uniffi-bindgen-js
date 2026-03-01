@@ -85,3 +85,8 @@ fn golden_custom_types_fixture() {
 fn golden_traits_fixture() {
     run_golden("traits", "traits.udl", "traits.ts");
 }
+
+#[test]
+fn golden_callbacks_fixture() {
+    run_golden("callbacks", "callbacks.udl", "callbacks.ts");
+}

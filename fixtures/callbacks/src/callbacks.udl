@@ -1,0 +1,9 @@
+namespace callbacks {
+    string apply_formatter(Formatter fmt, string template);
+    string format_greeting(Formatter fmt, string name);
+};
+
+callback interface Formatter {
+    string format(string input);
+    string format_with_prefix(string prefix, string input);
+};

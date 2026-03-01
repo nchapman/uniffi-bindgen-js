@@ -127,6 +127,31 @@ struct UdlCustomType {
     builtin: Type,
 }
 
+/// A method on a `callback interface` — generates a method signature in a TS interface.
+///
+/// `throws_type` is intentionally absent: UniFFI UDL does not support `[Throws]` on
+/// callback interface methods (errors flow outward from the JS implementor into Rust,
+/// not inward from the generated binding).
+///
+/// `is_async` IS expressible in UDL (`[Async]` on a callback method). The generator
+/// emits `Promise<T>` for the method return type, which is the correct TypeScript
+/// contract. Wasm fixture crates must use `wasm_bindgen_futures` and return a
+/// `js_sys::Promise` to back async callback methods at runtime.
+#[derive(Debug)]
+struct UdlCallbackMethod {
+    name: String,
+    args: Vec<UdlArg>,
+    return_type: Option<Type>,
+    is_async: bool,
+}
+
+/// A `callback interface` declaration — generates a TypeScript interface.
+#[derive(Debug)]
+struct UdlCallbackInterface {
+    name: String,
+    methods: Vec<UdlCallbackMethod>,
+}
+
 #[derive(Debug, Default)]
 struct UdlMetadata {
     namespace: String,
@@ -136,6 +161,7 @@ struct UdlMetadata {
     records: Vec<UdlRecord>,
     objects: Vec<UdlObject>,
     custom_types: Vec<UdlCustomType>,
+    callback_interfaces: Vec<UdlCallbackInterface>,
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +257,31 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
         })
         .collect();
 
+    let callback_interfaces = ci
+        .callback_interface_definitions()
+        .iter()
+        .map(|cb| UdlCallbackInterface {
+            name: cb.name().to_string(),
+            methods: cb
+                .methods()
+                .iter()
+                .map(|m| UdlCallbackMethod {
+                    name: m.name().to_string(),
+                    args: m
+                        .arguments()
+                        .into_iter()
+                        .map(|a| UdlArg {
+                            name: a.name().to_string(),
+                            type_: a.as_type(),
+                        })
+                        .collect(),
+                    return_type: m.return_type().cloned(),
+                    is_async: m.is_async(),
+                })
+                .collect(),
+        })
+        .collect();
+
     // Collect all [Custom] typedefs from the type universe, sorted by name for
     // deterministic output (iter_local_types order is not guaranteed by uniffi-bindgen).
     let mut seen_custom: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -255,6 +306,7 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
         records,
         objects,
         custom_types,
+        callback_interfaces,
     })
 }
 
@@ -366,6 +418,14 @@ fn render_ts(
         if !cfg.exclude.contains(&e.name) {
             out.push('\n');
             out.push_str(&render_enum_type(e));
+        }
+    }
+
+    // Callback interfaces (structural TypeScript interfaces)
+    for cb in &metadata.callback_interfaces {
+        if !cfg.exclude.contains(&cb.name) {
+            out.push('\n');
+            out.push_str(&render_callback_interface(cb, cfg));
         }
     }
 
@@ -625,6 +685,49 @@ fn render_enum_type(e: &UdlEnum) -> String {
             }
         }
     }
+    out
+}
+
+// ---------------------------------------------------------------------------
+// Callback interface generation
+// ---------------------------------------------------------------------------
+
+fn render_callback_interface(cb: &UdlCallbackInterface, cfg: &config::JsBindingsConfig) -> String {
+    let mut out = String::new();
+    let name = &cb.name;
+    out.push_str(&format!("export interface {name} {{\n"));
+    for m in &cb.methods {
+        // Per-method exclude uses the "InterfaceName.method_name" key (same convention as objects).
+        if cfg.exclude.contains(&format!("{name}.{}", m.name)) {
+            continue;
+        }
+        let exported = cfg
+            .rename
+            .get(&format!("{name}.{}", m.name))
+            .cloned()
+            .unwrap_or_else(|| camel_case(&m.name));
+        let params: Vec<String> = m
+            .args
+            .iter()
+            .map(|a| format!("{}: {}", camel_case(&a.name), ts_type_str(&a.type_)))
+            .collect();
+        let ts_ret = if m.is_async {
+            format!(
+                "Promise<{}>",
+                m.return_type
+                    .as_ref()
+                    .map(ts_type_str)
+                    .unwrap_or_else(|| "void".to_string())
+            )
+        } else {
+            m.return_type
+                .as_ref()
+                .map(ts_type_str)
+                .unwrap_or_else(|| "void".to_string())
+        };
+        out.push_str(&format!("  {exported}({}): {ts_ret};\n", params.join(", ")));
+    }
+    out.push_str("}\n");
     out
 }
 
