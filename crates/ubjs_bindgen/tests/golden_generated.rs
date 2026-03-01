@@ -4,6 +4,19 @@ use std::path::PathBuf;
 use ubjs_bindgen::cli::GenerateArgs;
 
 fn run_golden(fixture_name: &str, udl_file: &str, ts_file: &str) {
+    run_golden_impl(fixture_name, udl_file, ts_file, None);
+}
+
+/// Like `run_golden` but passes an explicit config path instead of relying on
+/// automatic `uniffi.toml` discovery.  Use this for fixtures whose whole point
+/// is to exercise config behaviour so the test is self-documenting.
+fn run_golden_with_config(fixture_name: &str, udl_file: &str, ts_file: &str, config_file: &str) {
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let config = repo.join(format!("fixtures/{fixture_name}/src/{config_file}"));
+    run_golden_impl(fixture_name, udl_file, ts_file, Some(config));
+}
+
+fn run_golden_impl(fixture_name: &str, udl_file: &str, ts_file: &str, config: Option<PathBuf>) {
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let fixture = repo.join(format!("fixtures/{fixture_name}/src/{udl_file}"));
     let expected = repo.join(format!("fixtures/{fixture_name}/expected/{ts_file}"));
@@ -14,7 +27,7 @@ fn run_golden(fixture_name: &str, udl_file: &str, ts_file: &str) {
     ubjs_bindgen::js::generate_bindings(&GenerateArgs {
         source: fixture,
         out_dir: out_dir.clone(),
-        config: None,
+        config,
     })
     .expect("generation should succeed");
 
@@ -51,4 +64,19 @@ fn golden_counter_fixture() {
 #[test]
 fn golden_rich_errors_fixture() {
     run_golden("rich-errors", "rich_errors.udl", "rich_errors.ts");
+}
+
+#[test]
+fn golden_rename_exclude_fixture() {
+    run_golden_with_config(
+        "rename-exclude",
+        "rename_exclude.udl",
+        "rename_exclude.ts",
+        "uniffi.toml",
+    );
+}
+
+#[test]
+fn golden_custom_types_fixture() {
+    run_golden("custom-types", "custom_types.udl", "custom_types.ts");
 }

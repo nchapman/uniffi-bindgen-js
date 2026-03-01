@@ -118,6 +118,15 @@ struct UdlObject {
     methods: Vec<UdlMethod>,
 }
 
+/// A `[Custom]` typedef — generates a TypeScript type alias.
+#[derive(Debug)]
+struct UdlCustomType {
+    /// The custom type name (e.g. `Url`).
+    name: String,
+    /// The underlying builtin type (e.g. `Type::String`).
+    builtin: Type,
+}
+
 #[derive(Debug, Default)]
 struct UdlMetadata {
     namespace: String,
@@ -126,6 +135,7 @@ struct UdlMetadata {
     enums: Vec<UdlEnum>,
     records: Vec<UdlRecord>,
     objects: Vec<UdlObject>,
+    custom_types: Vec<UdlCustomType>,
 }
 
 // ---------------------------------------------------------------------------
@@ -221,6 +231,22 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
         })
         .collect();
 
+    // Collect all [Custom] typedefs from the type universe, sorted by name for
+    // deterministic output (iter_local_types order is not guaranteed by uniffi-bindgen).
+    let mut seen_custom: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut custom_types: Vec<UdlCustomType> = Vec::new();
+    for t in ci.iter_local_types() {
+        if let Type::Custom { name, builtin, .. } = t {
+            if seen_custom.insert(name.clone()) {
+                custom_types.push(UdlCustomType {
+                    name: name.clone(),
+                    builtin: *builtin.clone(),
+                });
+            }
+        }
+    }
+    custom_types.sort_by(|a, b| a.name.cmp(&b.name));
+
     Ok(UdlMetadata {
         namespace: ci.namespace().to_string(),
         functions,
@@ -228,6 +254,7 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
         enums,
         records,
         objects,
+        custom_types,
     })
 }
 
@@ -300,6 +327,23 @@ fn render_ts(
         "import __init, * as __bg from './{namespace}_bg.js';\n"
     ));
     out.push_str("export { __init as init };\n");
+
+    // Custom type aliases (top-level, before everything else)
+    for ct in &metadata.custom_types {
+        if !cfg.exclude.contains(&ct.name) {
+            let exported = cfg
+                .rename
+                .get(&ct.name)
+                .cloned()
+                .unwrap_or_else(|| ct.name.clone());
+            out.push('\n');
+            out.push_str(&format!(
+                "export type {} = {};\n",
+                exported,
+                ts_type_str(&ct.builtin)
+            ));
+        }
+    }
 
     // Error classes (top-level, before namespace)
     for e in &metadata.errors {
@@ -839,6 +883,9 @@ fn ts_type_str(t: &Type) -> String {
         | Type::Record { name, .. }
         | Type::Object { name, .. }
         | Type::CallbackInterface { name, .. } => name.clone(),
+        // Custom types appear in signatures by their user-facing name; the WASM
+        // boundary passes the underlying builtin transparently.
+        Type::Custom { name, .. } => name.clone(),
         _ => "unknown".to_string(),
     }
 }

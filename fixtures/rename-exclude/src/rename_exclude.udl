@@ -1,0 +1,10 @@
+namespace rename_exclude {
+    string hello(string name);
+    string farewell(string name);
+    string version();
+};
+
+dictionary InternalState {
+    u32 counter;
+    boolean active;
+};

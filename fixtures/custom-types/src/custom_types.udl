@@ -1,0 +1,11 @@
+[Custom]
+typedef string Url;
+
+[Custom]
+typedef i64 Handle;
+
+namespace custom_types {
+    Url normalize_url(Url url);
+    Handle make_handle(i64 seed);
+    boolean handles_equal(Handle a, Handle b);
+};

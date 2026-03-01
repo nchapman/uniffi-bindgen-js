@@ -1,0 +1,5 @@
+[bindings.js]
+exclude = ["farewell", "InternalState"]
+
+[bindings.js.rename]
+hello = "greet"

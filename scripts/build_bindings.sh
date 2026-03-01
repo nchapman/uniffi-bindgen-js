@@ -25,11 +25,13 @@ build_fixture() {
     "$REPO_ROOT/fixtures/${fixture}/src/${namespace}.udl"
 }
 
-build_fixture "simple-fns"   "simple_fns"
-build_fixture "arithmetic"   "arithmetic"
-build_fixture "geometry"     "geometry"
-build_fixture "counter"      "counter"
-build_fixture "rich-errors"  "rich_errors"
+build_fixture "simple-fns"      "simple_fns"
+build_fixture "arithmetic"      "arithmetic"
+build_fixture "geometry"        "geometry"
+build_fixture "counter"         "counter"
+build_fixture "rich-errors"     "rich_errors"
+build_fixture "custom-types"    "custom_types"
+build_fixture "rename-exclude"  "rename_exclude"
 
 echo "==> Installing JS dependencies..."
 (cd "$REPO_ROOT/binding_tests" && pnpm install --frozen-lockfile)
