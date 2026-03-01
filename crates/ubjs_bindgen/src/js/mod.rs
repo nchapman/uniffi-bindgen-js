@@ -44,6 +44,7 @@ struct UdlFunction {
     return_type: Option<Type>,
     throws_type: Option<Type>,
     is_async: bool,
+    docstring: Option<String>,
 }
 
 #[derive(Debug)]
@@ -57,6 +58,7 @@ struct UdlArg {
 struct UdlField {
     name: String,
     type_: Type,
+    docstring: Option<String>,
 }
 
 /// One variant of an enum or error type.
@@ -65,6 +67,7 @@ struct UdlVariant {
     name: String,
     /// Empty for flat variants (no associated data).
     fields: Vec<UdlField>,
+    docstring: Option<String>,
 }
 
 /// A [Error] enum — generates a TypeScript error class.
@@ -73,6 +76,7 @@ struct UdlError {
     name: String,
     variants: Vec<UdlVariant>,
     is_flat: bool,
+    docstring: Option<String>,
 }
 
 /// A plain enum or [Enum] interface — generates a TypeScript union type.
@@ -82,6 +86,7 @@ struct UdlEnum {
     variants: Vec<UdlVariant>,
     /// true ↔ all variants are unit variants (no fields); serialises as a string.
     is_flat: bool,
+    docstring: Option<String>,
 }
 
 /// A `dictionary` declaration — generates a TypeScript interface.
@@ -89,6 +94,7 @@ struct UdlEnum {
 struct UdlRecord {
     name: String,
     fields: Vec<UdlField>,
+    docstring: Option<String>,
 }
 
 /// A constructor of an `interface` object.
@@ -98,6 +104,7 @@ struct UdlConstructor {
     name: String,
     args: Vec<UdlArg>,
     throws_type: Option<Type>,
+    docstring: Option<String>,
 }
 
 /// A method on an `interface` object.
@@ -108,6 +115,7 @@ struct UdlMethod {
     return_type: Option<Type>,
     throws_type: Option<Type>,
     is_async: bool,
+    docstring: Option<String>,
 }
 
 /// An `interface` declaration — generates a TypeScript class.
@@ -116,6 +124,7 @@ struct UdlObject {
     name: String,
     constructors: Vec<UdlConstructor>,
     methods: Vec<UdlMethod>,
+    docstring: Option<String>,
 }
 
 /// A `[Custom]` typedef — generates a TypeScript type alias.
@@ -143,6 +152,7 @@ struct UdlCallbackMethod {
     args: Vec<UdlArg>,
     return_type: Option<Type>,
     is_async: bool,
+    docstring: Option<String>,
 }
 
 /// A `callback interface` declaration — generates a TypeScript interface.
@@ -150,11 +160,13 @@ struct UdlCallbackMethod {
 struct UdlCallbackInterface {
     name: String,
     methods: Vec<UdlCallbackMethod>,
+    docstring: Option<String>,
 }
 
 #[derive(Debug, Default)]
 struct UdlMetadata {
     namespace: String,
+    namespace_docstring: Option<String>,
     functions: Vec<UdlFunction>,
     errors: Vec<UdlError>,
     enums: Vec<UdlEnum>,
@@ -194,6 +206,7 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
             return_type: f.return_type().cloned(),
             throws_type: f.throws_type().cloned(),
             is_async: f.is_async(),
+            docstring: f.docstring().map(ToOwned::to_owned),
         })
         .collect();
 
@@ -210,8 +223,10 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
                 .map(|f| UdlField {
                     name: f.name().to_string(),
                     type_: f.as_type(),
+                    docstring: f.docstring().map(ToOwned::to_owned),
                 })
                 .collect(),
+            docstring: r.docstring().map(ToOwned::to_owned),
         })
         .collect();
 
@@ -234,6 +249,7 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
                         })
                         .collect(),
                     throws_type: c.throws_type().cloned(),
+                    docstring: c.docstring().map(ToOwned::to_owned),
                 })
                 .collect(),
             methods: o
@@ -252,8 +268,10 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
                     return_type: m.return_type().cloned(),
                     throws_type: m.throws_type().cloned(),
                     is_async: m.is_async(),
+                    docstring: m.docstring().map(ToOwned::to_owned),
                 })
                 .collect(),
+            docstring: o.docstring().map(ToOwned::to_owned),
         })
         .collect();
 
@@ -277,8 +295,10 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
                         .collect(),
                     return_type: m.return_type().cloned(),
                     is_async: m.is_async(),
+                    docstring: m.docstring().map(ToOwned::to_owned),
                 })
                 .collect(),
+            docstring: cb.docstring().map(ToOwned::to_owned),
         })
         .collect();
 
@@ -300,6 +320,7 @@ fn parse_udl_metadata(source: &Path) -> Result<UdlMetadata> {
 
     Ok(UdlMetadata {
         namespace: ci.namespace().to_string(),
+        namespace_docstring: ci.namespace_docstring().map(ToOwned::to_owned),
         functions,
         errors,
         enums,
@@ -326,8 +347,10 @@ fn parse_enums(ci: &ComponentInterface) -> (Vec<UdlError>, Vec<UdlEnum>) {
                     .map(|f| UdlField {
                         name: f.name().to_string(),
                         type_: f.as_type(),
+                        docstring: f.docstring().map(ToOwned::to_owned),
                     })
                     .collect(),
+                docstring: v.docstring().map(ToOwned::to_owned),
             })
             .collect();
 
@@ -336,12 +359,14 @@ fn parse_enums(ci: &ComponentInterface) -> (Vec<UdlError>, Vec<UdlEnum>) {
                 name: e.name().to_string(),
                 variants,
                 is_flat: e.is_flat(),
+                docstring: e.docstring().map(ToOwned::to_owned),
             });
         } else {
             enums.push(UdlEnum {
                 name: e.name().to_string(),
                 variants,
                 is_flat: e.is_flat(),
+                docstring: e.docstring().map(ToOwned::to_owned),
             });
         }
     }
@@ -379,6 +404,13 @@ fn render_ts(
         "import __init, * as __bg from './{namespace}_bg.js';\n"
     ));
     out.push_str("export { __init as init };\n");
+
+    // Namespace-level docstring — emitted at module top regardless of whether there
+    // are any free functions, so it serves as module documentation even for type-only files.
+    if let Some(doc) = &metadata.namespace_docstring {
+        out.push('\n');
+        out.push_str(&render_jsdoc(Some(doc.as_str()), ""));
+    }
 
     // Custom type aliases (top-level, before everything else)
     for ct in &metadata.custom_types {
@@ -484,7 +516,8 @@ fn render_ts(
         .collect();
 
     if !visible_fns.is_empty() {
-        out.push_str(&format!("\nexport namespace {module_name} {{\n"));
+        out.push('\n');
+        out.push_str(&format!("export namespace {module_name} {{\n"));
         for f in &visible_fns {
             out.push_str(&render_function(f, cfg));
         }
@@ -506,6 +539,7 @@ fn render_error_class(e: &UdlError) -> String {
         // Flat error: single `tag` string property, no variant fields
         let tag_union: Vec<String> = e.variants.iter().map(|v| format!("'{}'", v.name)).collect();
 
+        out.push_str(&render_jsdoc(e.docstring.as_deref(), ""));
         out.push_str(&format!("export class {name} extends Error {{\n"));
         out.push_str(&format!("  readonly tag: {};\n", tag_union.join(" | ")));
         out.push_str(&format!(
@@ -517,6 +551,7 @@ fn render_error_class(e: &UdlError) -> String {
         out.push_str("    this.tag = tag;\n");
         out.push_str("  }\n");
         for v in &e.variants {
+            out.push_str(&render_jsdoc(v.docstring.as_deref(), "  "));
             out.push_str(&format!(
                 "  static {}(): {name} {{ return new {name}('{}'); }}\n",
                 v.name, v.name
@@ -545,6 +580,7 @@ fn render_error_class(e: &UdlError) -> String {
                 ));
             }
         }
+        out.push_str(&render_jsdoc(e.docstring.as_deref(), ""));
         out.push_str(&format!("export class {name} extends Error {{\n"));
         out.push_str(&format!(
             "  constructor(public readonly variant: {variant_type}) {{\n"
@@ -565,6 +601,7 @@ fn render_error_class(e: &UdlError) -> String {
             } else {
                 format!("{{ tag: '{}', {} }}", v.name, obj_fields.join(", "))
             };
+            out.push_str(&render_jsdoc(v.docstring.as_deref(), "  "));
             out.push_str(&format!(
                 "  static {}({}): {name} {{ return new {name}({variant_obj}); }}\n",
                 v.name,
@@ -640,10 +677,12 @@ fn render_lift_fn(e: &UdlError) -> String {
 
 fn render_record_interface(r: &UdlRecord) -> String {
     let mut out = String::new();
+    out.push_str(&render_jsdoc(r.docstring.as_deref(), ""));
     out.push_str(&format!("export interface {} {{\n", r.name));
     for f in &r.fields {
         let ts_name = camel_case(&f.name);
         let ts_type = ts_type_str(&f.type_);
+        out.push_str(&render_jsdoc(f.docstring.as_deref(), "  "));
         out.push_str(&format!("  {ts_name}: {ts_type};\n"));
     }
     out.push_str("}\n");
@@ -657,7 +696,31 @@ fn render_record_interface(r: &UdlRecord) -> String {
 fn render_enum_type(e: &UdlEnum) -> String {
     let mut out = String::new();
     if e.is_flat {
-        // Flat enum → TypeScript union of string literals
+        // Flat enum → TypeScript union of string literals.
+        // Individual variant docstrings have no JSDoc anchor in a union type, so
+        // any variant docs are folded into the parent type's JSDoc as a bullet list.
+        let has_variant_docs = e.variants.iter().any(|v| v.docstring.is_some());
+        let doc = if has_variant_docs {
+            let base = e.docstring.as_deref().unwrap_or("").trim().to_string();
+            let bullets: Vec<String> = e
+                .variants
+                .iter()
+                .filter_map(|v| {
+                    v.docstring
+                        .as_deref()
+                        .map(|d| format!("- `{}`: {}", v.name, d.trim()))
+                })
+                .collect();
+            let joined = bullets.join("\n");
+            if base.is_empty() {
+                Some(joined)
+            } else {
+                Some(format!("{base}\n{joined}"))
+            }
+        } else {
+            e.docstring.clone()
+        };
+        out.push_str(&render_jsdoc(doc.as_deref(), ""));
         let variants: Vec<String> = e.variants.iter().map(|v| format!("'{}'", v.name)).collect();
         out.push_str(&format!(
             "export type {} = {};\n",
@@ -665,7 +728,10 @@ fn render_enum_type(e: &UdlEnum) -> String {
             variants.join(" | ")
         ));
     } else {
-        // Data enum → discriminated union
+        // Data enum → discriminated union.
+        // Variant docstrings have no per-member anchor in a union type; the type-level
+        // docstring is the only JSDoc anchor available.
+        out.push_str(&render_jsdoc(e.docstring.as_deref(), ""));
         out.push_str(&format!("export type {} =\n", e.name));
         for (i, v) in e.variants.iter().enumerate() {
             let sep = if i == e.variants.len() - 1 { ";" } else { "" };
@@ -695,6 +761,7 @@ fn render_enum_type(e: &UdlEnum) -> String {
 fn render_callback_interface(cb: &UdlCallbackInterface, cfg: &config::JsBindingsConfig) -> String {
     let mut out = String::new();
     let name = &cb.name;
+    out.push_str(&render_jsdoc(cb.docstring.as_deref(), ""));
     out.push_str(&format!("export interface {name} {{\n"));
     for m in &cb.methods {
         // Per-method exclude uses the "InterfaceName.method_name" key (same convention as objects).
@@ -725,6 +792,7 @@ fn render_callback_interface(cb: &UdlCallbackInterface, cfg: &config::JsBindings
                 .map(ts_type_str)
                 .unwrap_or_else(|| "void".to_string())
         };
+        out.push_str(&render_jsdoc(m.docstring.as_deref(), "  "));
         out.push_str(&format!("  {exported}({}): {ts_ret};\n", params.join(", ")));
     }
     out.push_str("}\n");
@@ -740,6 +808,7 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
     let name = &o.name;
     let bg_name = snake_case(name); // wasm-bindgen uses the Rust struct name
 
+    out.push_str(&render_jsdoc(o.docstring.as_deref(), ""));
     out.push_str(&format!("export class {name} {{\n"));
     out.push_str(&format!("  private readonly _inner: __bg.{name};\n"));
 
@@ -766,6 +835,7 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
             .collect();
         let args: Vec<String> = ctor.args.iter().map(|a| camel_case(&a.name)).collect();
         let inner_expr = format!("new __bg.{name}({})", args.join(", "));
+        out.push_str(&render_jsdoc(ctor.docstring.as_deref(), "  "));
         if let Some(throws) = &ctor.throws_type {
             let lift = format!("_lift{}", type_name(throws));
             out.push_str(&format!(
@@ -794,6 +864,7 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
         let args: Vec<String> = ctor.args.iter().map(|a| camel_case(&a.name)).collect();
         let ctor_fn = format!("{bg_name}_{}", ctor.name);
         let inner_expr = format!("__bg.{}({})", ctor_fn, args.join(", "));
+        out.push_str(&render_jsdoc(ctor.docstring.as_deref(), "  "));
         if let Some(throws) = &ctor.throws_type {
             let lift = format!("_lift{}", type_name(throws));
             out.push_str(&format!(
@@ -853,6 +924,7 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
 
         let async_kw = if m.is_async { "async " } else { "" };
 
+        out.push_str(&render_jsdoc(m.docstring.as_deref(), "  "));
         if let Some(throws) = &m.throws_type {
             let lift = format!("_lift{}", type_name(throws));
             if m.return_type.is_some() {
@@ -933,6 +1005,7 @@ fn render_function(f: &UdlFunction, cfg: &config::JsBindingsConfig) -> String {
 
     let async_kw = if f.is_async { "async " } else { "" };
 
+    out.push_str(&render_jsdoc(f.docstring.as_deref(), "  "));
     if let Some(throws) = &f.throws_type {
         let lift = format!("_lift{}", type_name(throws));
         if f.return_type.is_some() {
@@ -1067,6 +1140,40 @@ fn pascal_case(input: &str) -> String {
     }
 }
 
+/// Render an optional UDL docstring as a JSDoc block comment.
+///
+/// Returns an empty string when `docstring` is `None` or blank, so callers can
+/// unconditionally prepend the result without introducing extra blank lines.
+/// `indent` is prepended to every line (e.g. `""` for top-level, `"  "` for members).
+fn render_jsdoc(docstring: Option<&str>, indent: &str) -> String {
+    let raw = match docstring.map(str::trim) {
+        Some(s) if !s.is_empty() => s,
+        _ => return String::new(),
+    };
+    // Escape `*/` so it cannot prematurely close the JSDoc block.
+    let lines: Vec<String> = raw
+        .lines()
+        .map(|l| l.trim().replace("*/", "*\\/"))
+        .collect();
+    // Use single-line format only when the whole comment fits on one line (≤80 chars).
+    let single = &lines[0];
+    let single_len = indent.len() + "/** ".len() + single.len() + " */".len();
+    if lines.len() == 1 && single_len <= 80 {
+        format!("{indent}/** {single} */\n")
+    } else {
+        let mut out = format!("{indent}/**\n");
+        for line in &lines {
+            if line.is_empty() {
+                out.push_str(&format!("{indent} *\n"));
+            } else {
+                out.push_str(&format!("{indent} * {line}\n"));
+            }
+        }
+        out.push_str(&format!("{indent} */\n"));
+        out
+    }
+}
+
 fn snake_case(input: &str) -> String {
     let mut out = String::new();
     for (i, ch) in input.chars().enumerate() {
@@ -1103,5 +1210,59 @@ mod tests {
     fn snake_case_handles_pascal() {
         assert_eq!(snake_case("Counter"), "counter");
         assert_eq!(snake_case("MyCounter"), "my_counter");
+    }
+
+    #[test]
+    fn render_jsdoc_none_returns_empty() {
+        assert_eq!(render_jsdoc(None, ""), "");
+    }
+
+    #[test]
+    fn render_jsdoc_blank_returns_empty() {
+        assert_eq!(render_jsdoc(Some("   "), ""), "");
+        assert_eq!(render_jsdoc(Some(""), ""), "");
+    }
+
+    #[test]
+    fn render_jsdoc_single_line() {
+        assert_eq!(render_jsdoc(Some("Hello."), ""), "/** Hello. */\n");
+    }
+
+    #[test]
+    fn render_jsdoc_single_line_with_indent() {
+        assert_eq!(render_jsdoc(Some("Hello."), "  "), "  /** Hello. */\n");
+    }
+
+    #[test]
+    fn render_jsdoc_multi_line() {
+        let doc = "First line.\nSecond line.";
+        let expected = "/**\n * First line.\n * Second line.\n */\n";
+        assert_eq!(render_jsdoc(Some(doc), ""), expected);
+    }
+
+    #[test]
+    fn render_jsdoc_multi_line_with_blank() {
+        let doc = "First.\n\nSecond.";
+        let expected = "/**\n * First.\n *\n * Second.\n */\n";
+        assert_eq!(render_jsdoc(Some(doc), ""), expected);
+    }
+
+    #[test]
+    fn render_jsdoc_escapes_comment_close() {
+        assert_eq!(
+            render_jsdoc(Some("Returns a*/ value."), ""),
+            "/** Returns a*\\/ value. */\n"
+        );
+    }
+
+    #[test]
+    fn render_jsdoc_long_single_line_uses_block_format() {
+        // 76+ chars on the line itself should spill into block format to stay under 80
+        let doc = "This is a very long docstring that exceeds the eighty character threshold.";
+        let result = render_jsdoc(Some(doc), "");
+        assert!(
+            result.starts_with("/**\n"),
+            "expected block format, got: {result}"
+        );
     }
 }

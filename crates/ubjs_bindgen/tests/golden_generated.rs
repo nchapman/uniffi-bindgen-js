@@ -90,3 +90,8 @@ fn golden_traits_fixture() {
 fn golden_callbacks_fixture() {
     run_golden("callbacks", "callbacks.udl", "callbacks.ts");
 }
+
+#[test]
+fn golden_docstrings_fixture() {
+    run_golden("docstrings", "docstrings.udl", "docstrings.ts");
+}

@@ -1,0 +1,38 @@
+/// The docstrings demo namespace.
+namespace docstrings {
+    /// Returns a greeting for the given name.
+    /// Supports Unicode names.
+    string greet(string name);
+};
+
+/// A 2D point value.
+dictionary Point {
+    /// Horizontal position.
+    i32 x;
+    /// Vertical position.
+    i32 y;
+};
+
+/// The mood of the user.
+enum Mood {
+    /// Feeling good.
+    "Happy",
+    /// Feeling bad.
+    "Sad",
+};
+
+/// A text processing callback.
+callback interface Processor {
+    /// Processes the input text and returns the result.
+    string process(string input);
+};
+
+/// A counter that can be incremented and decremented.
+interface Counter {
+    /// Creates a new counter starting at the given value.
+    constructor(i64 start);
+    /// Increments the counter by one.
+    void increment();
+    /// Returns the current value.
+    i64 get();
+};
