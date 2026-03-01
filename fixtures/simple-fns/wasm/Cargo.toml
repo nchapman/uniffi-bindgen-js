@@ -1,5 +1,5 @@
 [package]
-name = "uniffi_simple_fns"
+name = "simple_fns"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -7,5 +7,7 @@ publish = false
 [lib]
 crate-type = ["cdylib"]
 
-# Stand-alone workspace so it can be compiled independently of the generator.
+[dependencies]
+wasm-bindgen = "0.2"
+
 [workspace]
