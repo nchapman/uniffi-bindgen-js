@@ -1,0 +1,1 @@
+/Users/nchapman/Drive/Code/uniffi-bindgen-js/fixtures/simple-fns/native-lib/target/release/libuniffi_simple_fns.dylib: /Users/nchapman/Drive/Code/uniffi-bindgen-js/fixtures/simple-fns/native-lib/src/lib.rs
