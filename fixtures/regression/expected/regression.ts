@@ -67,6 +67,7 @@ export class SafeDivider {
     this._freed = true;
     this._inner.free();
   }
+  [Symbol.dispose](): void { this.free(); }
 }
 
 function _liftDivError(e: unknown): never {

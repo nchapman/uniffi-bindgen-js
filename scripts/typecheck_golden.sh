@@ -62,8 +62,9 @@ done
 cat > "$TMPDIR/tsconfig.json" <<'EOF'
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2022",
     "module": "ES2022",
+    "lib": ["ES2022", "ESNext.Disposable"],
     "moduleResolution": "bundler",
     "strict": false,
     "noEmit": true,

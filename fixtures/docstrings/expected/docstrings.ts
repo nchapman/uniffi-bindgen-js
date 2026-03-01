@@ -53,6 +53,7 @@ export class Counter {
     this._freed = true;
     this._inner.free();
   }
+  [Symbol.dispose](): void { this.free(); }
 }
 
 /** The docstrings demo namespace. */

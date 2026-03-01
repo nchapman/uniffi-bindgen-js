@@ -27,6 +27,7 @@ export class Drawable {
     this._freed = true;
     this._inner.free();
   }
+  [Symbol.dispose](): void { this.free(); }
 }
 
 export namespace Traits {

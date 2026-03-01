@@ -1173,6 +1173,9 @@ fn render_object_class(o: &UdlObject, _namespace: &str, cfg: &config::JsBindings
     out.push_str("  /** Releases the underlying WASM resource. Safe to call more than once. */\n");
     out.push_str("  free(): void {\n    if (this._freed) return;\n    this._freed = true;\n    this._inner.free();\n  }\n");
 
+    // Symbol.dispose — enables `using obj = Foo.new(...)` for automatic cleanup.
+    out.push_str("  [Symbol.dispose](): void { this.free(); }\n");
+
     out.push_str("}\n");
     out
 }
