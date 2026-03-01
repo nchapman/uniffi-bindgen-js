@@ -769,7 +769,13 @@ fn render_error_class(e: &UdlError, cfg: &config::JsBindingsConfig, local_crate:
                 let fields: Vec<String> = v
                     .fields
                     .iter()
-                    .map(|f| format!("{}: {}", safe_js_identifier(&camel_case(&f.name)), ts_type_str(&f.type_)))
+                    .map(|f| {
+                        format!(
+                            "{}: {}",
+                            safe_js_identifier(&camel_case(&f.name)),
+                            ts_type_str(&f.type_)
+                        )
+                    })
                     .collect();
                 out.push_str(&format!(
                     "  | {{ tag: '{}', {} }}{sep}\n",
@@ -794,10 +800,20 @@ fn render_error_class(e: &UdlError, cfg: &config::JsBindingsConfig, local_crate:
             let params: Vec<String> = v
                 .fields
                 .iter()
-                .map(|f| format!("{}: {}", safe_js_identifier(&camel_case(&f.name)), ts_type_str(&f.type_)))
+                .map(|f| {
+                    format!(
+                        "{}: {}",
+                        safe_js_identifier(&camel_case(&f.name)),
+                        ts_type_str(&f.type_)
+                    )
+                })
                 .collect();
             // Object literal uses camelCase shorthand (param names match property names).
-            let obj_fields: Vec<String> = v.fields.iter().map(|f| safe_js_identifier(&camel_case(&f.name))).collect();
+            let obj_fields: Vec<String> = v
+                .fields
+                .iter()
+                .map(|f| safe_js_identifier(&camel_case(&f.name)))
+                .collect();
             let variant_obj = if v.fields.is_empty() {
                 format!("{{ tag: '{}' }}", v.name)
             } else {
@@ -864,10 +880,14 @@ fn render_enum_constructors(
         let exported = cfg
             .rename
             .get(&key)
-            .map(|s| safe_js_identifier(&s))
+            .map(|s| safe_js_identifier(s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&ctor.name)));
         let params: Vec<String> = ctor.args.iter().map(render_param).collect();
-        let args: Vec<String> = ctor.args.iter().map(|a| safe_js_identifier(&camel_case(&a.name))).collect();
+        let args: Vec<String> = ctor
+            .args
+            .iter()
+            .map(|a| safe_js_identifier(&camel_case(&a.name)))
+            .collect();
         let async_kw = if ctor.is_async { "async " } else { "" };
         let await_kw = if ctor.is_async { "await " } else { "" };
         let ret_type = if ctor.is_async {
@@ -916,7 +936,7 @@ fn render_enum_methods_on_class(
         let exported = cfg
             .rename
             .get(&format!("{enum_name}.{}", m.name))
-            .map(|s| safe_js_identifier(&s))
+            .map(|s| safe_js_identifier(s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
         let params: Vec<String> = m.args.iter().map(render_param).collect();
         let ts_ret = if m.is_async {
@@ -933,7 +953,11 @@ fn render_enum_methods_on_class(
                 .map(ts_type_str)
                 .unwrap_or_else(|| "void".to_string())
         };
-        let call_args: Vec<String> = m.args.iter().map(|a| safe_js_identifier(&camel_case(&a.name))).collect();
+        let call_args: Vec<String> = m
+            .args
+            .iter()
+            .map(|a| safe_js_identifier(&camel_case(&a.name)))
+            .collect();
         let self_plus_args = if call_args.is_empty() {
             "this".to_string()
         } else {
@@ -1129,7 +1153,13 @@ fn render_enum_type(e: &UdlEnum, cfg: &config::JsBindingsConfig, local_crate: &s
                 let fields: Vec<String> = v
                     .fields
                     .iter()
-                    .map(|f| format!("{}: {}", safe_js_identifier(&camel_case(&f.name)), ts_type_str(&f.type_)))
+                    .map(|f| {
+                        format!(
+                            "{}: {}",
+                            safe_js_identifier(&camel_case(&f.name)),
+                            ts_type_str(&f.type_)
+                        )
+                    })
                     .collect();
                 out.push_str(&format!(
                     "  | {{ tag: '{}', {} }}{sep}\n",
@@ -1166,7 +1196,7 @@ fn render_enum_type(e: &UdlEnum, cfg: &config::JsBindingsConfig, local_crate: &s
             let exported = cfg
                 .rename
                 .get(&format!("{name}.{}", m.name))
-                .map(|s| safe_js_identifier(&s))
+                .map(|s| safe_js_identifier(s))
                 .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
             let self_param = format!("self: {name}");
             let other_params: Vec<String> = m.args.iter().map(render_param).collect();
@@ -1189,7 +1219,11 @@ fn render_enum_type(e: &UdlEnum, cfg: &config::JsBindingsConfig, local_crate: &s
                     .map(ts_type_str)
                     .unwrap_or_else(|| "void".to_string())
             };
-            let call_args: Vec<String> = m.args.iter().map(|a| safe_js_identifier(&camel_case(&a.name))).collect();
+            let call_args: Vec<String> = m
+                .args
+                .iter()
+                .map(|a| safe_js_identifier(&camel_case(&a.name)))
+                .collect();
             let self_plus_args = if call_args.is_empty() {
                 "self".to_string()
             } else {
@@ -1233,7 +1267,7 @@ fn render_callback_interface(cb: &UdlCallbackInterface, cfg: &config::JsBindings
         let exported = cfg
             .rename
             .get(&format!("{name}.{}", m.name))
-            .map(|s| safe_js_identifier(&s))
+            .map(|s| safe_js_identifier(s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
         let params: Vec<String> = m.args.iter().map(render_param).collect();
         let ts_ret = if m.is_async {
@@ -1270,7 +1304,11 @@ fn render_ctor(
 ) -> String {
     let mut out = String::new();
     let params: Vec<String> = ctor.args.iter().map(render_param).collect();
-    let args: Vec<String> = ctor.args.iter().map(|a| safe_js_identifier(&camel_case(&a.name))).collect();
+    let args: Vec<String> = ctor
+        .args
+        .iter()
+        .map(|a| safe_js_identifier(&camel_case(&a.name)))
+        .collect();
     let inner_expr = format!("{call_prefix}({})", args.join(", "));
 
     let async_kw = if ctor.is_async { "async " } else { "" };
@@ -1339,7 +1377,7 @@ fn render_object_class(
         let exported = cfg
             .rename
             .get(&format!("{}.{}", name, ctor.name))
-            .map(|s| safe_js_identifier(&s))
+            .map(|s| safe_js_identifier(s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&ctor.name)));
         let ctor_fn = format!("{bg_name}_{}", ctor.name);
         out.push_str(&render_ctor(
@@ -1358,7 +1396,7 @@ fn render_object_class(
         let exported = cfg
             .rename
             .get(&format!("{}.{}", name, m.name))
-            .map(|s| safe_js_identifier(&s))
+            .map(|s| safe_js_identifier(s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
         let params: Vec<String> = m.args.iter().map(render_param).collect();
         let ts_ret = if m.is_async {
@@ -1375,7 +1413,11 @@ fn render_object_class(
                 .map(ts_type_str)
                 .unwrap_or_else(|| "void".to_string())
         };
-        let call_args: Vec<String> = m.args.iter().map(|a| safe_js_identifier(&camel_case(&a.name))).collect();
+        let call_args: Vec<String> = m
+            .args
+            .iter()
+            .map(|a| safe_js_identifier(&camel_case(&a.name)))
+            .collect();
         // wasm-bindgen preserves Rust method names verbatim (snake_case) in its JS glue.
         // The public TypeScript name is camelCase (via `exported`), but the inner call
         // must match the wasm-pack output exactly.
@@ -1433,7 +1475,7 @@ fn render_function(f: &UdlFunction, cfg: &config::JsBindingsConfig, local_crate:
     let exported = cfg
         .rename
         .get(&f.name)
-        .map(|s| safe_js_identifier(&s))
+        .map(|s| safe_js_identifier(s))
         .unwrap_or_else(|| safe_js_identifier(&camel_case(&f.name)));
 
     let params: Vec<String> = f.args.iter().map(render_param).collect();
@@ -1453,7 +1495,11 @@ fn render_function(f: &UdlFunction, cfg: &config::JsBindingsConfig, local_crate:
             .unwrap_or_else(|| "void".to_string())
     };
 
-    let call_args: Vec<String> = f.args.iter().map(|a| safe_js_identifier(&camel_case(&a.name))).collect();
+    let call_args: Vec<String> = f
+        .args
+        .iter()
+        .map(|a| safe_js_identifier(&camel_case(&a.name)))
+        .collect();
     // wasm-pack exports top-level functions under their original snake_case Rust names;
     // object methods are camelCase in the JS glue. Do not apply camel_case here.
     let raw_call = format!("__bg.{}({})", f.name, call_args.join(", "));
