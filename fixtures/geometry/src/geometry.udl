@@ -1,0 +1,24 @@
+namespace geometry {
+    Point translate(Point p, f64 dx, f64 dy);
+    f64 area(Shape shape);
+    Point step(Point p, Direction d);
+};
+
+dictionary Point {
+    f64 x;
+    f64 y;
+};
+
+enum Direction {
+    "North",
+    "South",
+    "East",
+    "West"
+};
+
+[Enum]
+interface Shape {
+    Circle(f64 radius);
+    Rectangle(f64 width, f64 height);
+    Point();
+};

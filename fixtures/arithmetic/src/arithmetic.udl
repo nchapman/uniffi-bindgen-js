@@ -1,0 +1,13 @@
+namespace arithmetic {
+    [Throws=MathError]
+    f64 divide(f64 a, f64 b);
+
+    [Throws=MathError]
+    f64 sqrt(f64 x);
+};
+
+[Error]
+enum MathError {
+    "DivisionByZero",
+    "NegativeSquareRoot"
+};

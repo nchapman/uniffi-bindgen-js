@@ -32,3 +32,23 @@ fn golden_simple_fixture() {
 fn golden_simple_fns_fixture() {
     run_golden("simple-fns", "simple_fns.udl", "simple_fns.ts");
 }
+
+#[test]
+fn golden_arithmetic_fixture() {
+    run_golden("arithmetic", "arithmetic.udl", "arithmetic.ts");
+}
+
+#[test]
+fn golden_geometry_fixture() {
+    run_golden("geometry", "geometry.udl", "geometry.ts");
+}
+
+#[test]
+fn golden_counter_fixture() {
+    run_golden("counter", "counter.udl", "counter.ts");
+}
+
+#[test]
+fn golden_rich_errors_fixture() {
+    run_golden("rich-errors", "rich_errors.udl", "rich_errors.ts");
+}

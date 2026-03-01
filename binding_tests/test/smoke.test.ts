@@ -41,3 +41,15 @@ describe('SimpleFns.greet', () => {
     expect(result).toBe('hello, 🌍');
   });
 });
+
+describe('SimpleFns.greetAsync', () => {
+  it('returns a greeting asynchronously', async () => {
+    const result = await SimpleFns.greetAsync('world');
+    expect(result).toBe('hello, world');
+  });
+
+  it('handles unicode asynchronously', async () => {
+    const result = await SimpleFns.greetAsync('🌍');
+    expect(result).toBe('hello, 🌍');
+  });
+});

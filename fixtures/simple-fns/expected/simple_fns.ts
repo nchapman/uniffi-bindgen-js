@@ -3,7 +3,6 @@ import __init, * as __bg from './simple_fns_bg.js';
 export { __init as init };
 
 export namespace SimpleFns {
-  export function greet(name: string): string {
-    return __bg.greet(name);
-  }
+  export function greet(name: string): string { return __bg.greet(name); }
+  export async function greetAsync(name: string): Promise<string> { return await __bg.greet_async(name); }
 }

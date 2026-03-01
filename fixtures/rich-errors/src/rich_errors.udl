@@ -1,0 +1,15 @@
+namespace rich_errors {
+    [Throws=NetworkError]
+    string fetch_data(string url);
+
+    [Throws=NetworkError]
+    string fetch_with_timeout(string url, u32 timeout_ms);
+};
+
+[Error]
+interface NetworkError {
+    NotFound(string url);
+    Timeout(string url, u32 elapsed_ms);
+    ServerError(u16 status_code);
+    Unknown();
+};

@@ -3,7 +3,5 @@ import __init, * as __bg from './simple_bg.js';
 export { __init as init };
 
 export namespace Simple {
-  export function ping(input: string): string {
-    return __bg.ping(input);
-  }
+  export function ping(input: string): string { return __bg.ping(input); }
 }

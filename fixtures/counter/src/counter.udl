@@ -1,0 +1,9 @@
+namespace counter {};
+
+interface Counter {
+    constructor(i64 start);
+    void increment();
+    void decrement();
+    i64 get();
+    void reset_to(i64 value);
+};
