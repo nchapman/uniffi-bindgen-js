@@ -10,12 +10,12 @@ Legend:
 
 | Area | Status | Notes |
 |---|---|---|
-| Top-level functions | Implemented | sync and async; primitives, temporal, bytes, records/enums, typed throws envelopes, and metadata-backed default-argument rendering in generated TypeScript wrapper signatures |
-| Objects/interfaces | Implemented | constructors (sync + async + named), methods, `free()` lifecycle with `_freed` guard and `_assertLive()` safety, `Symbol.dispose` for resource management; double-free safe |
+| Top-level functions | Implemented | sync and async; primitives, temporal, bytes, records/enums, typed throws envelopes, and metadata-backed default-argument rendering in generated TypeScript wrapper signatures; optional parameters with defaults supported |
+| Objects/interfaces | Implemented | constructors (sync + async + named), methods, `free()` lifecycle with `_freed` guard and `_assertLive()` safety, `Symbol.dispose` for resource management; double-free safe; forward declarations (mutual references) supported |
 | Trait interfaces (`[Trait]`) | Implemented | `_fromInner` object return lifting; `Optional<Object>` and `Sequence<Object>` handled; trait vtable FFI glue is N/A for WASM target |
 | Records | Implemented | TypeScript `interface` types with field defaults (`?:` syntax); serde-wasm-bindgen pass-through for runtime marshalling |
-| Enums | Implemented | flat enums as string literal unions; data-carrying enums as discriminated unions with `tag` field; enum methods via companion namespace; enum discriminant values in JSDoc |
-| Errors (`[Error]` + `[Throws]`) | Implemented | flat error classes with `tag` property; rich error classes with discriminated `variant` property and static factory methods; error lifting via `_liftErrorName()` JSON deserialization; non-exhaustive error support |
+| Enums | Implemented | flat enums as string literal unions; data-carrying enums as discriminated unions with `tag` field; enum methods via companion namespace; enum discriminant values via companion `Values` const |
+| Errors (`[Error]` + `[Throws]`) | Implemented | flat error classes with `tag` property; rich error classes with discriminated `variant` property and static factory methods; error lifting via `_liftErrorName()` JSON deserialization; object-as-error (`[Throws=Interface]`) supported; non-exhaustive error support |
 | Optionals/sequences/maps | Partial | `T \| null` for optionals, `T[]` for sequences, `Map<K, V>` for maps; codegen supports arbitrary key types (`Map<number, bigint>` for `record<u32, u64>`); runtime WASM marshalling for non-string keys requires custom `js_sys::Map` handling in the fixture wasm crate (serde-wasm-bindgen only supports string keys) |
 | Builtins | Implemented | int/float/bool/string/bytes (`Uint8Array`)/timestamp (`Date`)/duration (`number` ms) |
 | Async futures | Implemented | `[Async]` maps to `Promise<T>` APIs; async functions, methods, and constructors (`static async`) all supported; `[Async, Throws=X]` fully tested |
@@ -33,8 +33,9 @@ Legend:
 ## Known Limitations
 - **Non-string map keys at WASM boundary**: Codegen emits correct `Map<K, V>` types for non-string keys, but `serde-wasm-bindgen` only supports string keys at the WASM serialization boundary. Fixture wasm crates need custom `js_sys::Map` handling for non-string-keyed maps.
 - **Callback/trait FFI glue**: WASM target means JavaScript objects cannot be passed as Rust trait implementations — callback interfaces generate TypeScript interface declarations only.
+- **Traits on records/enums**: `[Traits=(Display, Eq, Hash)]` on dictionary/enum types is parsed without error but has no TypeScript equivalent (structural equality and string unions provide this natively).
 
 ## Notes
-- Current fixture coverage includes 18 golden tests and 11 JS smoke test files across all major feature domains, anchored by `coverall-demo` (comprehensive feature combinations).
+- Current fixture coverage includes 19 golden tests and 11 JS smoke test files across all major feature domains, anchored by `coverall-demo` (comprehensive feature combinations).
 - Strict hygiene gate includes `cargo clippy --all-targets -- -D warnings`, `cargo fmt --check`, and full `./scripts/test_bindings.sh`.
 - WASM/wasm-pack architecture means some UniFFI features that require native FFI scaffolding (trait vtable glue, object equality/hashing via Rust traits) are not applicable.
