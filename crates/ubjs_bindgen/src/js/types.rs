@@ -153,6 +153,15 @@ pub(super) struct UdlCallbackInterface {
     pub docstring: Option<String>,
 }
 
+/// A compile-time checksum for a single FFI function/method/constructor.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct UdlApiChecksum {
+    /// The FFI symbol name (e.g. `uniffi_crate_name_checksum_func_greet`).
+    pub symbol: String,
+    /// The expected u16 checksum value.
+    pub expected: u16,
+}
+
 #[derive(Debug)]
 pub(super) struct UdlMetadata {
     pub namespace: String,
@@ -160,6 +169,12 @@ pub(super) struct UdlMetadata {
     /// The module_path prefix for types local to this crate.
     /// For UDL mode this is `LOCAL_CRATE_SENTINEL`; for library mode it is the actual crate name.
     pub local_crate: String,
+    /// The UniFFI contract version expected by the generated bindings.
+    pub uniffi_contract_version: Option<u32>,
+    /// The FFI symbol for querying the scaffolding contract version at runtime.
+    pub ffi_uniffi_contract_version_symbol: Option<String>,
+    /// Compile-time API checksums for each function/method/constructor.
+    pub api_checksums: Vec<UdlApiChecksum>,
     pub functions: Vec<UdlFunction>,
     pub errors: Vec<UdlError>,
     pub enums: Vec<UdlEnum>,
@@ -175,6 +190,9 @@ impl Default for UdlMetadata {
             namespace: String::new(),
             namespace_docstring: None,
             local_crate: LOCAL_CRATE_SENTINEL.to_string(),
+            uniffi_contract_version: None,
+            ffi_uniffi_contract_version_symbol: None,
+            api_checksums: Vec::new(),
             functions: Vec::new(),
             errors: Vec::new(),
             enums: Vec::new(),

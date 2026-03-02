@@ -187,10 +187,21 @@ fn component_interface_to_metadata(
     }
     custom_types.sort_by(|a, b| a.name.cmp(&b.name));
 
+    let uniffi_contract_version = Some(ci.uniffi_contract_version());
+    let ffi_uniffi_contract_version_symbol =
+        Some(ci.ffi_uniffi_contract_version().name().to_string());
+    let api_checksums = ci
+        .iter_checksums()
+        .map(|(symbol, expected)| UdlApiChecksum { symbol, expected })
+        .collect();
+
     Ok(UdlMetadata {
         namespace: ci.namespace().to_string(),
         namespace_docstring: ci.namespace_docstring().map(ToOwned::to_owned),
         local_crate: local_crate.to_string(),
+        uniffi_contract_version,
+        ffi_uniffi_contract_version_symbol,
+        api_checksums,
         functions,
         errors,
         enums,

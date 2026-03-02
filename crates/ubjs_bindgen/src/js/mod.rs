@@ -69,7 +69,23 @@ fn render_ts(
     out.push_str(&format!(
         "import __init, * as __bg from './{namespace}_bg.js';\n"
     ));
-    out.push_str("export { __init as init };\n");
+
+    let has_integrity_check = metadata.uniffi_contract_version.is_some()
+        && metadata.ffi_uniffi_contract_version_symbol.is_some();
+
+    if has_integrity_check {
+        out.push('\n');
+        render_integrity_check(&mut out, metadata);
+        out.push_str(
+            "export async function init(...args: Parameters<typeof __init>): Promise<ReturnType<typeof __init>> {\n",
+        );
+        out.push_str("  const result = await __init(...args);\n");
+        out.push_str("  _uniffiEnsureApiIntegrity();\n");
+        out.push_str("  return result;\n");
+        out.push_str("}\n");
+    } else {
+        out.push_str("export { __init as init };\n");
+    }
 
     // External type imports — one import statement per external package, types sorted for determinism.
     let external_imports =
@@ -225,6 +241,61 @@ fn render_ts(
     }
 
     Ok(out)
+}
+
+// ---------------------------------------------------------------------------
+// API integrity verification
+// ---------------------------------------------------------------------------
+
+/// Render a private `_uniffiEnsureApiIntegrity()` function that validates the
+/// contract version and API checksums against the loaded WASM module.
+fn render_integrity_check(out: &mut String, metadata: &UdlMetadata) {
+    let version = metadata.uniffi_contract_version.unwrap_or_default();
+    let symbol = metadata
+        .ffi_uniffi_contract_version_symbol
+        .as_deref()
+        .unwrap_or_default();
+
+    out.push_str("function _uniffiEnsureApiIntegrity(): void {\n");
+    out.push_str(&format!("  const bindingsContractVersion = {version};\n"));
+    out.push_str(&format!(
+        "  const scaffoldingContractVersion: number = (__bg as any).{symbol}();\n"
+    ));
+    out.push_str("  if (bindingsContractVersion !== scaffoldingContractVersion) {\n");
+    out.push_str(
+        "    throw new Error(`UniFFI contract version mismatch: expected ${bindingsContractVersion}, got ${scaffoldingContractVersion}`);\n",
+    );
+    out.push_str("  }\n");
+
+    for checksum in &metadata.api_checksums {
+        out.push_str(&format!(
+            "  const {}: number = (__bg as any).{}();\n",
+            checksum_var_name(&checksum.symbol),
+            checksum.symbol
+        ));
+        out.push_str(&format!(
+            "  if ({} !== {}) {{\n",
+            checksum_var_name(&checksum.symbol),
+            checksum.expected
+        ));
+        out.push_str(&format!(
+            "    throw new Error(`UniFFI API checksum mismatch for \\`{}\\`: expected {}, got ${{{}}}`);\n",
+            checksum.symbol,
+            checksum.expected,
+            checksum_var_name(&checksum.symbol)
+        ));
+        out.push_str("  }\n");
+    }
+
+    out.push_str("}\n");
+}
+
+/// Convert an FFI checksum symbol name to a valid JS variable name.
+fn checksum_var_name(symbol: &str) -> String {
+    format!(
+        "_checksum_{}",
+        symbol.replace(|c: char| !c.is_ascii_alphanumeric(), "_")
+    )
 }
 
 // ---------------------------------------------------------------------------
