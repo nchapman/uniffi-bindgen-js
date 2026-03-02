@@ -2,14 +2,21 @@ use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 /// Mirrors the [Error] interface NetworkError from the UDL.
-/// Field names are serialised as camelCase to match what the generated
-/// TypeScript lift function reads (e.g. `elapsedMs`, `statusCode`).
+/// Tags must be PascalCase (matching UDL variant names); field names are
+/// camelCase to match what the generated TypeScript lift function reads.
 #[derive(Serialize)]
-#[serde(tag = "tag", rename_all = "camelCase")]
+#[serde(tag = "tag")]
 enum NetworkError {
     NotFound { url: String },
-    Timeout { url: String, elapsed_ms: u32 },
-    ServerError { status_code: u16 },
+    Timeout {
+        url: String,
+        #[serde(rename = "elapsedMs")]
+        elapsed_ms: u32,
+    },
+    ServerError {
+        #[serde(rename = "statusCode")]
+        status_code: u16,
+    },
     Unknown,
 }
 
