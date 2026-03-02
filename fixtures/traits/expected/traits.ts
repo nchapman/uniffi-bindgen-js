@@ -30,6 +30,13 @@ export async function init(...args: Parameters<typeof __init>): Promise<ReturnTy
   return result;
 }
 
+export interface TraitRecord {
+  name: string;
+  value: number;
+}
+
+export type TraitColor = 'Red' | 'Green' | 'Blue';
+
 export class Drawable {
   private readonly _inner: __bg.Drawable;
   private _freed = false;

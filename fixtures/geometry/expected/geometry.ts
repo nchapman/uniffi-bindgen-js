@@ -26,6 +26,13 @@ export async function init(...args: Parameters<typeof __init>): Promise<ReturnTy
   return result;
 }
 
+export interface Config {
+  name: string;
+  timeout?: number;
+  verbose?: boolean;
+  label?: string | null;
+}
+
 export interface Point {
   x: number;
   y: number;

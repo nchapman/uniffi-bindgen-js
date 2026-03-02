@@ -7,6 +7,10 @@ function _uniffiEnsureApiIntegrity(): void {
   if (bindingsContractVersion !== scaffoldingContractVersion) {
     throw new Error(`UniFFI contract version mismatch: expected ${bindingsContractVersion}, got ${scaffoldingContractVersion}`);
   }
+  const _checksum_uniffi_crate_name_checksum_func_add_maybe: number = (__bg as any).uniffi_crate_name_checksum_func_add_maybe();
+  if (_checksum_uniffi_crate_name_checksum_func_add_maybe !== 19295) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_add_maybe\`: expected 19295, got ${_checksum_uniffi_crate_name_checksum_func_add_maybe}`);
+  }
   const _checksum_uniffi_crate_name_checksum_func_greet: number = (__bg as any).uniffi_crate_name_checksum_func_greet();
   if (_checksum_uniffi_crate_name_checksum_func_greet !== 51217) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_greet\`: expected 51217, got ${_checksum_uniffi_crate_name_checksum_func_greet}`);
@@ -14,6 +18,10 @@ function _uniffiEnsureApiIntegrity(): void {
   const _checksum_uniffi_crate_name_checksum_func_greet_async: number = (__bg as any).uniffi_crate_name_checksum_func_greet_async();
   if (_checksum_uniffi_crate_name_checksum_func_greet_async !== 22773) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_greet_async\`: expected 22773, got ${_checksum_uniffi_crate_name_checksum_func_greet_async}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_func_greet_optional: number = (__bg as any).uniffi_crate_name_checksum_func_greet_optional();
+  if (_checksum_uniffi_crate_name_checksum_func_greet_optional !== 20853) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_greet_optional\`: expected 20853, got ${_checksum_uniffi_crate_name_checksum_func_greet_optional}`);
   }
 }
 export async function init(...args: Parameters<typeof __init>): Promise<ReturnType<typeof __init>> {
@@ -23,6 +31,8 @@ export async function init(...args: Parameters<typeof __init>): Promise<ReturnTy
 }
 
 export namespace SimpleFns {
+  export function addMaybe(a: number, b: number | null = null): number { return __bg.add_maybe(a, b); }
   export function greet(name: string): string { return __bg.greet(name); }
   export async function greetAsync(name: string): Promise<string> { return await __bg.greet_async(name); }
+  export function greetOptional(name: string | null = null): string { return __bg.greet_optional(name); }
 }

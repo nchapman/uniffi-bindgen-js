@@ -16,6 +16,13 @@ enum Direction {
     "West"
 };
 
+dictionary Config {
+  string name;
+  u32 timeout = 30;
+  boolean verbose = false;
+  string? label = null;
+};
+
 [Enum]
 interface Shape {
     Circle(f64 radius);

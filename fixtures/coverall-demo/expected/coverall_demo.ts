@@ -103,6 +103,14 @@ function _uniffiEnsureApiIntegrity(): void {
   if (_checksum_uniffi_crate_name_checksum_method_falliblepatch_get_color !== 47454) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_falliblepatch_get_color\`: expected 47454, got ${_checksum_uniffi_crate_name_checksum_method_falliblepatch_get_color}`);
   }
+  const _checksum_uniffi_crate_name_checksum_method_nodea_get_partner: number = (__bg as any).uniffi_crate_name_checksum_method_nodea_get_partner();
+  if (_checksum_uniffi_crate_name_checksum_method_nodea_get_partner !== 50601) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_nodea_get_partner\`: expected 50601, got ${_checksum_uniffi_crate_name_checksum_method_nodea_get_partner}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_method_nodeb_get_partner: number = (__bg as any).uniffi_crate_name_checksum_method_nodeb_get_partner();
+  if (_checksum_uniffi_crate_name_checksum_method_nodeb_get_partner !== 49612) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_nodeb_get_partner\`: expected 49612, got ${_checksum_uniffi_crate_name_checksum_method_nodeb_get_partner}`);
+  }
   const _checksum_uniffi_crate_name_checksum_method_patch_get_color: number = (__bg as any).uniffi_crate_name_checksum_method_patch_get_color();
   if (_checksum_uniffi_crate_name_checksum_method_patch_get_color !== 7243) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_patch_get_color\`: expected 7243, got ${_checksum_uniffi_crate_name_checksum_method_patch_get_color}`);
@@ -329,6 +337,54 @@ export class FalliblePatch {
   getColor(): Color {
     this._assertLive();
     return this._inner.get_color();
+  }
+  /** Releases the underlying WASM resource. Safe to call more than once. */
+  free(): void {
+    if (this._freed) return;
+    this._freed = true;
+    this._inner.free();
+  }
+  [Symbol.dispose](): void { this.free(); }
+}
+/** Forward-declaration test: NodeA references NodeB before it is declared. */
+export class NodeA {
+  private readonly _inner: __bg.NodeA;
+  private _freed = false;
+  private _assertLive(): void {
+    if (this._freed) throw new Error('NodeA object has been freed');
+  }
+  private constructor(inner: __bg.NodeA) {
+    this._inner = inner;
+  }
+  /** @internal */
+  static _fromInner(inner: __bg.NodeA): NodeA { return new NodeA(inner); }
+  getPartner(): NodeB | null {
+    this._assertLive();
+    return ((__v) => __v == null ? null : NodeB._fromInner(__v))(this._inner.get_partner());
+  }
+  /** Releases the underlying WASM resource. Safe to call more than once. */
+  free(): void {
+    if (this._freed) return;
+    this._freed = true;
+    this._inner.free();
+  }
+  [Symbol.dispose](): void { this.free(); }
+}
+/** Forward-declaration test: NodeB references NodeA (mutual reference). */
+export class NodeB {
+  private readonly _inner: __bg.NodeB;
+  private _freed = false;
+  private _assertLive(): void {
+    if (this._freed) throw new Error('NodeB object has been freed');
+  }
+  private constructor(inner: __bg.NodeB) {
+    this._inner = inner;
+  }
+  /** @internal */
+  static _fromInner(inner: __bg.NodeB): NodeB { return new NodeB(inner); }
+  getPartner(): NodeA | null {
+    this._assertLive();
+    return ((__v) => __v == null ? null : NodeA._fromInner(__v))(this._inner.get_partner());
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {

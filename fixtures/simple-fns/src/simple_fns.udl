@@ -2,4 +2,6 @@ namespace simple_fns {
   string greet(string name);
   [Async]
   string greet_async(string name);
+  string greet_optional(optional string? name = null);
+  u32 add_maybe(u32 a, optional u32? b = null);
 };

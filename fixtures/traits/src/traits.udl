@@ -8,3 +8,16 @@ interface Drawable {
     string describe();
     f64 area();
 };
+
+[Traits=(Display, Eq, Hash)]
+dictionary TraitRecord {
+  string name;
+  u32 value;
+};
+
+[Traits=(Display, Eq, Hash)]
+enum TraitColor {
+  "Red",
+  "Green",
+  "Blue",
+};

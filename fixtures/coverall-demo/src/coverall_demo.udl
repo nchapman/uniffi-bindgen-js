@@ -157,3 +157,13 @@ callback interface NodeTrait {
   void set_parent(NodeTrait? parent);
   NodeTrait? get_parent();
 };
+
+/// Forward-declaration test: NodeA references NodeB before it is declared.
+interface NodeA {
+  NodeB? get_partner();
+};
+
+/// Forward-declaration test: NodeB references NodeA (mutual reference).
+interface NodeB {
+  NodeA? get_partner();
+};
