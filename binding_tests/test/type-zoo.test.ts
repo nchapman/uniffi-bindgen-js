@@ -190,9 +190,9 @@ describe('TypeZoo sequence echo', () => {
   });
 
   it('echoes a bigint array', () => {
-    const input = [1n, 2n, 3n];
+    const input = new BigInt64Array([1n, 2n, 3n]);
     const result = TypeZoo.echoBigints(input);
-    expect(result).toEqual([1n, 2n, 3n]);
+    expect(result).toEqual(new BigInt64Array([1n, 2n, 3n]));
   });
 });
 

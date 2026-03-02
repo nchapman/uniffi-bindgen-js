@@ -85,7 +85,7 @@ export class SuperWidget {
 }
 
 export namespace KeywordsDemo {
-  export function class_(switch_: number): number { return __bg["class"](switch_); }
-  export function delete_(static_: boolean): boolean { return __bg["delete"](static_); }
-  export function return_(var_: string): string { return __bg["return"](var_); }
+  export function class_(switch_: number): number { return __bg._class(switch_); }
+  export function delete_(static_: boolean): boolean { return __bg._delete(static_); }
+  export function return_(var_: string): string { return __bg._return(var_); }
 }

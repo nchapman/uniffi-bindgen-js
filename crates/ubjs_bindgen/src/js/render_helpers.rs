@@ -19,9 +19,16 @@ pub(super) fn member_call(obj: &str, name: &str, args: &str) -> String {
     }
 }
 
-/// Build a call to a top-level WASM export: `__bg.name(args)` or `__bg["name"](args)`.
+/// Build a call to a top-level WASM export.
+///
+/// wasm-pack prefixes reserved-word module exports with `_` (e.g. `class` → `_class`),
+/// so we mirror that convention here. Normal names use `__bg.name(args)`.
 pub(super) fn wasm_call(name: &str, args: &str) -> String {
-    member_call("__bg", name, args)
+    if is_js_reserved(name) {
+        format!("__bg._{name}({args})")
+    } else {
+        format!("__bg.{name}({args})")
+    }
 }
 
 /// Render an optional UDL docstring as a JSDoc block comment.
