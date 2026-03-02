@@ -188,13 +188,20 @@ fn component_interface_to_metadata(
     }
     custom_types.sort_by(|a, b| a.name.cmp(&b.name));
 
-    let uniffi_contract_version = Some(ci.uniffi_contract_version());
+    // Only emit API integrity checks when the crate name is known (library mode).
+    // In UDL mode (local_crate == LOCAL_CRATE_SENTINEL), the WASM fixtures are
+    // hand-written and lack UniFFI scaffolding symbols.
+    let include_integrity = local_crate != LOCAL_CRATE_SENTINEL;
+    let uniffi_contract_version = include_integrity.then(|| ci.uniffi_contract_version());
     let ffi_uniffi_contract_version_symbol =
-        Some(ci.ffi_uniffi_contract_version().name().to_string());
-    let api_checksums = ci
-        .iter_checksums()
-        .map(|(symbol, expected)| UdlApiChecksum { symbol, expected })
-        .collect();
+        include_integrity.then(|| ci.ffi_uniffi_contract_version().name().to_string());
+    let api_checksums = if include_integrity {
+        ci.iter_checksums()
+            .map(|(symbol, expected)| UdlApiChecksum { symbol, expected })
+            .collect()
+    } else {
+        Vec::new()
+    };
 
     Ok(UdlMetadata {
         namespace: ci.namespace().to_string(),
