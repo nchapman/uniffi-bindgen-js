@@ -421,6 +421,22 @@ pub(super) fn render_enum_type(
             e.name,
             parts.join(" | ")
         ));
+        // If variants have explicit discriminant values, emit a companion const
+        // object mapping variant names to their numeric values.
+        let has_discrs = e.variants.iter().any(|v| v.discr.is_some());
+        if has_discrs {
+            out.push_str(&format!(
+                "/** Discriminant values for {{@link {}}}. */\n",
+                e.name,
+            ));
+            out.push_str(&format!("export const {name}Values = {{\n", name = e.name,));
+            for v in &e.variants {
+                if let Some(lit) = &v.discr {
+                    out.push_str(&format!("  {}: {},\n", v.name, render_literal(lit),));
+                }
+            }
+            out.push_str("} as const;\n");
+        }
     } else {
         // Data enum → discriminated union.
         // Variant docstrings have no per-member anchor in a union type; the type-level

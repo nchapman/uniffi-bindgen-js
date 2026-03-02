@@ -1330,6 +1330,104 @@ mod tests {
     }
 
     #[test]
+    fn flat_enum_with_discriminants_emits_values_object() {
+        let e = UdlEnum {
+            name: "Priority".into(),
+            variants: vec![
+                UdlVariant {
+                    name: "Low".into(),
+                    fields: vec![],
+                    docstring: None,
+                    discr: Some(Literal::UInt(
+                        1,
+                        uniffi_bindgen::interface::Radix::Decimal,
+                        Type::UInt8,
+                    )),
+                },
+                UdlVariant {
+                    name: "Medium".into(),
+                    fields: vec![],
+                    docstring: None,
+                    discr: Some(Literal::UInt(
+                        5,
+                        uniffi_bindgen::interface::Radix::Decimal,
+                        Type::UInt8,
+                    )),
+                },
+                UdlVariant {
+                    name: "High".into(),
+                    fields: vec![],
+                    docstring: None,
+                    discr: Some(Literal::UInt(
+                        10,
+                        uniffi_bindgen::interface::Radix::Decimal,
+                        Type::UInt8,
+                    )),
+                },
+            ],
+            is_flat: true,
+            is_non_exhaustive: false,
+            docstring: None,
+            methods: vec![],
+            constructors: vec![],
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_enum_type(&e, &cfg, LC);
+        assert!(
+            result.contains("export const PriorityValues = {"),
+            "expected Values object, got:\n{result}"
+        );
+        assert!(
+            result.contains("Low: 1,"),
+            "expected Low: 1, got:\n{result}"
+        );
+        assert!(
+            result.contains("Medium: 5,"),
+            "expected Medium: 5, got:\n{result}"
+        );
+        assert!(
+            result.contains("High: 10,"),
+            "expected High: 10, got:\n{result}"
+        );
+        assert!(
+            result.contains("} as const;"),
+            "expected as const, got:\n{result}"
+        );
+    }
+
+    #[test]
+    fn flat_enum_without_discriminants_omits_values_object() {
+        let e = UdlEnum {
+            name: "Color".into(),
+            variants: vec![
+                UdlVariant {
+                    name: "Red".into(),
+                    fields: vec![],
+                    docstring: None,
+                    discr: None,
+                },
+                UdlVariant {
+                    name: "Green".into(),
+                    fields: vec![],
+                    docstring: None,
+                    discr: None,
+                },
+            ],
+            is_flat: true,
+            is_non_exhaustive: false,
+            docstring: None,
+            methods: vec![],
+            constructors: vec![],
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_enum_type(&e, &cfg, LC);
+        assert!(
+            !result.contains("Values"),
+            "should not have Values object, got:\n{result}"
+        );
+    }
+
+    #[test]
     fn error_constructors_rendered_as_static_methods() {
         let e = UdlError {
             name: "AppError".into(),
