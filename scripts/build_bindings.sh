@@ -34,6 +34,8 @@ build_fixture "custom-types"    "custom_types"
 build_fixture "rename-exclude"  "rename_exclude"
 build_fixture "traits"          "traits"
 build_fixture "callbacks"       "callbacks"
+build_fixture "type-zoo"        "type_zoo"
+build_fixture "keywords-demo"   "keywords_demo"
 
 echo "==> Installing JS dependencies..."
 (cd "$REPO_ROOT/binding_tests" && pnpm install --frozen-lockfile)
