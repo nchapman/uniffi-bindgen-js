@@ -23,7 +23,7 @@ use render_helpers::{render_jsdoc, ts_type_str, type_name};
 use render_objects::{render_function, render_object_class};
 use render_types::{
     render_callback_interface, render_enum_type, render_error_class, render_lift_fn,
-    render_record_interface,
+    render_object_error_lift_fn, render_record_interface,
 };
 use types::*;
 
@@ -207,6 +207,7 @@ fn render_ts(
         names
     };
     // Collect unique error names that need lift helpers, looking them up in errors
+    // and error objects.
     let mut rendered_lifts: Vec<String> = Vec::new();
     for error in &metadata.errors {
         if all_throws.contains(&error.name) {
@@ -214,6 +215,11 @@ fn render_ts(
             if !lift.is_empty() {
                 rendered_lifts.push(lift);
             }
+        }
+    }
+    for obj in &metadata.objects {
+        if obj.is_error && all_throws.contains(&obj.name) {
+            rendered_lifts.push(render_object_error_lift_fn(&obj.name));
         }
     }
     if !rendered_lifts.is_empty() {

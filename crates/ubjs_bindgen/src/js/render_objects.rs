@@ -60,7 +60,11 @@ pub(super) fn render_object_class(
     let bg_name = snake_case(name); // wasm-bindgen uses the Rust struct name
 
     out.push_str(&render_jsdoc(o.docstring.as_deref(), ""));
-    out.push_str(&format!("export class {name} {{\n"));
+    if o.is_error {
+        out.push_str(&format!("export class {name} extends Error {{\n"));
+    } else {
+        out.push_str(&format!("export class {name} {{\n"));
+    }
     out.push_str(&format!("  private readonly _inner: __bg.{name};\n"));
     out.push_str("  private _freed = false;\n");
     out.push_str(&format!(
@@ -75,6 +79,12 @@ pub(super) fn render_object_class(
 
     // Private base constructor — always present for internal use
     out.push_str(&format!("  private constructor(inner: __bg.{name}) {{\n"));
+    if o.is_error {
+        out.push_str(&format!("    super('{name}');\n"));
+        out.push_str(&format!(
+            "    Object.defineProperty(this, 'name', {{ value: '{name}' }});\n"
+        ));
+    }
     out.push_str("    this._inner = inner;\n");
     out.push_str("  }\n");
     // Internal factory used when lifting an object returned by a WASM function or method.

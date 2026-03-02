@@ -345,6 +345,23 @@ pub(super) fn render_lift_fn(e: &UdlError) -> String {
     out
 }
 
+/// Render a lift function for an object type used as an error.
+///
+/// When wasm-bindgen throws an object error, the thrown value is already the
+/// wasm-bindgen wrapper class. We lift it into our wrapper class and re-throw.
+pub(super) fn render_object_error_lift_fn(name: &str) -> String {
+    let fn_name = format!("_lift{name}");
+    let mut out = String::new();
+    out.push_str(&format!("function {fn_name}(e: unknown): never {{\n"));
+    out.push_str(&format!("  if (e instanceof {name}) throw e;\n"));
+    out.push_str(&format!(
+        "  if (e instanceof __bg.{name}) throw {name}._fromInner(e);\n"
+    ));
+    out.push_str("  throw e;\n");
+    out.push_str("}\n");
+    out
+}
+
 // ---------------------------------------------------------------------------
 // Record interface generation
 // ---------------------------------------------------------------------------

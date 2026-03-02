@@ -110,6 +110,7 @@ fn component_interface_to_metadata(
         .iter()
         .map(|o| UdlObject {
             name: o.name().to_string(),
+            is_error: ci.is_name_used_as_error(o.name()),
             constructors: o
                 .constructors()
                 .iter()

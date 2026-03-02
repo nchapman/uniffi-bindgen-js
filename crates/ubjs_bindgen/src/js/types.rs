@@ -113,6 +113,8 @@ pub(super) struct UdlObject {
     pub constructors: Vec<UdlConstructor>,
     pub methods: Vec<UdlMethod>,
     pub docstring: Option<String>,
+    /// True when this object is used as a `[Throws=...]` error type.
+    pub is_error: bool,
 }
 
 /// A `[Custom]` typedef — generates a TypeScript type alias.

@@ -141,6 +141,15 @@ fn golden_coverall_demo_fixture() {
 }
 
 #[test]
+fn golden_error_types_demo_fixture() {
+    run_golden(
+        "error-types-demo",
+        "error_types_demo.udl",
+        "error_types_demo.ts",
+    );
+}
+
+#[test]
 fn golden_non_exhaustive_demo_fixture() {
     run_golden(
         "non-exhaustive-demo",
