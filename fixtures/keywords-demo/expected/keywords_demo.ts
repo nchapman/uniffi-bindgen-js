@@ -69,11 +69,11 @@ export class SuperWidget {
   static new(): SuperWidget { return SuperWidget._fromInner(new __bg.SuperWidget()); }
   class_(var_: string): string {
     this._assertLive();
-    return this._inner.class(var_);
+    return this._inner["class"](var_);
   }
   return_(): number {
     this._assertLive();
-    return this._inner.return();
+    return this._inner["return"]();
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -85,7 +85,7 @@ export class SuperWidget {
 }
 
 export namespace KeywordsDemo {
-  export function class_(switch_: number): number { return __bg.class(switch_); }
-  export function delete_(static_: boolean): boolean { return __bg.delete(static_); }
-  export function return_(var_: string): string { return __bg.return(var_); }
+  export function class_(switch_: number): number { return __bg["class"](switch_); }
+  export function delete_(static_: boolean): boolean { return __bg["delete"](static_); }
+  export function return_(var_: string): string { return __bg["return"](var_); }
 }

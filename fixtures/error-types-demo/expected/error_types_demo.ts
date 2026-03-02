@@ -57,7 +57,7 @@ export class ErrorInterface extends Error {
   }
   link(index: bigint): string | null {
     this._assertLive();
-    return this._inner.link(index);
+    return this._inner.link(index) ?? null;
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {

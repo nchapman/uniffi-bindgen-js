@@ -5,7 +5,7 @@
 use super::config;
 use super::naming::{camel_case, safe_js_identifier, snake_case};
 use super::render_helpers::{
-    render_call_body, render_jsdoc, render_param, ts_return_type, type_name,
+    member_call, render_call_body, render_jsdoc, render_param, ts_return_type, type_name, wasm_call,
 };
 use super::type_lifting::lift_return;
 use super::types::*;
@@ -131,8 +131,8 @@ pub(super) fn render_object_class(
             .collect();
         // wasm-bindgen preserves Rust method names verbatim (snake_case) in its JS glue.
         // The public TypeScript name is camelCase (via `exported`), but the inner call
-        // must match the wasm-pack output exactly.
-        let raw_call = format!("this._inner.{}({})", m.name, call_args.join(", "));
+        // must match the wasm-pack output exactly. Use bracket notation for reserved words.
+        let raw_call = member_call("this._inner", &m.name, &call_args.join(", "));
         let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
 
         let async_kw = if m.is_async { "async " } else { "" };
@@ -190,7 +190,7 @@ pub(super) fn render_function(
         .collect();
     // wasm-pack exports top-level functions under their original snake_case Rust names;
     // object methods are camelCase in the JS glue. Do not apply camel_case here.
-    let raw_call = format!("__bg.{}({})", f.name, call_args.join(", "));
+    let raw_call = wasm_call(&f.name, &call_args.join(", "));
     let call_expr = lift_return(&raw_call, f.return_type.as_ref(), f.is_async, local_crate);
 
     let async_kw = if f.is_async { "async " } else { "" };

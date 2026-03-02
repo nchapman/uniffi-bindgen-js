@@ -49,5 +49,5 @@ export namespace ExtTypesDemo {
   /**
    * Echo a nullable RemoteThing (tests Optional<ExternalRecord> import deduplication).
    */
-  export function maybeRemote(input: RemoteThing | null): RemoteThing | null { return __bg.maybe_remote(input); }
+  export function maybeRemote(input: RemoteThing | null): RemoteThing | null { return __bg.maybe_remote(input) ?? null; }
 }

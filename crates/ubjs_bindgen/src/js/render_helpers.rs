@@ -4,8 +4,25 @@
 
 use uniffi_bindgen::interface::{DefaultValue, Literal, Type};
 
-use super::naming::{camel_case, safe_js_identifier};
+use super::naming::{camel_case, is_js_reserved, safe_js_identifier};
 use super::types::UdlArg;
+
+/// Build a member access + call expression, using bracket notation for reserved words.
+///
+/// Returns `obj.name(args)` for normal names, or `obj["name"](args)` when
+/// `name` is a JavaScript reserved word (which cannot appear after `.`).
+pub(super) fn member_call(obj: &str, name: &str, args: &str) -> String {
+    if is_js_reserved(name) {
+        format!("{obj}[\"{name}\"]({args})")
+    } else {
+        format!("{obj}.{name}({args})")
+    }
+}
+
+/// Build a call to a top-level WASM export: `__bg.name(args)` or `__bg["name"](args)`.
+pub(super) fn wasm_call(name: &str, args: &str) -> String {
+    member_call("__bg", name, args)
+}
 
 /// Render an optional UDL docstring as a JSDoc block comment.
 ///
@@ -108,6 +125,12 @@ pub(super) fn ts_type_str(t: &Type) -> String {
         Type::Timestamp => "Date".to_string(),
         Type::Optional { inner_type } => format!("{} | null", ts_type_str(inner_type)),
         Type::Sequence { inner_type } => {
+            // wasm-bindgen maps Box<[i64]> / Box<[u64]> to typed arrays, not plain arrays.
+            match inner_type.as_ref() {
+                Type::Int64 => return "BigInt64Array".to_string(),
+                Type::UInt64 => return "BigUint64Array".to_string(),
+                _ => {}
+            }
             let inner = ts_type_str(inner_type);
             // Parenthesize compound inner types to avoid precedence issues
             // e.g. `(string | null)[]` not `string | null[]`

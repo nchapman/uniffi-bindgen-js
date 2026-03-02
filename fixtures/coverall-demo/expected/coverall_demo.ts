@@ -752,13 +752,13 @@ export namespace CoverallDemo {
   /** Round-trip a map with non-string keys (record<u32, u64>). */
   export function getIntMap(key: number, value: bigint): Map<number, bigint> { return __bg.get_int_map(key, value); }
   /** Return an optional Color enum based on a flag. */
-  export function getMaybeColor(returnValue: boolean): Color | null { return __bg.get_maybe_color(returnValue); }
+  export function getMaybeColor(returnValue: boolean): Color | null { return __bg.get_maybe_color(returnValue) ?? null; }
   /** Return an optional u32 based on a flag. */
-  export function getMaybeCount(returnValue: boolean): number | null { return __bg.get_maybe_count(returnValue); }
+  export function getMaybeCount(returnValue: boolean): number | null { return __bg.get_maybe_count(returnValue) ?? null; }
   /** Return an optional SimpleDict based on a flag. */
-  export function getMaybeDict(returnValue: boolean): SimpleDict | null { return __bg.get_maybe_dict(returnValue); }
+  export function getMaybeDict(returnValue: boolean): SimpleDict | null { return __bg.get_maybe_dict(returnValue) ?? null; }
   /** Return an optional boolean based on a flag. */
-  export function getMaybeFlag(returnValue: boolean): boolean | null { return __bg.get_maybe_flag(returnValue); }
+  export function getMaybeFlag(returnValue: boolean): boolean | null { return __bg.get_maybe_flag(returnValue) ?? null; }
   /** Return an enum variant based on a numeric selector. */
   export function getMaybeSimpleDict(index: number): MaybeSimpleDict { return __bg.get_maybe_simple_dict(index); }
   /**

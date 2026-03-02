@@ -95,7 +95,7 @@ export async function init(...args: Parameters<typeof __init>): Promise<ReturnTy
 }
 
 export namespace TypeZoo {
-  export function echoBigints(items: bigint[]): bigint[] { return __bg.echo_bigints(items); }
+  export function echoBigints(items: BigInt64Array): BigInt64Array { return __bg.echo_bigints(items); }
   export function echoBool(v: boolean): boolean { return __bg.echo_bool(v); }
   export function echoBoolMap(m: Map<string, boolean>): Map<string, boolean> { return __bg.echo_bool_map(m); }
   export function echoBytes(data: Uint8Array): Uint8Array { return __bg.echo_bytes(data); }
@@ -114,5 +114,5 @@ export namespace TypeZoo {
   export function echoU32(v: number): number { return __bg.echo_u32(v); }
   export function echoU64(v: bigint): bigint { return __bg.echo_u64(v); }
   export function echoU8(v: number): number { return __bg.echo_u8(v); }
-  export function maybeString(input: string | null): string | null { return __bg.maybe_string(input); }
+  export function maybeString(input: string | null): string | null { return __bg.maybe_string(input) ?? null; }
 }

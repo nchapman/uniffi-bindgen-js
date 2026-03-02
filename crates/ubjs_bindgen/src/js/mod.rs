@@ -861,6 +861,32 @@ mod tests {
     }
 
     #[test]
+    fn lift_return_optional_primitive_sync_coalesces_null() {
+        let result = lift_return(
+            "__bg.get_name()",
+            Some(&Type::Optional {
+                inner_type: Box::new(Type::String),
+            }),
+            false,
+            LC,
+        );
+        assert_eq!(result, "__bg.get_name() ?? null");
+    }
+
+    #[test]
+    fn lift_return_optional_primitive_async_coalesces_null() {
+        let result = lift_return(
+            "__bg.get_name()",
+            Some(&Type::Optional {
+                inner_type: Box::new(Type::String),
+            }),
+            true,
+            LC,
+        );
+        assert_eq!(result, "(await __bg.get_name()) ?? null");
+    }
+
+    #[test]
     fn needs_object_lifting_detects_nested() {
         assert!(needs_object_lifting(&local_object("Foo"), LC));
         assert!(needs_object_lifting(

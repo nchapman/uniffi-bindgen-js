@@ -33,6 +33,8 @@ pub(super) fn lift_expr(var: &str, t: &Type, local_crate: &str) -> String {
             let inner = lift_expr("__v", inner_type, local_crate);
             format!("((__v) => __v == null ? null : {inner})({var})")
         }
+        // Note: Sequence<Int64> and Sequence<UInt64> are BigInt64Array / BigUint64Array
+        // at the wasm boundary; they don't need lifting and fall through to the identity arm.
         Type::Sequence { inner_type } if needs_object_lifting(inner_type, local_crate) => {
             let inner = lift_expr("__v", inner_type, local_crate);
             format!("({var}).map((__v) => {inner})")
@@ -59,11 +61,25 @@ pub(super) fn lift_return(
     local_crate: &str,
 ) -> String {
     let await_kw = if is_async { "await " } else { "" };
-    match return_type {
+    let base = match return_type {
         Some(t) if needs_object_lifting(t, local_crate) => {
             let awaited = format!("{await_kw}{raw_call}");
             lift_expr(&awaited, t, local_crate)
         }
         _ => format!("{await_kw}{raw_call}"),
+    };
+    // wasm-bindgen returns `undefined` for Option::None, but our public API uses `T | null`.
+    // Coalesce to keep the type contract consistent. Skip when object lifting already
+    // handles it (the IIFE uses `== null` which catches both null and undefined).
+    match return_type {
+        Some(Type::Optional { .. }) if !needs_object_lifting(return_type.unwrap(), local_crate) => {
+            if is_async {
+                // Parenthesize so `??` binds to the resolved value, not the Promise.
+                format!("({base}) ?? null")
+            } else {
+                format!("{base} ?? null")
+            }
+        }
+        _ => base,
     }
 }
