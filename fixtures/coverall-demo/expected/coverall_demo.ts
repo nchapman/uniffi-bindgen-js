@@ -23,6 +23,14 @@ function _uniffiEnsureApiIntegrity(): void {
   if (_checksum_uniffi_crate_name_checksum_func_create_some_dict !== 59765) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_create_some_dict\`: expected 59765, got ${_checksum_uniffi_crate_name_checksum_func_create_some_dict}`);
   }
+  const _checksum_uniffi_crate_name_checksum_func_describe_maybe_color: number = (__bg as any).uniffi_crate_name_checksum_func_describe_maybe_color();
+  if (_checksum_uniffi_crate_name_checksum_func_describe_maybe_color !== 34211) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_describe_maybe_color\`: expected 34211, got ${_checksum_uniffi_crate_name_checksum_func_describe_maybe_color}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_func_describe_maybe_dict: number = (__bg as any).uniffi_crate_name_checksum_func_describe_maybe_dict();
+  if (_checksum_uniffi_crate_name_checksum_func_describe_maybe_dict !== 56361) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_describe_maybe_dict\`: expected 56361, got ${_checksum_uniffi_crate_name_checksum_func_describe_maybe_dict}`);
+  }
   const _checksum_uniffi_crate_name_checksum_func_divide_by_text: number = (__bg as any).uniffi_crate_name_checksum_func_divide_by_text();
   if (_checksum_uniffi_crate_name_checksum_func_divide_by_text !== 35670) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_divide_by_text\`: expected 35670, got ${_checksum_uniffi_crate_name_checksum_func_divide_by_text}`);
@@ -30,6 +38,22 @@ function _uniffiEnsureApiIntegrity(): void {
   const _checksum_uniffi_crate_name_checksum_func_get_int_map: number = (__bg as any).uniffi_crate_name_checksum_func_get_int_map();
   if (_checksum_uniffi_crate_name_checksum_func_get_int_map !== 13540) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_get_int_map\`: expected 13540, got ${_checksum_uniffi_crate_name_checksum_func_get_int_map}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_func_get_maybe_color: number = (__bg as any).uniffi_crate_name_checksum_func_get_maybe_color();
+  if (_checksum_uniffi_crate_name_checksum_func_get_maybe_color !== 27958) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_get_maybe_color\`: expected 27958, got ${_checksum_uniffi_crate_name_checksum_func_get_maybe_color}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_func_get_maybe_count: number = (__bg as any).uniffi_crate_name_checksum_func_get_maybe_count();
+  if (_checksum_uniffi_crate_name_checksum_func_get_maybe_count !== 58188) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_get_maybe_count\`: expected 58188, got ${_checksum_uniffi_crate_name_checksum_func_get_maybe_count}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_func_get_maybe_dict: number = (__bg as any).uniffi_crate_name_checksum_func_get_maybe_dict();
+  if (_checksum_uniffi_crate_name_checksum_func_get_maybe_dict !== 50623) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_get_maybe_dict\`: expected 50623, got ${_checksum_uniffi_crate_name_checksum_func_get_maybe_dict}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_func_get_maybe_flag: number = (__bg as any).uniffi_crate_name_checksum_func_get_maybe_flag();
+  if (_checksum_uniffi_crate_name_checksum_func_get_maybe_flag !== 59146) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_get_maybe_flag\`: expected 59146, got ${_checksum_uniffi_crate_name_checksum_func_get_maybe_flag}`);
   }
   const _checksum_uniffi_crate_name_checksum_func_get_maybe_simple_dict: number = (__bg as any).uniffi_crate_name_checksum_func_get_maybe_simple_dict();
   if (_checksum_uniffi_crate_name_checksum_func_get_maybe_simple_dict !== 52642) {
@@ -43,6 +67,14 @@ function _uniffiEnsureApiIntegrity(): void {
   if (_checksum_uniffi_crate_name_checksum_func_make_rust_getters !== 31082) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_make_rust_getters\`: expected 31082, got ${_checksum_uniffi_crate_name_checksum_func_make_rust_getters}`);
   }
+  const _checksum_uniffi_crate_name_checksum_func_output_return_only_dict: number = (__bg as any).uniffi_crate_name_checksum_func_output_return_only_dict();
+  if (_checksum_uniffi_crate_name_checksum_func_output_return_only_dict !== 25732) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_output_return_only_dict\`: expected 25732, got ${_checksum_uniffi_crate_name_checksum_func_output_return_only_dict}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_func_output_return_only_enum: number = (__bg as any).uniffi_crate_name_checksum_func_output_return_only_enum();
+  if (_checksum_uniffi_crate_name_checksum_func_output_return_only_enum !== 17153) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_output_return_only_enum\`: expected 17153, got ${_checksum_uniffi_crate_name_checksum_func_output_return_only_enum}`);
+  }
   const _checksum_uniffi_crate_name_checksum_func_println: number = (__bg as any).uniffi_crate_name_checksum_func_println();
   if (_checksum_uniffi_crate_name_checksum_func_println !== 14318) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_println\`: expected 14318, got ${_checksum_uniffi_crate_name_checksum_func_println}`);
@@ -55,9 +87,33 @@ function _uniffiEnsureApiIntegrity(): void {
   if (_checksum_uniffi_crate_name_checksum_func_test_getters !== 40682) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_test_getters\`: expected 40682, got ${_checksum_uniffi_crate_name_checksum_func_test_getters}`);
   }
+  const _checksum_uniffi_crate_name_checksum_func_throw_flat_error: number = (__bg as any).uniffi_crate_name_checksum_func_throw_flat_error();
+  if (_checksum_uniffi_crate_name_checksum_func_throw_flat_error !== 9433) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_throw_flat_error\`: expected 9433, got ${_checksum_uniffi_crate_name_checksum_func_throw_flat_error}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_func_validate_html: number = (__bg as any).uniffi_crate_name_checksum_func_validate_html();
+  if (_checksum_uniffi_crate_name_checksum_func_validate_html !== 3368) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_func_validate_html\`: expected 3368, got ${_checksum_uniffi_crate_name_checksum_func_validate_html}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_method_coveralls_add_patch: number = (__bg as any).uniffi_crate_name_checksum_method_coveralls_add_patch();
+  if (_checksum_uniffi_crate_name_checksum_method_coveralls_add_patch !== 39154) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_coveralls_add_patch\`: expected 39154, got ${_checksum_uniffi_crate_name_checksum_method_coveralls_add_patch}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_method_coveralls_add_repair: number = (__bg as any).uniffi_crate_name_checksum_method_coveralls_add_repair();
+  if (_checksum_uniffi_crate_name_checksum_method_coveralls_add_repair !== 25033) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_coveralls_add_repair\`: expected 25033, got ${_checksum_uniffi_crate_name_checksum_method_coveralls_add_repair}`);
+  }
   const _checksum_uniffi_crate_name_checksum_method_coveralls_clone_me: number = (__bg as any).uniffi_crate_name_checksum_method_coveralls_clone_me();
   if (_checksum_uniffi_crate_name_checksum_method_coveralls_clone_me !== 58508) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_coveralls_clone_me\`: expected 58508, got ${_checksum_uniffi_crate_name_checksum_method_coveralls_clone_me}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_method_coveralls_get_dict2: number = (__bg as any).uniffi_crate_name_checksum_method_coveralls_get_dict2();
+  if (_checksum_uniffi_crate_name_checksum_method_coveralls_get_dict2 !== 26919) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_coveralls_get_dict2\`: expected 26919, got ${_checksum_uniffi_crate_name_checksum_method_coveralls_get_dict2}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_method_coveralls_get_dict3: number = (__bg as any).uniffi_crate_name_checksum_method_coveralls_get_dict3();
+  if (_checksum_uniffi_crate_name_checksum_method_coveralls_get_dict3 !== 4071) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_coveralls_get_dict3\`: expected 4071, got ${_checksum_uniffi_crate_name_checksum_method_coveralls_get_dict3}`);
   }
   const _checksum_uniffi_crate_name_checksum_method_coveralls_get_metadata: number = (__bg as any).uniffi_crate_name_checksum_method_coveralls_get_metadata();
   if (_checksum_uniffi_crate_name_checksum_method_coveralls_get_metadata !== 31141) {
@@ -71,6 +127,14 @@ function _uniffiEnsureApiIntegrity(): void {
   if (_checksum_uniffi_crate_name_checksum_method_coveralls_get_other !== 22943) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_coveralls_get_other\`: expected 22943, got ${_checksum_uniffi_crate_name_checksum_method_coveralls_get_other}`);
   }
+  const _checksum_uniffi_crate_name_checksum_method_coveralls_get_repairs: number = (__bg as any).uniffi_crate_name_checksum_method_coveralls_get_repairs();
+  if (_checksum_uniffi_crate_name_checksum_method_coveralls_get_repairs !== 40486) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_coveralls_get_repairs\`: expected 40486, got ${_checksum_uniffi_crate_name_checksum_method_coveralls_get_repairs}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_method_coveralls_get_status: number = (__bg as any).uniffi_crate_name_checksum_method_coveralls_get_status();
+  if (_checksum_uniffi_crate_name_checksum_method_coveralls_get_status !== 19556) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_coveralls_get_status\`: expected 19556, got ${_checksum_uniffi_crate_name_checksum_method_coveralls_get_status}`);
+  }
   const _checksum_uniffi_crate_name_checksum_method_coveralls_get_tags: number = (__bg as any).uniffi_crate_name_checksum_method_coveralls_get_tags();
   if (_checksum_uniffi_crate_name_checksum_method_coveralls_get_tags !== 58217) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_coveralls_get_tags\`: expected 58217, got ${_checksum_uniffi_crate_name_checksum_method_coveralls_get_tags}`);
@@ -83,9 +147,17 @@ function _uniffiEnsureApiIntegrity(): void {
   if (_checksum_uniffi_crate_name_checksum_method_coveralls_maybe_throw_complex !== 24041) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_coveralls_maybe_throw_complex\`: expected 24041, got ${_checksum_uniffi_crate_name_checksum_method_coveralls_maybe_throw_complex}`);
   }
+  const _checksum_uniffi_crate_name_checksum_method_coveralls_maybe_throw_into: number = (__bg as any).uniffi_crate_name_checksum_method_coveralls_maybe_throw_into();
+  if (_checksum_uniffi_crate_name_checksum_method_coveralls_maybe_throw_into !== 5009) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_coveralls_maybe_throw_into\`: expected 5009, got ${_checksum_uniffi_crate_name_checksum_method_coveralls_maybe_throw_into}`);
+  }
   const _checksum_uniffi_crate_name_checksum_method_coveralls_reverse_bytes: number = (__bg as any).uniffi_crate_name_checksum_method_coveralls_reverse_bytes();
   if (_checksum_uniffi_crate_name_checksum_method_coveralls_reverse_bytes !== 28911) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_coveralls_reverse_bytes\`: expected 28911, got ${_checksum_uniffi_crate_name_checksum_method_coveralls_reverse_bytes}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_method_coveralls_set_and_get_empty_struct: number = (__bg as any).uniffi_crate_name_checksum_method_coveralls_set_and_get_empty_struct();
+  if (_checksum_uniffi_crate_name_checksum_method_coveralls_set_and_get_empty_struct !== 44611) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_coveralls_set_and_get_empty_struct\`: expected 44611, got ${_checksum_uniffi_crate_name_checksum_method_coveralls_set_and_get_empty_struct}`);
   }
   const _checksum_uniffi_crate_name_checksum_method_coveralls_set_name: number = (__bg as any).uniffi_crate_name_checksum_method_coveralls_set_name();
   if (_checksum_uniffi_crate_name_checksum_method_coveralls_set_name !== 10857) {
@@ -102,6 +174,14 @@ function _uniffiEnsureApiIntegrity(): void {
   const _checksum_uniffi_crate_name_checksum_method_falliblepatch_get_color: number = (__bg as any).uniffi_crate_name_checksum_method_falliblepatch_get_color();
   if (_checksum_uniffi_crate_name_checksum_method_falliblepatch_get_color !== 47454) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_falliblepatch_get_color\`: expected 47454, got ${_checksum_uniffi_crate_name_checksum_method_falliblepatch_get_color}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_method_ifirst_compare: number = (__bg as any).uniffi_crate_name_checksum_method_ifirst_compare();
+  if (_checksum_uniffi_crate_name_checksum_method_ifirst_compare !== 55948) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_ifirst_compare\`: expected 55948, got ${_checksum_uniffi_crate_name_checksum_method_ifirst_compare}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_method_isecond_compare: number = (__bg as any).uniffi_crate_name_checksum_method_isecond_compare();
+  if (_checksum_uniffi_crate_name_checksum_method_isecond_compare !== 51747) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_isecond_compare\`: expected 51747, got ${_checksum_uniffi_crate_name_checksum_method_isecond_compare}`);
   }
   const _checksum_uniffi_crate_name_checksum_method_nodea_get_partner: number = (__bg as any).uniffi_crate_name_checksum_method_nodea_get_partner();
   if (_checksum_uniffi_crate_name_checksum_method_nodea_get_partner !== 50601) {
@@ -135,6 +215,18 @@ function _uniffiEnsureApiIntegrity(): void {
   if (_checksum_uniffi_crate_name_checksum_constructor_falliblepatch_new !== 12136) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_constructor_falliblepatch_new\`: expected 12136, got ${_checksum_uniffi_crate_name_checksum_constructor_falliblepatch_new}`);
   }
+  const _checksum_uniffi_crate_name_checksum_constructor_falliblepatch_secondary: number = (__bg as any).uniffi_crate_name_checksum_constructor_falliblepatch_secondary();
+  if (_checksum_uniffi_crate_name_checksum_constructor_falliblepatch_secondary !== 256) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_constructor_falliblepatch_secondary\`: expected 256, got ${_checksum_uniffi_crate_name_checksum_constructor_falliblepatch_secondary}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_constructor_ifirst_new: number = (__bg as any).uniffi_crate_name_checksum_constructor_ifirst_new();
+  if (_checksum_uniffi_crate_name_checksum_constructor_ifirst_new !== 41251) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_constructor_ifirst_new\`: expected 41251, got ${_checksum_uniffi_crate_name_checksum_constructor_ifirst_new}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_constructor_isecond_new: number = (__bg as any).uniffi_crate_name_checksum_constructor_isecond_new();
+  if (_checksum_uniffi_crate_name_checksum_constructor_isecond_new !== 16463) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_constructor_isecond_new\`: expected 16463, got ${_checksum_uniffi_crate_name_checksum_constructor_isecond_new}`);
+  }
   const _checksum_uniffi_crate_name_checksum_constructor_patch_new: number = (__bg as any).uniffi_crate_name_checksum_constructor_patch_new();
   if (_checksum_uniffi_crate_name_checksum_constructor_patch_new !== 2665) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_constructor_patch_new\`: expected 2665, got ${_checksum_uniffi_crate_name_checksum_constructor_patch_new}`);
@@ -162,6 +254,10 @@ function _uniffiEnsureApiIntegrity(): void {
   const _checksum_uniffi_crate_name_checksum_method_getters_get_nothing: number = (__bg as any).uniffi_crate_name_checksum_method_getters_get_nothing();
   if (_checksum_uniffi_crate_name_checksum_method_getters_get_nothing !== 22876) {
     throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_getters_get_nothing\`: expected 22876, got ${_checksum_uniffi_crate_name_checksum_method_getters_get_nothing}`);
+  }
+  const _checksum_uniffi_crate_name_checksum_method_getters_round_trip_object: number = (__bg as any).uniffi_crate_name_checksum_method_getters_round_trip_object();
+  if (_checksum_uniffi_crate_name_checksum_method_getters_round_trip_object !== 42475) {
+    throw new Error(`UniFFI API checksum mismatch for \`uniffi_crate_name_checksum_method_getters_round_trip_object\`: expected 42475, got ${_checksum_uniffi_crate_name_checksum_method_getters_round_trip_object}`);
   }
   const _checksum_uniffi_crate_name_checksum_method_nodetrait_name: number = (__bg as any).uniffi_crate_name_checksum_method_nodetrait_name();
   if (_checksum_uniffi_crate_name_checksum_method_nodetrait_name !== 46427) {
@@ -207,6 +303,48 @@ export class CoverallError extends Error {
   static TooManyHoles(): CoverallError { return new CoverallError('TooManyHoles'); }
 }
 
+/** Flat error with case-testing variant names. */
+export class CoverallFlatError extends Error {
+  override readonly name = 'CoverallFlatError' as const;
+  constructor(public readonly tag: 'TooManyVariants') {
+    super(tag);
+  }
+  static TooManyVariants(): CoverallFlatError { return new CoverallFlatError('TooManyVariants'); }
+}
+
+/** Flat error with non-standard casing. */
+export class HTMLError extends Error {
+  override readonly name = 'HTMLError' as const;
+  constructor(public readonly tag: 'InvalidHTML') {
+    super(tag);
+  }
+  static InvalidHTML(): HTMLError { return new HTMLError('InvalidHTML'); }
+}
+
+/** Record with default values — tests default field generation. */
+export interface DictWithDefaults {
+  name?: string;
+  category?: string | null;
+  integer?: bigint;
+  itemList?: string[];
+  itemMap?: Map<string, string>;
+}
+
+/** Empty record — tests zero-field record generation. */
+export interface EmptyStruct {
+}
+
+/** Record with an object field — tests object-in-record via JSON codec. */
+export interface Repair {
+  when: Date;
+  patch: Patch;
+}
+
+/** Return-only record type with an error enum as a field. */
+export interface ReturnOnlyDict {
+  e: CoverallFlatError;
+}
+
 /** Primary test record with a rich set of field types. */
 export interface SimpleDict {
   text: string;
@@ -217,15 +355,38 @@ export interface SimpleDict {
   counts: Map<string, bigint>;
   maybeText: string | null;
   maybePatch: Patch | null;
+  maybeU8: number | null;
+  maybeU16: number | null;
+  maybeU64: bigint | null;
+  maybeI8: number | null;
+  maybeI64: bigint | null;
+  maybeF32: number | null;
+  maybeF64: number | null;
+  maybeBool: boolean | null;
+  maybeBytes: Uint8Array | null;
+  someBytes: Uint8Array;
+  coveralls: Coveralls | null;
 }
 
 /** Simple three-variant flat enum. */
 export type Color = 'Red' | 'Blue' | 'Green';
 
+/** Enum wrapping an object — tests object in data enum variant. */
+export type MaybeObject =
+  | { tag: 'Obj', p: Patch }
+  | { tag: 'Nah' };
+
 /** Enum wrapping a record — tests enum-with-associated-data. */
 export type MaybeSimpleDict =
   | { tag: 'Yeah', value: SimpleDict }
   | { tag: 'Nah' };
+
+/** Return-only enum with nested error and record types. */
+export type ReturnOnlyEnum =
+  | { tag: 'One', e: CoverallFlatError }
+  | { tag: 'Two', d: ReturnOnlyDict }
+  | { tag: 'Three', l: CoverallFlatError[] }
+  | { tag: 'Four', m: Map<string, CoverallFlatError> };
 
 /** Callback interface exercising multiple return types and error paths. */
 export interface Getters {
@@ -234,6 +395,7 @@ export interface Getters {
   getOption(v: string, arg2: boolean): string | null;
   getList(v: number[], arg2: boolean): number[];
   getNothing(v: string): void;
+  roundTripObject(coveralls: Coveralls): Coveralls;
 }
 
 /** Callback interface for tree-like trait object graphs. */
@@ -259,10 +421,30 @@ export class Coveralls {
   static fallibleNew(name: string, shouldFail: boolean): Coveralls {
     try { return Coveralls._fromInner(__bg.coveralls_fallible_new(name, shouldFail)); } catch (e) { return _liftCoverallError(e); }
   }
+  /** Add a patch to this coveralls. */
+  addPatch(patch: Patch): void {
+    this._assertLive();
+    this._inner.add_patch(patch);
+  }
+  /** Add a repair record. */
+  addRepair(repair: Repair): void {
+    this._assertLive();
+    this._inner.add_repair(repair);
+  }
   /** Clone into a new instance (tests object return from method). */
   cloneMe(): Coveralls {
     this._assertLive();
     return Coveralls._fromInner(this._inner.clone_me());
+  }
+  /** Return a string-keyed map. */
+  getDict2(key: string, value: bigint): Map<string, bigint> {
+    this._assertLive();
+    return this._inner.get_dict2(key, value);
+  }
+  /** Return a non-string-keyed map. */
+  getDict3(key: number, value: bigint): Map<number, bigint> {
+    this._assertLive();
+    return this._inner.get_dict3(key, value);
   }
   /** Return a map with string keys and optional string values. */
   getMetadata(): Map<string, string | null> {
@@ -276,6 +458,16 @@ export class Coveralls {
   getOther(): Coveralls | null {
     this._assertLive();
     return ((__v) => __v == null ? null : Coveralls._fromInner(__v))(this._inner.get_other());
+  }
+  /** Return all stored repairs. */
+  getRepairs(): Repair[] {
+    this._assertLive();
+    return this._inner.get_repairs();
+  }
+  /** Simple pass-through returning the status string. */
+  getStatus(status: string): string {
+    this._assertLive();
+    return this._inner.get_status(status);
   }
   /** Return a sequence of optional strings. */
   getTags(): (string | null)[] {
@@ -292,10 +484,20 @@ export class Coveralls {
     this._assertLive();
     try { return this._inner.maybe_throw_complex(selector); } catch (e) { return _liftComplexError(e); }
   }
+  /** Another throws variant — returns boolean. */
+  maybeThrowInto(shouldThrow: boolean): boolean {
+    this._assertLive();
+    try { return this._inner.maybe_throw_into(shouldThrow); } catch (e) { return _liftCoverallError(e); }
+  }
   /** Reverse some bytes via a method (tests binary on object). */
   reverseBytes(input: Uint8Array): Uint8Array {
     this._assertLive();
     return this._inner.reverse_bytes(input);
+  }
+  /** Empty record round-trip. */
+  setAndGetEmptyStruct(emptyStruct: EmptyStruct): EmptyStruct {
+    this._assertLive();
+    return this._inner.set_and_get_empty_struct(emptyStruct);
   }
   setName(name: string): void {
     this._assertLive();
@@ -319,7 +521,7 @@ export class Coveralls {
   }
   [Symbol.dispose](): void { this.free(); }
 }
-/** Object with fallible constructor only — no default constructor. */
+/** Object with fallible constructors — tests error on construction. */
 export class FalliblePatch {
   private readonly _inner: __bg.FalliblePatch;
   private _freed = false;
@@ -334,9 +536,62 @@ export class FalliblePatch {
   static new(color: Color, shouldFail: boolean): FalliblePatch {
     try { return FalliblePatch._fromInner(new __bg.FalliblePatch(color, shouldFail)); } catch (e) { return _liftCoverallError(e); }
   }
+  static secondary(color: Color, shouldFail: boolean): FalliblePatch {
+    try { return FalliblePatch._fromInner(__bg.fallible_patch_secondary(color, shouldFail)); } catch (e) { return _liftCoverallError(e); }
+  }
   getColor(): Color {
     this._assertLive();
     return this._inner.get_color();
+  }
+  /** Releases the underlying WASM resource. Safe to call more than once. */
+  free(): void {
+    if (this._freed) return;
+    this._freed = true;
+    this._inner.free();
+  }
+  [Symbol.dispose](): void { this.free(); }
+}
+/** Forward-reference test: IFirst refers to ISecond and vice versa. */
+export class IFirst {
+  private readonly _inner: __bg.IFirst;
+  private _freed = false;
+  private _assertLive(): void {
+    if (this._freed) throw new Error('IFirst object has been freed');
+  }
+  private constructor(inner: __bg.IFirst) {
+    this._inner = inner;
+  }
+  /** @internal */
+  static _fromInner(inner: __bg.IFirst): IFirst { return new IFirst(inner); }
+  static new(): IFirst { return IFirst._fromInner(new __bg.IFirst()); }
+  compare(other: ISecond | null = null): boolean {
+    this._assertLive();
+    return this._inner.compare(other);
+  }
+  /** Releases the underlying WASM resource. Safe to call more than once. */
+  free(): void {
+    if (this._freed) return;
+    this._freed = true;
+    this._inner.free();
+  }
+  [Symbol.dispose](): void { this.free(); }
+}
+/** Counterpart to IFirst in the forward-reference pair. */
+export class ISecond {
+  private readonly _inner: __bg.ISecond;
+  private _freed = false;
+  private _assertLive(): void {
+    if (this._freed) throw new Error('ISecond object has been freed');
+  }
+  private constructor(inner: __bg.ISecond) {
+    this._inner = inner;
+  }
+  /** @internal */
+  static _fromInner(inner: __bg.ISecond): ISecond { return new ISecond(inner); }
+  static new(): ISecond { return ISecond._fromInner(new __bg.ISecond()); }
+  compare(other: IFirst | null): boolean {
+    this._assertLive();
+    return this._inner.compare(other);
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -466,6 +721,16 @@ function _liftCoverallError(e: unknown): never {
   if (tag === 'TooManyHoles') throw new CoverallError('TooManyHoles');
   throw e;
 }
+function _liftCoverallFlatError(e: unknown): never {
+  const tag = typeof e === 'string' ? e : (e instanceof Error ? e.message : null);
+  if (tag === 'TooManyVariants') throw new CoverallFlatError('TooManyVariants');
+  throw e;
+}
+function _liftHTMLError(e: unknown): never {
+  const tag = typeof e === 'string' ? e : (e instanceof Error ? e.message : null);
+  if (tag === 'InvalidHTML') throw new HTMLError('InvalidHTML');
+  throw e;
+}
 
 export namespace CoverallDemo {
   /** Walk up a NodeTrait tree, collecting ancestor names. */
@@ -476,12 +741,24 @@ export namespace CoverallDemo {
   export function createPatch(color: Color): Patch { return Patch._fromInner(__bg.create_patch(color)); }
   /** Create a SimpleDict with sample values filled in. */
   export function createSomeDict(): SimpleDict { return __bg.create_some_dict(); }
+  /** Accept an optional Color enum parameter. */
+  export function describeMaybeColor(input: Color | null): string { return __bg.describe_maybe_color(input); }
+  /** Accept an optional SimpleDict parameter. */
+  export function describeMaybeDict(input: SimpleDict | null): string { return __bg.describe_maybe_dict(input); }
   /** Divide a float by a text-parsed divisor; exercises error paths. */
   export function divideByText(value: number, divisor: string): number {
     try { return __bg.divide_by_text(value, divisor); } catch (e) { return _liftComplexError(e); }
   }
   /** Round-trip a map with non-string keys (record<u32, u64>). */
   export function getIntMap(key: number, value: bigint): Map<number, bigint> { return __bg.get_int_map(key, value); }
+  /** Return an optional Color enum based on a flag. */
+  export function getMaybeColor(returnValue: boolean): Color | null { return __bg.get_maybe_color(returnValue); }
+  /** Return an optional u32 based on a flag. */
+  export function getMaybeCount(returnValue: boolean): number | null { return __bg.get_maybe_count(returnValue); }
+  /** Return an optional SimpleDict based on a flag. */
+  export function getMaybeDict(returnValue: boolean): SimpleDict | null { return __bg.get_maybe_dict(returnValue); }
+  /** Return an optional boolean based on a flag. */
+  export function getMaybeFlag(returnValue: boolean): boolean | null { return __bg.get_maybe_flag(returnValue); }
   /** Return an enum variant based on a numeric selector. */
   export function getMaybeSimpleDict(index: number): MaybeSimpleDict { return __bg.get_maybe_simple_dict(index); }
   /**
@@ -490,6 +767,10 @@ export namespace CoverallDemo {
   export function getNumAlive(): bigint { return __bg.get_num_alive(); }
   /** Create a Rust-implemented Getters for trait round-trip tests. */
   export function makeRustGetters(): Getters { return __bg.make_rust_getters(); }
+  /** Return a ReturnOnlyDict (tests return-only record type). */
+  export function outputReturnOnlyDict(): ReturnOnlyDict { return __bg.output_return_only_dict(); }
+  /** Return a ReturnOnlyEnum (tests return-only enum type). */
+  export function outputReturnOnlyEnum(): ReturnOnlyEnum { return __bg.output_return_only_enum(); }
   /** Round-trip a string; throws ComplexError on certain inputs. */
   export function println(value: string): string {
     try { return __bg.println(value); } catch (e) { return _liftComplexError(e); }
@@ -499,5 +780,13 @@ export namespace CoverallDemo {
   /** Exercise a foreign-implemented Getters. */
   export function testGetters(getters: Getters): void {
     try { __bg.test_getters(getters); } catch (e) { _liftCoverallError(e); }
+  }
+  /** Throw a CoverallFlatError. */
+  export function throwFlatError(): void {
+    try { __bg.throw_flat_error(); } catch (e) { _liftCoverallFlatError(e); }
+  }
+  /** Validate HTML source; throws HTMLError on invalid input. */
+  export function validateHtml(source: string): void {
+    try { __bg.validate_html(source); } catch (e) { _liftHTMLError(e); }
   }
 }
