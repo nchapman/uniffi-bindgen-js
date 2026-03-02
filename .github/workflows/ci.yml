@@ -61,7 +61,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: runtime-artifacts
-          path: binding_tests
+          path: binding_tests/generated
       - name: Install JS dependencies
         run: cd binding_tests && pnpm install --frozen-lockfile
       - name: TypeScript type check
