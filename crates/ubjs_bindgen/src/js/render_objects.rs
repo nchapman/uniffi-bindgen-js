@@ -2,7 +2,11 @@
 // Object class and top-level function generation
 // ---------------------------------------------------------------------------
 
-use super::config;
+use std::collections::HashMap;
+
+use uniffi_bindgen::interface::Type;
+
+use super::config::{self, CustomTypeConfig};
 use super::naming::{camel_case, safe_js_identifier, snake_case};
 use super::render_helpers::{
     member_call, render_call_body, render_jsdoc, render_param, ts_return_type, type_name, wasm_call,
@@ -127,13 +131,17 @@ pub(super) fn render_object_class(
         let call_args: Vec<String> = m
             .args
             .iter()
-            .map(|a| safe_js_identifier(&camel_case(&a.name)))
+            .map(|a| {
+                let base = safe_js_identifier(&camel_case(&a.name));
+                lower_custom_arg(&base, &a.type_, &cfg.custom_types)
+            })
             .collect();
         // wasm-bindgen preserves Rust method names verbatim (snake_case) in its JS glue.
         // The public TypeScript name is camelCase (via `exported`), but the inner call
         // must match the wasm-pack output exactly. Use bracket notation for reserved words.
         let raw_call = member_call("this._inner", &m.name, &call_args.join(", "));
         let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
+        let call_expr = lift_custom_return(&call_expr, m.return_type.as_ref(), &cfg.custom_types);
 
         let async_kw = if m.is_async { "async " } else { "" };
         let throws_name = m.throws_type.as_ref().map(type_name);
@@ -167,6 +175,34 @@ pub(super) fn render_object_class(
 // Top-level function generation
 // ---------------------------------------------------------------------------
 
+/// Apply custom type `lower` to an argument expression if configured.
+fn lower_custom_arg(
+    arg_expr: &str,
+    arg_type: &Type,
+    custom_types: &HashMap<String, CustomTypeConfig>,
+) -> String {
+    if let Type::Custom { name, .. } = arg_type {
+        if let Some(ct_cfg) = custom_types.get(name.as_str()) {
+            return ct_cfg.lower_expr(arg_expr);
+        }
+    }
+    arg_expr.to_string()
+}
+
+/// Wrap a call expression with custom type `lift` for the return type if configured.
+fn lift_custom_return(
+    call_expr: &str,
+    return_type: Option<&Type>,
+    custom_types: &HashMap<String, CustomTypeConfig>,
+) -> String {
+    if let Some(Type::Custom { name, .. }) = return_type {
+        if let Some(ct_cfg) = custom_types.get(name.as_str()) {
+            return ct_cfg.lift_expr(call_expr);
+        }
+    }
+    call_expr.to_string()
+}
+
 pub(super) fn render_function(
     f: &UdlFunction,
     cfg: &config::JsBindingsConfig,
@@ -186,12 +222,16 @@ pub(super) fn render_function(
     let call_args: Vec<String> = f
         .args
         .iter()
-        .map(|a| safe_js_identifier(&camel_case(&a.name)))
+        .map(|a| {
+            let base = safe_js_identifier(&camel_case(&a.name));
+            lower_custom_arg(&base, &a.type_, &cfg.custom_types)
+        })
         .collect();
     // wasm-pack exports top-level functions under their original snake_case Rust names;
     // object methods are camelCase in the JS glue. Do not apply camel_case here.
     let raw_call = wasm_call(&f.name, &call_args.join(", "));
     let call_expr = lift_return(&raw_call, f.return_type.as_ref(), f.is_async, local_crate);
+    let call_expr = lift_custom_return(&call_expr, f.return_type.as_ref(), &cfg.custom_types);
 
     let async_kw = if f.is_async { "async " } else { "" };
     let throws_name = f.throws_type.as_ref().map(type_name);

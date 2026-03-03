@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use ubjs_bindgen::cli::GenerateArgs;
 
 fn run_golden(fixture_name: &str, udl_file: &str, ts_file: &str) {
-    run_golden_impl(fixture_name, udl_file, ts_file, None);
+    run_golden_impl(fixture_name, udl_file, ts_file, ts_file, None);
 }
 
 /// Like `run_golden` but passes an explicit config path instead of relying on
@@ -13,14 +13,45 @@ fn run_golden(fixture_name: &str, udl_file: &str, ts_file: &str) {
 fn run_golden_with_config(fixture_name: &str, udl_file: &str, ts_file: &str, config_file: &str) {
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let config = repo.join(format!("fixtures/{fixture_name}/src/{config_file}"));
-    run_golden_impl(fixture_name, udl_file, ts_file, Some(config));
+    run_golden_impl(fixture_name, udl_file, ts_file, ts_file, Some(config));
 }
 
-fn run_golden_impl(fixture_name: &str, udl_file: &str, ts_file: &str, config: Option<PathBuf>) {
+/// Like `run_golden_with_config` but the generated file name (from the UDL namespace)
+/// differs from the expected golden file name.
+fn run_golden_with_config_mapped(
+    fixture_name: &str,
+    udl_file: &str,
+    generated_ts: &str,
+    expected_ts: &str,
+    config_file: &str,
+) {
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let config = repo.join(format!("fixtures/{fixture_name}/src/{config_file}"));
+    run_golden_impl(
+        fixture_name,
+        udl_file,
+        generated_ts,
+        expected_ts,
+        Some(config),
+    );
+}
+
+fn run_golden_impl(
+    fixture_name: &str,
+    udl_file: &str,
+    generated_ts: &str,
+    expected_ts: &str,
+    config: Option<PathBuf>,
+) {
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let fixture = repo.join(format!("fixtures/{fixture_name}/src/{udl_file}"));
-    let expected = repo.join(format!("fixtures/{fixture_name}/expected/{ts_file}"));
-    let out_dir = repo.join(format!("target/test-generated-js/{fixture_name}"));
+    let expected = repo.join(format!("fixtures/{fixture_name}/expected/{expected_ts}"));
+    // Use a subdir keyed by expected filename to avoid collisions when multiple
+    // golden tests share the same fixture but use different configs.
+    let out_dir = repo.join(format!(
+        "target/test-generated-js/{fixture_name}/{}",
+        expected_ts.replace('.', "_")
+    ));
 
     let _ = fs::remove_dir_all(&out_dir);
 
@@ -33,7 +64,7 @@ fn run_golden_impl(fixture_name: &str, udl_file: &str, ts_file: &str, config: Op
     })
     .expect("generation should succeed");
 
-    let generated = fs::read_to_string(out_dir.join(ts_file)).expect("generated file");
+    let generated = fs::read_to_string(out_dir.join(generated_ts)).expect("generated file");
 
     // When UPDATE_GOLDEN is set, overwrite the expected file instead of asserting.
     if std::env::var("UPDATE_GOLDEN").is_ok() {
@@ -89,6 +120,17 @@ fn golden_rename_exclude_fixture() {
 #[test]
 fn golden_custom_types_fixture() {
     run_golden("custom-types", "custom_types.udl", "custom_types.ts");
+}
+
+#[test]
+fn golden_custom_types_lift_lower_fixture() {
+    run_golden_with_config_mapped(
+        "custom-types",
+        "custom_types.udl",
+        "custom_types.ts",
+        "custom_types_lift.ts",
+        "uniffi_lift.toml",
+    );
 }
 
 #[test]

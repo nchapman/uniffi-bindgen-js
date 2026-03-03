@@ -74,6 +74,19 @@ pub(super) struct UdlEnum {
     pub methods: Vec<UdlMethod>,
     /// Constructors declared on the enum (proc-macro only).
     pub constructors: Vec<UdlConstructor>,
+    /// Synthesised trait methods.
+    pub traits: SynthesisedTraits,
+}
+
+/// Synthesised trait methods (Display, Eq, Hash).
+#[derive(Debug, Default)]
+pub(super) struct SynthesisedTraits {
+    /// Method name for Display::fmt (produces `toString()`).
+    pub display: Option<String>,
+    /// Method name for PartialEq::eq (produces `equals(other)`).
+    pub eq: Option<String>,
+    /// Method name for Hash::hash (produces `hashCode()`).
+    pub hash: Option<String>,
 }
 
 /// A `dictionary` declaration — generates a TypeScript interface.
@@ -82,6 +95,12 @@ pub(super) struct UdlRecord {
     pub name: String,
     pub fields: Vec<UdlField>,
     pub docstring: Option<String>,
+    /// Methods declared on the record (from `impl` blocks, proc-macro only).
+    pub methods: Vec<UdlMethod>,
+    /// Constructors declared on the record (proc-macro only).
+    pub constructors: Vec<UdlConstructor>,
+    /// Synthesised trait methods.
+    pub traits: SynthesisedTraits,
 }
 
 /// A constructor of an `interface` object.

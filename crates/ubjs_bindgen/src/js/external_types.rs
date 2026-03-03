@@ -45,6 +45,25 @@ pub(super) fn collect_external_imports(
         for f in &r.fields {
             visit!(&f.type_);
         }
+        for c in &r.constructors {
+            for a in &c.args {
+                visit!(&a.type_);
+            }
+            if let Some(t) = &c.throws_type {
+                visit!(t);
+            }
+        }
+        for m in &r.methods {
+            for a in &m.args {
+                visit!(&a.type_);
+            }
+            if let Some(r) = &m.return_type {
+                visit!(r);
+            }
+            if let Some(t) = &m.throws_type {
+                visit!(t);
+            }
+        }
     }
     for e in &metadata.errors {
         for v in &e.variants {

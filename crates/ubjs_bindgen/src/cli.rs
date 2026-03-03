@@ -21,8 +21,8 @@ pub struct GenerateArgs {
     pub out_dir: PathBuf,
     #[arg(long)]
     pub config: Option<PathBuf>,
-    /// Treat source as a compiled cdylib and extract UniFFI metadata from it.
-    #[arg(long)]
+    /// Deprecated: library mode is now auto-detected from the file extension.
+    #[arg(long, hide = true)]
     pub library: bool,
     /// In library mode, generate bindings only for this crate (default: first found).
     #[arg(long, name = "crate")]

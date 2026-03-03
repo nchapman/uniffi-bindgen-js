@@ -91,7 +91,7 @@ Fixtures live in `fixtures/{name}/` with UDL input at `src/{name}.udl` and expec
 
 ### UDL Feature Coverage
 
-All planned UDL features are implemented and golden-tested (17 fixtures):
+All planned UDL features are implemented and golden-tested (19 fixtures):
 
 | Feature | Fixture |
 |---------|---------|
@@ -110,6 +110,8 @@ All planned UDL features are implemented and golden-tested (17 fixtures):
 | Reserved word escaping in all identifier positions | `keywords-demo` |
 | Large enum/error code-gen scale + all primitive types | `type-limits-demo` |
 | All primitive types as inputs/outputs | `type-zoo` |
+| Flat and rich error enums with typed fields | `error-types-demo` |
+| Non-exhaustive enums and errors | `non-exhaustive-demo` |
 
 Additional features (cross-checked against first-party Kotlin/Swift/Python/Ruby backends):
 

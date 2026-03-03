@@ -6,6 +6,11 @@ export interface TraitRecord {
   name: string;
   value: number;
 }
+export namespace TraitRecord {
+  export function toString(self: TraitRecord): string { return __bg.trait_record_uniffi_trait_display(self); }
+  export function equals(self: TraitRecord, other: TraitRecord): boolean { return __bg.trait_record_uniffi_trait_eq_eq(self, other); }
+  export function hashCode(self: TraitRecord): bigint { return __bg.trait_record_uniffi_trait_hash(self); }
+}
 
 export type TraitColor = 'Red' | 'Green' | 'Blue';
 

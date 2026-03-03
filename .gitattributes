@@ -1,0 +1,5 @@
+# Normalize line endings
+* text=auto
+
+# Keep golden fixture files as LF so byte-for-byte comparisons work on Windows
+fixtures/**/*.ts text eol=lf

@@ -20,6 +20,20 @@ jobs:
       - name: Test workspace
         run: cargo test --workspace
 
+  cargo-deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+
+  golden-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test workspace
+        run: cargo test --workspace
+
   build-runtime-artifacts:
     needs: lint-and-unit
     runs-on: ubuntu-latest

@@ -8,7 +8,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 use camino::Utf8Path;
-use uniffi_bindgen::interface::{AsType, ComponentInterface, Type};
+use uniffi_bindgen::interface::{AsType, ComponentInterface, Type, UniffiTraitMethods};
 
 use super::types::*;
 
@@ -20,7 +20,7 @@ pub(super) fn parse_udl_metadata(
     if source.extension().and_then(|e| e.to_str()) != Some("udl") {
         if !library_mode {
             anyhow::bail!(
-                "source '{}' is not a UDL file; pass --library to extract metadata from a compiled library",
+                "source '{}' is not a UDL file and library mode is not enabled",
                 source.display()
             );
         }
@@ -102,6 +102,9 @@ fn component_interface_to_metadata(
                 })
                 .collect(),
             docstring: r.docstring().map(ToOwned::to_owned),
+            methods: parse_methods(r.methods()),
+            constructors: parse_constructors(r.constructors()),
+            traits: extract_traits(&r.uniffi_trait_methods()),
         })
         .collect();
 
@@ -298,6 +301,7 @@ fn parse_enums(ci: &ComponentInterface) -> (Vec<UdlError>, Vec<UdlEnum>) {
 
         let methods = parse_methods(e.methods());
         let constructors = parse_constructors(e.constructors());
+        let traits = extract_traits(&e.uniffi_trait_methods());
 
         if ci.is_name_used_as_error(e.name()) {
             errors.push(UdlError {
@@ -318,11 +322,21 @@ fn parse_enums(ci: &ComponentInterface) -> (Vec<UdlError>, Vec<UdlEnum>) {
                 docstring: e.docstring().map(ToOwned::to_owned),
                 methods,
                 constructors,
+                traits,
             });
         }
     }
 
     (errors, enums)
+}
+
+/// Extract synthesised trait method names from `UniffiTraitMethods`.
+fn extract_traits(utm: &UniffiTraitMethods) -> SynthesisedTraits {
+    SynthesisedTraits {
+        display: utm.display_fmt.as_ref().map(|m| m.name().to_string()),
+        eq: utm.eq_eq.as_ref().map(|m| m.name().to_string()),
+        hash: utm.hash_hash.as_ref().map(|m| m.name().to_string()),
+    }
 }
 
 /// Extract a namespace from the source file stem (fallback for non-UDL sources).

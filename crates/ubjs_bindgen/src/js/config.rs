@@ -14,6 +14,48 @@ pub struct JsBindingsConfig {
     pub rename: HashMap<String, String>,
     pub exclude: Vec<String>,
     pub external_packages: HashMap<String, String>,
+    pub custom_types: HashMap<String, CustomTypeConfig>,
+}
+
+/// Per-custom-type configuration for lift/lower transforms.
+///
+/// Configured in `uniffi.toml` as:
+/// ```toml
+/// [bindings.js.custom_types.Url]
+/// type_name = "URL"
+/// imports = ["{ URL } from 'url'"]
+/// lift = "new URL({})"
+/// lower = "{}.toString()"
+/// ```
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct CustomTypeConfig {
+    /// TypeScript type to use in signatures (default: builtin type).
+    pub type_name: Option<String>,
+    /// Extra imports needed for the custom type.
+    pub imports: Option<Vec<String>>,
+    /// Template converting builtin → custom: `"new URL({})"`.
+    pub lift: Option<String>,
+    /// Template converting custom → builtin: `"{}.toString()"`.
+    pub lower: Option<String>,
+}
+
+impl CustomTypeConfig {
+    /// Apply the lift template (builtin → custom). Identity when unset.
+    pub fn lift_expr(&self, builtin_expr: &str) -> String {
+        match &self.lift {
+            Some(template) => template.replace("{}", builtin_expr),
+            None => builtin_expr.to_string(),
+        }
+    }
+
+    /// Apply the lower template (custom → builtin). Identity when unset.
+    pub fn lower_expr(&self, custom_expr: &str) -> String {
+        match &self.lower {
+            Some(template) => template.replace("{}", custom_expr),
+            None => custom_expr.to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -86,5 +128,61 @@ mod tests {
         assert!(cfg.module_name.is_none());
         assert!(cfg.rename.is_empty());
         assert!(cfg.exclude.is_empty());
+        assert!(cfg.custom_types.is_empty());
+    }
+
+    #[test]
+    fn custom_type_lift_expr_with_template() {
+        let ct = CustomTypeConfig {
+            type_name: Some("URL".to_string()),
+            imports: None,
+            lift: Some("new URL({})".to_string()),
+            lower: None,
+        };
+        assert_eq!(ct.lift_expr("rawValue"), "new URL(rawValue)");
+    }
+
+    #[test]
+    fn custom_type_lift_expr_identity_when_unset() {
+        let ct = CustomTypeConfig::default();
+        assert_eq!(ct.lift_expr("rawValue"), "rawValue");
+    }
+
+    #[test]
+    fn custom_type_lower_expr_with_template() {
+        let ct = CustomTypeConfig {
+            type_name: None,
+            imports: None,
+            lift: None,
+            lower: Some("{}.toString()".to_string()),
+        };
+        assert_eq!(ct.lower_expr("myUrl"), "myUrl.toString()");
+    }
+
+    #[test]
+    fn custom_type_lower_expr_identity_when_unset() {
+        let ct = CustomTypeConfig::default();
+        assert_eq!(ct.lower_expr("myUrl"), "myUrl");
+    }
+
+    #[test]
+    fn parse_custom_types_config() {
+        let toml_str = r#"
+[bindings.js.custom_types.Url]
+type_name = "URL"
+imports = ["{ URL } from 'url'"]
+lift = "new URL({})"
+lower = "{}.toString()"
+"#;
+        let parsed: RootConfig = toml::from_str(toml_str).unwrap();
+        let cfg = parsed.bindings.js;
+        let url_cfg = cfg.custom_types.get("Url").unwrap();
+        assert_eq!(url_cfg.type_name.as_deref(), Some("URL"));
+        assert_eq!(url_cfg.lift.as_deref(), Some("new URL({})"));
+        assert_eq!(url_cfg.lower.as_deref(), Some("{}.toString()"));
+        assert_eq!(
+            url_cfg.imports.as_ref().unwrap(),
+            &vec!["{ URL } from 'url'".to_string()]
+        );
     }
 }

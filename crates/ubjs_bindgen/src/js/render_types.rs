@@ -2,7 +2,11 @@
 // Type rendering: errors, enums, records, callbacks, lift functions
 // ---------------------------------------------------------------------------
 
-use super::config;
+use std::collections::HashMap;
+
+use uniffi_bindgen::interface::Type;
+
+use super::config::{self, CustomTypeConfig};
 use super::naming::{camel_case, safe_js_identifier, snake_case};
 use super::render_helpers::{
     render_call_body, render_jsdoc, render_literal, render_param, ts_return_type, ts_type_str,
@@ -10,6 +14,34 @@ use super::render_helpers::{
 };
 use super::type_lifting::lift_return;
 use super::types::*;
+
+/// Apply custom type `lower` to an argument expression if configured.
+fn lower_custom_arg(
+    arg_expr: &str,
+    arg_type: &Type,
+    custom_types: &HashMap<String, CustomTypeConfig>,
+) -> String {
+    if let Type::Custom { name, .. } = arg_type {
+        if let Some(ct_cfg) = custom_types.get(name.as_str()) {
+            return ct_cfg.lower_expr(arg_expr);
+        }
+    }
+    arg_expr.to_string()
+}
+
+/// Wrap a call expression with custom type `lift` for the return type if configured.
+fn lift_custom_return(
+    call_expr: &str,
+    return_type: Option<&Type>,
+    custom_types: &HashMap<String, CustomTypeConfig>,
+) -> String {
+    if let Some(Type::Custom { name, .. }) = return_type {
+        if let Some(ct_cfg) = custom_types.get(name.as_str()) {
+            return ct_cfg.lift_expr(call_expr);
+        }
+    }
+    call_expr.to_string()
+}
 
 // ---------------------------------------------------------------------------
 // Error class generation
@@ -252,7 +284,10 @@ pub(super) fn render_enum_methods_on_class(
         let call_args: Vec<String> = m
             .args
             .iter()
-            .map(|a| safe_js_identifier(&camel_case(&a.name)))
+            .map(|a| {
+                let base = safe_js_identifier(&camel_case(&a.name));
+                lower_custom_arg(&base, &a.type_, &cfg.custom_types)
+            })
             .collect();
         let self_plus_args = if call_args.is_empty() {
             "this".to_string()
@@ -261,6 +296,7 @@ pub(super) fn render_enum_methods_on_class(
         };
         let raw_call = format!("__bg.{bg_name}_{}({self_plus_args})", m.name);
         let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
+        let call_expr = lift_custom_return(&call_expr, m.return_type.as_ref(), &cfg.custom_types);
         let async_kw = if m.is_async { "async " } else { "" };
         let throws_name = m.throws_type.as_ref().map(type_name);
         let body = render_call_body(
@@ -366,7 +402,11 @@ pub(super) fn render_object_error_lift_fn(name: &str) -> String {
 // Record interface generation
 // ---------------------------------------------------------------------------
 
-pub(super) fn render_record_interface(r: &UdlRecord) -> String {
+pub(super) fn render_record_interface(
+    r: &UdlRecord,
+    cfg: &config::JsBindingsConfig,
+    local_crate: &str,
+) -> String {
     let mut out = String::new();
     out.push_str(&render_jsdoc(r.docstring.as_deref(), ""));
     out.push_str(&format!("export interface {} {{\n", r.name));
@@ -379,6 +419,72 @@ pub(super) fn render_record_interface(r: &UdlRecord) -> String {
         out.push_str(&format!("  {ts_name}{optional}: {ts_type};\n"));
     }
     out.push_str("}\n");
+
+    // Record methods, constructors, and trait methods are emitted in a companion namespace
+    // (TS declaration merging allows a namespace with the same name as an interface).
+    let has_traits = r.traits.display.is_some() || r.traits.eq.is_some() || r.traits.hash.is_some();
+    let has_companion = !r.methods.is_empty() || !r.constructors.is_empty() || has_traits;
+    if has_companion {
+        let name = &r.name;
+        let bg_name = snake_case(name);
+        out.push_str(&format!("export namespace {name} {{\n"));
+
+        // Constructors (static factory functions)
+        out.push_str(&render_enum_constructors_in_namespace(
+            &r.constructors,
+            name,
+            cfg,
+        ));
+
+        // Synthesised trait methods
+        out.push_str(&render_trait_methods(&r.traits, name, &bg_name));
+
+        // Methods (instance-style, take `self` as first param)
+        for m in &r.methods {
+            if cfg.exclude.contains(&format!("{name}.{}", m.name)) {
+                continue;
+            }
+            let exported = cfg
+                .rename
+                .get(&format!("{name}.{}", m.name))
+                .map(|s| safe_js_identifier(s))
+                .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
+            let self_param = format!("self: {name}");
+            let other_params: Vec<String> = m.args.iter().map(render_param).collect();
+            let all_params = if other_params.is_empty() {
+                self_param
+            } else {
+                format!("{self_param}, {}", other_params.join(", "))
+            };
+            let ts_ret = ts_return_type(m.return_type.as_ref(), m.is_async);
+            let call_args: Vec<String> = m
+                .args
+                .iter()
+                .map(|a| {
+                    let base = safe_js_identifier(&camel_case(&a.name));
+                    lower_custom_arg(&base, &a.type_, &cfg.custom_types)
+                })
+                .collect();
+            let self_plus_args = if call_args.is_empty() {
+                "self".to_string()
+            } else {
+                format!("self, {}", call_args.join(", "))
+            };
+            let raw_call = format!("__bg.{bg_name}_{}({self_plus_args})", m.name);
+            let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
+            let call_expr =
+                lift_custom_return(&call_expr, m.return_type.as_ref(), &cfg.custom_types);
+            let async_kw = if m.is_async { "async " } else { "" };
+            let body = render_call_body(&call_expr, m.return_type.is_some(), None, None);
+
+            out.push_str(&render_jsdoc(m.docstring.as_deref(), "  "));
+            out.push_str(&format!(
+                "  export {async_kw}function {exported}({all_params}): {ts_ret} {{{body}}}\n",
+            ));
+        }
+        out.push_str("}\n");
+    }
+
     out
 }
 
@@ -440,7 +546,7 @@ pub(super) fn render_enum_type(
         ));
         // If variants have explicit discriminant values, emit a companion const
         // object mapping variant names to their numeric values.
-        let has_discrs = e.variants.iter().any(|v| v.discr.is_some());
+        let has_discrs = e.variants.iter().all(|v| v.discr.is_some());
         if has_discrs {
             out.push_str(&format!(
                 "/** Discriminant values for {{@link {}}}. */\n",
@@ -493,9 +599,10 @@ pub(super) fn render_enum_type(
         }
     }
 
-    // Enum methods and constructors are emitted as functions in a companion namespace
+    // Enum methods, constructors, and trait methods are emitted in a companion namespace
     // (TS declaration merging allows a namespace with the same name as a type alias).
-    let has_companion = !e.methods.is_empty() || !e.constructors.is_empty();
+    let has_traits = e.traits.display.is_some() || e.traits.eq.is_some() || e.traits.hash.is_some();
+    let has_companion = !e.methods.is_empty() || !e.constructors.is_empty() || has_traits;
     if has_companion {
         let name = &e.name;
         let bg_name = snake_case(name);
@@ -507,6 +614,9 @@ pub(super) fn render_enum_type(
             name,
             cfg,
         ));
+
+        // Synthesised trait methods
+        out.push_str(&render_trait_methods(&e.traits, name, &bg_name));
 
         // Methods (instance-style, take `self` as first param)
         for m in &e.methods {
@@ -529,7 +639,10 @@ pub(super) fn render_enum_type(
             let call_args: Vec<String> = m
                 .args
                 .iter()
-                .map(|a| safe_js_identifier(&camel_case(&a.name)))
+                .map(|a| {
+                    let base = safe_js_identifier(&camel_case(&a.name));
+                    lower_custom_arg(&base, &a.type_, &cfg.custom_types)
+                })
                 .collect();
             let self_plus_args = if call_args.is_empty() {
                 "self".to_string()
@@ -538,6 +651,8 @@ pub(super) fn render_enum_type(
             };
             let raw_call = format!("__bg.{bg_name}_{}({self_plus_args})", m.name);
             let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
+            let call_expr =
+                lift_custom_return(&call_expr, m.return_type.as_ref(), &cfg.custom_types);
             let async_kw = if m.is_async { "async " } else { "" };
             let body = render_call_body(&call_expr, m.return_type.is_some(), None, None);
 
@@ -580,5 +695,35 @@ pub(super) fn render_callback_interface(
         out.push_str(&format!("  {exported}({}): {ts_ret};\n", params.join(", ")));
     }
     out.push_str("}\n");
+    out
+}
+
+// ---------------------------------------------------------------------------
+// Synthesised trait method generation
+// ---------------------------------------------------------------------------
+
+/// Render synthesised trait methods (Display, Eq, Hash) as functions in a companion namespace.
+/// These call into wasm-bindgen exports named by the UniFFI trait convention.
+fn render_trait_methods(traits: &SynthesisedTraits, type_name: &str, bg_name: &str) -> String {
+    let mut out = String::new();
+
+    if let Some(method_name) = &traits.display {
+        out.push_str(&format!(
+            "  export function toString(self: {type_name}): string {{ return __bg.{bg_name}_{method_name}(self); }}\n"
+        ));
+    }
+
+    if let Some(method_name) = &traits.eq {
+        out.push_str(&format!(
+            "  export function equals(self: {type_name}, other: {type_name}): boolean {{ return __bg.{bg_name}_{method_name}(self, other); }}\n"
+        ));
+    }
+
+    if let Some(method_name) = &traits.hash {
+        out.push_str(&format!(
+            "  export function hashCode(self: {type_name}): bigint {{ return __bg.{bg_name}_{method_name}(self); }}\n"
+        ));
+    }
+
     out
 }

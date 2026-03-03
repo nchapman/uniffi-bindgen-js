@@ -1,0 +1,4 @@
+[bindings.js.custom_types.Url]
+type_name = "URL"
+lift = "new URL({})"
+lower = "{}.toString()"
