@@ -9,8 +9,8 @@ use uniffi_bindgen::interface::Type;
 use super::config::{self, CustomTypeConfig};
 use super::naming::{camel_case, safe_js_identifier, snake_case};
 use super::render_helpers::{
-    render_call_body, render_jsdoc, render_literal, render_param, ts_return_type, ts_type_str,
-    type_name,
+    duration_annotations, duration_return_annotation, render_call_body, render_jsdoc,
+    render_jsdoc_with_throws, render_literal, render_param, ts_return_type, ts_type_str, type_name,
 };
 use super::type_lifting::lift_return;
 use super::types::*;
@@ -60,7 +60,7 @@ pub(super) fn render_error_class(
         let mut tag_parts: Vec<String> =
             e.variants.iter().map(|v| format!("'{}'", v.name)).collect();
         if e.is_non_exhaustive {
-            tag_parts.push("string".to_string());
+            tag_parts.push("(string & {})".to_string());
         }
 
         out.push_str(&render_jsdoc(e.docstring.as_deref(), ""));
@@ -126,7 +126,7 @@ pub(super) fn render_error_class(
             }
         }
         if e.is_non_exhaustive {
-            out.push_str("  | { tag: string; [key: string]: unknown };\n");
+            out.push_str("  | { tag: string & {}; [key: string]: unknown };\n");
         }
         out.push('\n');
         out.push_str(&render_jsdoc(e.docstring.as_deref(), ""));
@@ -243,7 +243,14 @@ fn render_enum_constructors(
         };
         let inner_call = format!("{ctor_fn}({})", args.join(", "));
 
-        out.push_str(&render_jsdoc(ctor.docstring.as_deref(), "  "));
+        let throws_name = ctor.throws_type.as_ref().map(type_name);
+        let annotations = duration_annotations(&ctor.args);
+        out.push_str(&render_jsdoc_with_throws(
+            ctor.docstring.as_deref(),
+            throws_name.as_deref(),
+            &annotations,
+            "  ",
+        ));
         if let Some(throws) = &ctor.throws_type {
             let lift = format!("_lift{}", type_name(throws));
             out.push_str(&format!(
@@ -295,18 +302,27 @@ pub(super) fn render_enum_methods_on_class(
             format!("this, {}", call_args.join(", "))
         };
         let raw_call = format!("__bg.{bg_name}_{}({self_plus_args})", m.name);
-        let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
-        let call_expr = lift_custom_return(&call_expr, m.return_type.as_ref(), &cfg.custom_types);
+        let lifted = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
+        let call_expr = lift_custom_return(&lifted.expr, m.return_type.as_ref(), &cfg.custom_types);
         let async_kw = if m.is_async { "async " } else { "" };
         let throws_name = m.throws_type.as_ref().map(type_name);
         let body = render_call_body(
             &call_expr,
             m.return_type.is_some(),
             throws_name.as_deref(),
-            None,
+            lifted.preamble.as_deref(),
         );
 
-        out.push_str(&render_jsdoc(m.docstring.as_deref(), "  "));
+        let mut annotations = duration_annotations(&m.args);
+        if let Some(ann) = duration_return_annotation(m.return_type.as_ref()) {
+            annotations.push(ann);
+        }
+        out.push_str(&render_jsdoc_with_throws(
+            m.docstring.as_deref(),
+            throws_name.as_deref(),
+            &annotations,
+            "  ",
+        ));
         out.push_str(&format!(
             "  {async_kw}{exported}({}): {ts_ret} {{{body}}}\n",
             params.join(", ")
@@ -453,12 +469,12 @@ pub(super) fn render_record_interface(
                 .get(&format!("{name}.{}", m.name))
                 .map(|s| safe_js_identifier(s))
                 .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
-            let self_param = format!("self: {name}");
+            let value_param = format!("value: {name}");
             let other_params: Vec<String> = m.args.iter().map(render_param).collect();
             let all_params = if other_params.is_empty() {
-                self_param
+                value_param
             } else {
-                format!("{self_param}, {}", other_params.join(", "))
+                format!("{value_param}, {}", other_params.join(", "))
             };
             let ts_ret = ts_return_type(m.return_type.as_ref(), m.is_async);
             let call_args: Vec<String> = m
@@ -469,19 +485,34 @@ pub(super) fn render_record_interface(
                     lower_custom_arg(&base, &a.type_, &cfg.custom_types)
                 })
                 .collect();
-            let self_plus_args = if call_args.is_empty() {
-                "self".to_string()
+            let value_plus_args = if call_args.is_empty() {
+                "value".to_string()
             } else {
-                format!("self, {}", call_args.join(", "))
+                format!("value, {}", call_args.join(", "))
             };
-            let raw_call = format!("__bg.{bg_name}_{}({self_plus_args})", m.name);
-            let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
+            let raw_call = format!("__bg.{bg_name}_{}({value_plus_args})", m.name);
+            let lifted = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
             let call_expr =
-                lift_custom_return(&call_expr, m.return_type.as_ref(), &cfg.custom_types);
+                lift_custom_return(&lifted.expr, m.return_type.as_ref(), &cfg.custom_types);
             let async_kw = if m.is_async { "async " } else { "" };
-            let body = render_call_body(&call_expr, m.return_type.is_some(), None, None);
+            let throws_name = m.throws_type.as_ref().map(type_name);
+            let body = render_call_body(
+                &call_expr,
+                m.return_type.is_some(),
+                throws_name.as_deref(),
+                lifted.preamble.as_deref(),
+            );
 
-            out.push_str(&render_jsdoc(m.docstring.as_deref(), "  "));
+            let mut annotations = duration_annotations(&m.args);
+            if let Some(ann) = duration_return_annotation(m.return_type.as_ref()) {
+                annotations.push(ann);
+            }
+            out.push_str(&render_jsdoc_with_throws(
+                m.docstring.as_deref(),
+                throws_name.as_deref(),
+                &annotations,
+                "  ",
+            ));
             out.push_str(&format!(
                 "  export {async_kw}function {exported}({all_params}): {ts_ret} {{{body}}}\n",
             ));
@@ -541,7 +572,7 @@ pub(super) fn render_enum_type(
         out.push_str(&render_jsdoc(doc.as_deref(), ""));
         let mut parts: Vec<String> = e.variants.iter().map(|v| format!("'{}'", v.name)).collect();
         if e.is_non_exhaustive {
-            parts.push("string".to_string());
+            parts.push("(string & {})".to_string());
         }
         out.push_str(&format!(
             "export type {} = {};\n",
@@ -599,7 +630,7 @@ pub(super) fn render_enum_type(
             }
         }
         if e.is_non_exhaustive {
-            out.push_str("  | { tag: string; [key: string]: unknown };\n");
+            out.push_str("  | { tag: string & {}; [key: string]: unknown };\n");
         }
     }
 
@@ -636,12 +667,12 @@ pub(super) fn render_enum_type(
                 .get(&format!("{name}.{}", m.name))
                 .map(|s| safe_js_identifier(s))
                 .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
-            let self_param = format!("self: {name}");
+            let value_param = format!("value: {name}");
             let other_params: Vec<String> = m.args.iter().map(render_param).collect();
             let all_params = if other_params.is_empty() {
-                self_param
+                value_param
             } else {
-                format!("{self_param}, {}", other_params.join(", "))
+                format!("{value_param}, {}", other_params.join(", "))
             };
             let ts_ret = ts_return_type(m.return_type.as_ref(), m.is_async);
             let call_args: Vec<String> = m
@@ -652,19 +683,34 @@ pub(super) fn render_enum_type(
                     lower_custom_arg(&base, &a.type_, &cfg.custom_types)
                 })
                 .collect();
-            let self_plus_args = if call_args.is_empty() {
-                "self".to_string()
+            let value_plus_args = if call_args.is_empty() {
+                "value".to_string()
             } else {
-                format!("self, {}", call_args.join(", "))
+                format!("value, {}", call_args.join(", "))
             };
-            let raw_call = format!("__bg.{bg_name}_{}({self_plus_args})", m.name);
-            let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
+            let raw_call = format!("__bg.{bg_name}_{}({value_plus_args})", m.name);
+            let lifted = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
             let call_expr =
-                lift_custom_return(&call_expr, m.return_type.as_ref(), &cfg.custom_types);
+                lift_custom_return(&lifted.expr, m.return_type.as_ref(), &cfg.custom_types);
             let async_kw = if m.is_async { "async " } else { "" };
-            let body = render_call_body(&call_expr, m.return_type.is_some(), None, None);
+            let throws_name = m.throws_type.as_ref().map(type_name);
+            let body = render_call_body(
+                &call_expr,
+                m.return_type.is_some(),
+                throws_name.as_deref(),
+                lifted.preamble.as_deref(),
+            );
 
-            out.push_str(&render_jsdoc(m.docstring.as_deref(), "  "));
+            let mut annotations = duration_annotations(&m.args);
+            if let Some(ann) = duration_return_annotation(m.return_type.as_ref()) {
+                annotations.push(ann);
+            }
+            out.push_str(&render_jsdoc_with_throws(
+                m.docstring.as_deref(),
+                throws_name.as_deref(),
+                &annotations,
+                "  ",
+            ));
             out.push_str(&format!(
                 "  export {async_kw}function {exported}({all_params}): {ts_ret} {{{body}}}\n",
             ));
@@ -721,31 +767,31 @@ pub(super) fn render_trait_methods(
 
     if let Some(method_name) = &traits.display {
         out.push_str(&format!(
-            "  export function toString(self: {type_name}): string {{ return __bg.{bg_name}_{method_name}(self); }}\n"
+            "  export function toString(value: {type_name}): string {{ return __bg.{bg_name}_{method_name}(value); }}\n"
         ));
     }
 
     if let Some(method_name) = &traits.debug {
         out.push_str(&format!(
-            "  export function toDebugString(self: {type_name}): string {{ return __bg.{bg_name}_{method_name}(self); }}\n"
+            "  export function toDebugString(value: {type_name}): string {{ return __bg.{bg_name}_{method_name}(value); }}\n"
         ));
     }
 
     if let Some(method_name) = &traits.eq {
         out.push_str(&format!(
-            "  export function equals(self: {type_name}, other: {type_name}): boolean {{ return __bg.{bg_name}_{method_name}(self, other); }}\n"
+            "  export function equals(value: {type_name}, other: {type_name}): boolean {{ return __bg.{bg_name}_{method_name}(value, other); }}\n"
         ));
     }
 
     if let Some(method_name) = &traits.hash {
         out.push_str(&format!(
-            "  export function hashCode(self: {type_name}): bigint {{ return __bg.{bg_name}_{method_name}(self); }}\n"
+            "  export function hashCode(value: {type_name}): bigint {{ return __bg.{bg_name}_{method_name}(value); }}\n"
         ));
     }
 
     if let Some(method_name) = &traits.ord {
         out.push_str(&format!(
-            "  export function compareTo(self: {type_name}, other: {type_name}): number {{ return __bg.{bg_name}_{method_name}(self, other); }}\n"
+            "  export function compareTo(value: {type_name}, other: {type_name}): number {{ return __bg.{bg_name}_{method_name}(value, other); }}\n"
         ));
     }
 

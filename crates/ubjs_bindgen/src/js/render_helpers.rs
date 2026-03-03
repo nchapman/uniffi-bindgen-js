@@ -37,32 +37,75 @@ pub(super) fn wasm_call(name: &str, args: &str) -> String {
 /// unconditionally prepend the result without introducing extra blank lines.
 /// `indent` is prepended to every line (e.g. `""` for top-level, `"  "` for members).
 pub(super) fn render_jsdoc(docstring: Option<&str>, indent: &str) -> String {
-    let raw = match docstring.map(str::trim) {
-        Some(s) if !s.is_empty() => s,
-        _ => return String::new(),
-    };
-    // Escape `*/` so it cannot prematurely close the JSDoc block.
-    let lines: Vec<String> = raw
-        .lines()
-        .map(|l| l.trim().replace("*/", "*\\/"))
-        .collect();
-    // Use single-line format only when the whole comment fits on one line (≤80 chars).
-    let single = &lines[0];
-    let single_len = indent.len() + "/** ".len() + single.len() + " */".len();
-    if lines.len() == 1 && single_len <= 80 {
-        format!("{indent}/** {single} */\n")
-    } else {
-        let mut out = format!("{indent}/**\n");
-        for line in &lines {
-            if line.is_empty() {
-                out.push_str(&format!("{indent} *\n"));
-            } else {
-                out.push_str(&format!("{indent} * {line}\n"));
-            }
-        }
-        out.push_str(&format!("{indent} */\n"));
-        out
+    render_jsdoc_with_throws(docstring, None, &[], indent)
+}
+
+/// Render a JSDoc block with optional `@throws` and `@param` annotations.
+///
+/// When `throws` is `Some`, a `@throws {Type}` tag is appended.
+/// `extra_annotations` contains additional lines to append (e.g. `@param name - Duration in seconds.`).
+pub(super) fn render_jsdoc_with_throws(
+    docstring: Option<&str>,
+    throws: Option<&str>,
+    extra_annotations: &[String],
+    indent: &str,
+) -> String {
+    let raw = docstring.map(str::trim).unwrap_or("");
+    let has_content = !raw.is_empty();
+    let has_throws = throws.is_some();
+    let has_extras = !extra_annotations.is_empty();
+
+    if !has_content && !has_throws && !has_extras {
+        return String::new();
     }
+
+    // Collect all doc lines
+    let doc_lines: Vec<String> = if has_content {
+        raw.lines()
+            .map(|l| l.trim().replace("*/", "*\\/"))
+            .collect()
+    } else {
+        vec![]
+    };
+
+    // Collect annotation lines
+    let mut annotations: Vec<String> = Vec::new();
+    for ann in extra_annotations {
+        annotations.push(ann.clone());
+    }
+    if let Some(throws_type) = throws {
+        annotations.push(format!("@throws {{{throws_type}}}"));
+    }
+
+    let total_lines = doc_lines.len() + annotations.len();
+
+    // Try single-line format when everything fits on one line
+    if total_lines == 1 {
+        let single = if !doc_lines.is_empty() {
+            &doc_lines[0]
+        } else {
+            &annotations[0]
+        };
+        let single_len = indent.len() + "/** ".len() + single.len() + " */".len();
+        if single_len <= 80 {
+            return format!("{indent}/** {single} */\n");
+        }
+    }
+
+    // Multi-line format
+    let mut out = format!("{indent}/**\n");
+    for line in &doc_lines {
+        if line.is_empty() {
+            out.push_str(&format!("{indent} *\n"));
+        } else {
+            out.push_str(&format!("{indent} * {line}\n"));
+        }
+    }
+    for ann in &annotations {
+        out.push_str(&format!("{indent} * {ann}\n"));
+    }
+    out.push_str(&format!("{indent} */\n"));
+    out
 }
 
 /// Render a function/method parameter as `name: Type`, `name: Type = default`,
@@ -80,6 +123,25 @@ pub(super) fn render_param(arg: &UdlArg) -> String {
             format!("{ts_name}?: {ts_type}")
         }
         None => format!("{ts_name}: {ts_type}"),
+    }
+}
+
+/// Build `@param` annotations for Duration-typed parameters.
+pub(super) fn duration_annotations(args: &[UdlArg]) -> Vec<String> {
+    args.iter()
+        .filter(|a| matches!(a.type_, Type::Duration))
+        .map(|a| {
+            let ts_name = safe_js_identifier(&camel_case(&a.name));
+            format!("@param {ts_name} - Duration in seconds.")
+        })
+        .collect()
+}
+
+/// Build a `@returns` annotation when the return type is Duration.
+pub(super) fn duration_return_annotation(return_type: Option<&Type>) -> Option<String> {
+    match return_type {
+        Some(Type::Duration) => Some("@returns Duration in seconds.".to_string()),
+        _ => None,
     }
 }
 

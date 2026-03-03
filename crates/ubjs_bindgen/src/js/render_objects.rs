@@ -9,7 +9,8 @@ use uniffi_bindgen::interface::Type;
 use super::config::{self, CustomTypeConfig};
 use super::naming::{camel_case, safe_js_identifier, snake_case};
 use super::render_helpers::{
-    member_call, render_call_body, render_jsdoc, render_param, ts_return_type, type_name, wasm_call,
+    duration_annotations, duration_return_annotation, member_call, render_call_body, render_jsdoc,
+    render_jsdoc_with_throws, render_param, ts_return_type, type_name, wasm_call,
 };
 use super::type_lifting::lift_return;
 use super::types::*;
@@ -38,7 +39,17 @@ pub(super) fn render_ctor(
         class_name.to_string()
     };
 
-    out.push_str(&render_jsdoc(ctor.docstring.as_deref(), "  "));
+    let throws_name = ctor.throws_type.as_ref().map(type_name);
+    let mut annotations = duration_annotations(&ctor.args);
+    if let Some(ann) = duration_return_annotation(None) {
+        annotations.push(ann);
+    }
+    out.push_str(&render_jsdoc_with_throws(
+        ctor.docstring.as_deref(),
+        throws_name.as_deref(),
+        &annotations,
+        "  ",
+    ));
     if let Some(throws) = &ctor.throws_type {
         let lift = format!("_lift{}", type_name(throws));
         out.push_str(&format!(
@@ -98,7 +109,12 @@ pub(super) fn render_object_class(
     ));
 
     if let Some(ctor) = primary_ctor {
-        out.push_str(&render_ctor(ctor, name, &format!("new __bg.{name}"), "new"));
+        out.push_str(&render_ctor(
+            ctor,
+            name,
+            &format!("new __bg.{name}"),
+            "create",
+        ));
     }
 
     for ctor in named_ctors {
@@ -140,19 +156,33 @@ pub(super) fn render_object_class(
         // The public TypeScript name is camelCase (via `exported`), but the inner call
         // must match the wasm-pack output exactly. Use bracket notation for reserved words.
         let raw_call = member_call("this._inner", &m.name, &call_args.join(", "));
-        let call_expr = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
-        let call_expr = lift_custom_return(&call_expr, m.return_type.as_ref(), &cfg.custom_types);
+        let lifted = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
+        let call_expr = lift_custom_return(&lifted.expr, m.return_type.as_ref(), &cfg.custom_types);
 
         let async_kw = if m.is_async { "async " } else { "" };
         let throws_name = m.throws_type.as_ref().map(type_name);
+        // Merge lift preamble with the assertLive preamble
+        let preamble = match &lifted.preamble {
+            Some(lift_pre) => format!("this._assertLive();\n    {lift_pre}"),
+            None => "this._assertLive();".to_string(),
+        };
         let body = render_call_body(
             &call_expr,
             m.return_type.is_some(),
             throws_name.as_deref(),
-            Some("this._assertLive();"),
+            Some(&preamble),
         );
 
-        out.push_str(&render_jsdoc(m.docstring.as_deref(), "  "));
+        let mut annotations = duration_annotations(&m.args);
+        if let Some(ann) = duration_return_annotation(m.return_type.as_ref()) {
+            annotations.push(ann);
+        }
+        out.push_str(&render_jsdoc_with_throws(
+            m.docstring.as_deref(),
+            throws_name.as_deref(),
+            &annotations,
+            "  ",
+        ));
         out.push_str(&format!(
             "  {async_kw}{exported}({}): {ts_ret} {{{body}}}\n",
             params.join(", ")
@@ -257,8 +287,8 @@ pub(super) fn render_function(
     // wasm-pack exports top-level functions under their original snake_case Rust names;
     // object methods are camelCase in the JS glue. Do not apply camel_case here.
     let raw_call = wasm_call(&f.name, &call_args.join(", "));
-    let call_expr = lift_return(&raw_call, f.return_type.as_ref(), f.is_async, local_crate);
-    let call_expr = lift_custom_return(&call_expr, f.return_type.as_ref(), &cfg.custom_types);
+    let lifted = lift_return(&raw_call, f.return_type.as_ref(), f.is_async, local_crate);
+    let call_expr = lift_custom_return(&lifted.expr, f.return_type.as_ref(), &cfg.custom_types);
 
     let async_kw = if f.is_async { "async " } else { "" };
     let throws_name = f.throws_type.as_ref().map(type_name);
@@ -266,10 +296,19 @@ pub(super) fn render_function(
         &call_expr,
         f.return_type.is_some(),
         throws_name.as_deref(),
-        None,
+        lifted.preamble.as_deref(),
     );
 
-    out.push_str(&render_jsdoc(f.docstring.as_deref(), "  "));
+    let mut annotations = duration_annotations(&f.args);
+    if let Some(ann) = duration_return_annotation(f.return_type.as_ref()) {
+        annotations.push(ann);
+    }
+    out.push_str(&render_jsdoc_with_throws(
+        f.docstring.as_deref(),
+        throws_name.as_deref(),
+        &annotations,
+        "  ",
+    ));
     out.push_str(&format!(
         "  export {async_kw}function {exported}({}): {ts_ret} {{{body}}}\n",
         params.join(", ")

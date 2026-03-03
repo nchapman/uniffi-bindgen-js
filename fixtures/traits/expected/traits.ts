@@ -7,9 +7,9 @@ export interface TraitRecord {
   value: number;
 }
 export namespace TraitRecord {
-  export function toString(self: TraitRecord): string { return __bg.trait_record_uniffi_trait_display(self); }
-  export function equals(self: TraitRecord, other: TraitRecord): boolean { return __bg.trait_record_uniffi_trait_eq_eq(self, other); }
-  export function hashCode(self: TraitRecord): bigint { return __bg.trait_record_uniffi_trait_hash(self); }
+  export function toString(value: TraitRecord): string { return __bg.trait_record_uniffi_trait_display(value); }
+  export function equals(value: TraitRecord, other: TraitRecord): boolean { return __bg.trait_record_uniffi_trait_eq_eq(value, other); }
+  export function hashCode(value: TraitRecord): bigint { return __bg.trait_record_uniffi_trait_hash(value); }
 }
 
 export type TraitColor = 'Red' | 'Green' | 'Blue';

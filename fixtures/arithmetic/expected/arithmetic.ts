@@ -19,9 +19,11 @@ function _liftMathError(e: unknown): never {
 }
 
 export namespace Arithmetic {
+  /** @throws {MathError} */
   export function divide(a: number, b: number): number {
     try { return __bg.divide(a, b); } catch (e) { return _liftMathError(e); }
   }
+  /** @throws {MathError} */
   export function sqrt(x: number): number {
     try { return __bg.sqrt(x); } catch (e) { return _liftMathError(e); }
   }

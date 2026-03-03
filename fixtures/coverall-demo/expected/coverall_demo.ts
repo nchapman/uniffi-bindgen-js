@@ -141,7 +141,8 @@ export class Coveralls {
   }
   /** @internal */
   static _fromInner(inner: __bg.Coveralls): Coveralls { return new Coveralls(inner); }
-  static new(name: string): Coveralls { return Coveralls._fromInner(new __bg.Coveralls(name)); }
+  static create(name: string): Coveralls { return Coveralls._fromInner(new __bg.Coveralls(name)); }
+  /** @throws {CoverallError} */
   static fallibleNew(name: string, shouldFail: boolean): Coveralls {
     try { return Coveralls._fromInner(__bg.coveralls_fallible_new(name, shouldFail)); } catch (e) { return _liftCoverallError(e); }
   }
@@ -181,7 +182,8 @@ export class Coveralls {
   }
   getOther(): Coveralls | null {
     this._assertLive();
-    return ((__v) => __v == null ? null : Coveralls._fromInner(__v))(this._inner.get_other());
+    const __v = this._inner.get_other();
+    return __v == null ? null : Coveralls._fromInner(__v);
   }
   /** Return all stored repairs. */
   getRepairs(): Repair[] {
@@ -198,17 +200,26 @@ export class Coveralls {
     this._assertLive();
     return this._inner.get_tags();
   }
-  /** Method that always throws a simple error. */
+  /**
+   * Method that always throws a simple error.
+   * @throws {CoverallError}
+   */
   maybeThrow(shouldThrow: boolean): boolean {
     this._assertLive();
     try { return this._inner.maybe_throw(shouldThrow); } catch (e) { return _liftCoverallError(e); }
   }
-  /** Method that throws a complex (rich) error. */
+  /**
+   * Method that throws a complex (rich) error.
+   * @throws {ComplexError}
+   */
   maybeThrowComplex(selector: number): boolean {
     this._assertLive();
     try { return this._inner.maybe_throw_complex(selector); } catch (e) { return _liftComplexError(e); }
   }
-  /** Another throws variant — returns boolean. */
+  /**
+   * Another throws variant — returns boolean.
+   * @throws {CoverallError}
+   */
   maybeThrowInto(shouldThrow: boolean): boolean {
     this._assertLive();
     try { return this._inner.maybe_throw_into(shouldThrow); } catch (e) { return _liftCoverallError(e); }
@@ -245,6 +256,7 @@ export class Coveralls {
   }
   [Symbol.dispose](): void { this.free(); }
 }
+
 /** Object with fallible constructors — tests error on construction. */
 export class FalliblePatch {
   private readonly _inner: __bg.FalliblePatch;
@@ -257,9 +269,11 @@ export class FalliblePatch {
   }
   /** @internal */
   static _fromInner(inner: __bg.FalliblePatch): FalliblePatch { return new FalliblePatch(inner); }
-  static new(color: Color, shouldFail: boolean): FalliblePatch {
+  /** @throws {CoverallError} */
+  static create(color: Color, shouldFail: boolean): FalliblePatch {
     try { return FalliblePatch._fromInner(new __bg.FalliblePatch(color, shouldFail)); } catch (e) { return _liftCoverallError(e); }
   }
+  /** @throws {CoverallError} */
   static secondary(color: Color, shouldFail: boolean): FalliblePatch {
     try { return FalliblePatch._fromInner(__bg.fallible_patch_secondary(color, shouldFail)); } catch (e) { return _liftCoverallError(e); }
   }
@@ -275,6 +289,7 @@ export class FalliblePatch {
   }
   [Symbol.dispose](): void { this.free(); }
 }
+
 /** Forward-reference test: IFirst refers to ISecond and vice versa. */
 export class IFirst {
   private readonly _inner: __bg.IFirst;
@@ -287,7 +302,7 @@ export class IFirst {
   }
   /** @internal */
   static _fromInner(inner: __bg.IFirst): IFirst { return new IFirst(inner); }
-  static new(): IFirst { return IFirst._fromInner(new __bg.IFirst()); }
+  static create(): IFirst { return IFirst._fromInner(new __bg.IFirst()); }
   compare(other: ISecond | null = null): boolean {
     this._assertLive();
     return this._inner.compare(other);
@@ -300,6 +315,7 @@ export class IFirst {
   }
   [Symbol.dispose](): void { this.free(); }
 }
+
 /** Counterpart to IFirst in the forward-reference pair. */
 export class ISecond {
   private readonly _inner: __bg.ISecond;
@@ -312,7 +328,7 @@ export class ISecond {
   }
   /** @internal */
   static _fromInner(inner: __bg.ISecond): ISecond { return new ISecond(inner); }
-  static new(): ISecond { return ISecond._fromInner(new __bg.ISecond()); }
+  static create(): ISecond { return ISecond._fromInner(new __bg.ISecond()); }
   compare(other: IFirst | null): boolean {
     this._assertLive();
     return this._inner.compare(other);
@@ -325,6 +341,7 @@ export class ISecond {
   }
   [Symbol.dispose](): void { this.free(); }
 }
+
 /** Forward-declaration test: NodeA references NodeB before it is declared. */
 export class NodeA {
   private readonly _inner: __bg.NodeA;
@@ -339,7 +356,8 @@ export class NodeA {
   static _fromInner(inner: __bg.NodeA): NodeA { return new NodeA(inner); }
   getPartner(): NodeB | null {
     this._assertLive();
-    return ((__v) => __v == null ? null : NodeB._fromInner(__v))(this._inner.get_partner());
+    const __v = this._inner.get_partner();
+    return __v == null ? null : NodeB._fromInner(__v);
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -349,6 +367,7 @@ export class NodeA {
   }
   [Symbol.dispose](): void { this.free(); }
 }
+
 /** Forward-declaration test: NodeB references NodeA (mutual reference). */
 export class NodeB {
   private readonly _inner: __bg.NodeB;
@@ -363,7 +382,8 @@ export class NodeB {
   static _fromInner(inner: __bg.NodeB): NodeB { return new NodeB(inner); }
   getPartner(): NodeA | null {
     this._assertLive();
-    return ((__v) => __v == null ? null : NodeA._fromInner(__v))(this._inner.get_partner());
+    const __v = this._inner.get_partner();
+    return __v == null ? null : NodeA._fromInner(__v);
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -373,6 +393,7 @@ export class NodeB {
   }
   [Symbol.dispose](): void { this.free(); }
 }
+
 /** A simple object that wraps a Color. */
 export class Patch {
   private readonly _inner: __bg.Patch;
@@ -385,7 +406,7 @@ export class Patch {
   }
   /** @internal */
   static _fromInner(inner: __bg.Patch): Patch { return new Patch(inner); }
-  static new(color: Color): Patch { return Patch._fromInner(new __bg.Patch(color)); }
+  static create(color: Color): Patch { return Patch._fromInner(new __bg.Patch(color)); }
   getColor(): Color {
     this._assertLive();
     return this._inner.get_color();
@@ -398,6 +419,7 @@ export class Patch {
   }
   [Symbol.dispose](): void { this.free(); }
 }
+
 /** Thread-safe counter (tests atomic state and thread safety). */
 export class ThreadsafeCounter {
   private readonly _inner: __bg.ThreadsafeCounter;
@@ -410,7 +432,7 @@ export class ThreadsafeCounter {
   }
   /** @internal */
   static _fromInner(inner: __bg.ThreadsafeCounter): ThreadsafeCounter { return new ThreadsafeCounter(inner); }
-  static new(): ThreadsafeCounter { return ThreadsafeCounter._fromInner(new __bg.ThreadsafeCounter()); }
+  static create(): ThreadsafeCounter { return ThreadsafeCounter._fromInner(new __bg.ThreadsafeCounter()); }
   getCount(): bigint {
     this._assertLive();
     return this._inner.get_count();
@@ -440,16 +462,19 @@ function _liftComplexError(e: unknown): never {
   }
   throw e;
 }
+
 function _liftCoverallError(e: unknown): never {
   const tag = typeof e === 'string' ? e : (e instanceof Error ? e.message : null);
   if (tag === 'TooManyHoles') throw new CoverallError('TooManyHoles');
   throw e;
 }
+
 function _liftCoverallFlatError(e: unknown): never {
   const tag = typeof e === 'string' ? e : (e instanceof Error ? e.message : null);
   if (tag === 'TooManyVariants') throw new CoverallFlatError('TooManyVariants');
   throw e;
 }
+
 function _liftHTMLError(e: unknown): never {
   const tag = typeof e === 'string' ? e : (e instanceof Error ? e.message : null);
   if (tag === 'InvalidHTML') throw new HTMLError('InvalidHTML');
@@ -469,7 +494,10 @@ export namespace CoverallDemo {
   export function describeMaybeColor(input: Color | null): string { return __bg.describe_maybe_color(input); }
   /** Accept an optional SimpleDict parameter. */
   export function describeMaybeDict(input: SimpleDict | null): string { return __bg.describe_maybe_dict(input); }
-  /** Divide a float by a text-parsed divisor; exercises error paths. */
+  /**
+   * Divide a float by a text-parsed divisor; exercises error paths.
+   * @throws {ComplexError}
+   */
   export function divideByText(value: number, divisor: string): number {
     try { return __bg.divide_by_text(value, divisor); } catch (e) { return _liftComplexError(e); }
   }
@@ -495,21 +523,33 @@ export namespace CoverallDemo {
   export function outputReturnOnlyDict(): ReturnOnlyDict { return __bg.output_return_only_dict(); }
   /** Return a ReturnOnlyEnum (tests return-only enum type). */
   export function outputReturnOnlyEnum(): ReturnOnlyEnum { return __bg.output_return_only_enum(); }
-  /** Round-trip a string; throws ComplexError on certain inputs. */
+  /**
+   * Round-trip a string; throws ComplexError on certain inputs.
+   * @throws {ComplexError}
+   */
   export function println(value: string): string {
     try { return __bg.println(value); } catch (e) { return _liftComplexError(e); }
   }
   /** Reverse arbitrary bytes (binary data round-trip). */
   export function reverseBytes(input: Uint8Array): Uint8Array { return __bg.reverse_bytes(input); }
-  /** Exercise a foreign-implemented Getters. */
+  /**
+   * Exercise a foreign-implemented Getters.
+   * @throws {CoverallError}
+   */
   export function testGetters(getters: Getters): void {
     try { __bg.test_getters(getters); } catch (e) { _liftCoverallError(e); }
   }
-  /** Throw a CoverallFlatError. */
+  /**
+   * Throw a CoverallFlatError.
+   * @throws {CoverallFlatError}
+   */
   export function throwFlatError(): void {
     try { __bg.throw_flat_error(); } catch (e) { _liftCoverallFlatError(e); }
   }
-  /** Validate HTML source; throws HTMLError on invalid input. */
+  /**
+   * Validate HTML source; throws HTMLError on invalid input.
+   * @throws {HTMLError}
+   */
   export function validateHtml(source: string): void {
     try { __bg.validate_html(source); } catch (e) { _liftHTMLError(e); }
   }

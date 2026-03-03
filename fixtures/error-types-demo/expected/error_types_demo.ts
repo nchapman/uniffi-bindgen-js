@@ -33,6 +33,7 @@ export class ErrorInterface extends Error {
   }
   [Symbol.dispose](): void { this.free(); }
 }
+
 export class TestInterface {
   private readonly _inner: __bg.TestInterface;
   private _freed = false;
@@ -44,7 +45,8 @@ export class TestInterface {
   }
   /** @internal */
   static _fromInner(inner: __bg.TestInterface): TestInterface { return new TestInterface(inner); }
-  static new(): TestInterface { return TestInterface._fromInner(new __bg.TestInterface()); }
+  static create(): TestInterface { return TestInterface._fromInner(new __bg.TestInterface()); }
+  /** @throws {ErrorInterface} */
   oops(): void {
     this._assertLive();
     try { this._inner.oops(); } catch (e) { _liftErrorInterface(e); }
@@ -66,6 +68,7 @@ function _liftErrorInterface(e: unknown): never {
 
 export namespace ErrorTypesDemo {
   export function getError(message: string): ErrorInterface { return ErrorInterface._fromInner(__bg.get_error(message)); }
+  /** @throws {ErrorInterface} */
   export function oops(): void {
     try { __bg.oops(); } catch (e) { _liftErrorInterface(e); }
   }

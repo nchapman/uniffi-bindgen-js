@@ -181,8 +181,8 @@ fn render_ts(
         .filter(|o| !cfg.exclude.contains(&o.name))
         .collect();
     if !visible_objects.is_empty() {
-        out.push('\n');
         for o in &visible_objects {
+            out.push('\n');
             out.push_str(&render_object_class(o, cfg, &metadata.local_crate));
         }
     }
@@ -262,8 +262,8 @@ fn render_ts(
         }
     }
     if !rendered_lifts.is_empty() {
-        out.push('\n');
         for lift in rendered_lifts {
+            out.push('\n');
             out.push_str(&lift);
         }
     }
@@ -718,9 +718,10 @@ mod tests {
             LC,
         );
         assert_eq!(
-            result,
-            "((__v) => __v == null ? null : Item._fromInner(__v))(__bg.find_item())"
+            result.preamble.as_deref(),
+            Some("const __v = __bg.find_item();")
         );
+        assert_eq!(result.expr, "__v == null ? null : Item._fromInner(__v)");
     }
 
     #[test]
@@ -738,9 +739,10 @@ mod tests {
             LC,
         );
         assert_eq!(
-            result,
-            "((__v) => __v == null ? null : Item._fromInner(__v))(await __bg.find_item())"
+            result.preamble.as_deref(),
+            Some("const __v = await __bg.find_item();")
         );
+        assert_eq!(result.expr, "__v == null ? null : Item._fromInner(__v)");
     }
 
     #[test]
@@ -757,8 +759,9 @@ mod tests {
             false,
             LC,
         );
+        assert!(result.preamble.is_none());
         assert_eq!(
-            result,
+            result.expr,
             "(__bg.list_items()).map((__v) => Item._fromInner(__v))"
         );
     }
@@ -777,8 +780,9 @@ mod tests {
             true,
             LC,
         );
+        assert!(result.preamble.is_none());
         assert_eq!(
-            result,
+            result.expr,
             "(await __bg.list_items()).map((__v) => Item._fromInner(__v))"
         );
     }
@@ -795,7 +799,8 @@ mod tests {
             false,
             LC,
         );
-        assert_eq!(result, "__bg.get_ext()");
+        assert!(result.preamble.is_none());
+        assert_eq!(result.expr, "__bg.get_ext()");
     }
 
     // -----------------------------------------------------------------------
@@ -821,8 +826,9 @@ mod tests {
             false,
             LC,
         );
+        assert!(result.preamble.is_none());
         assert_eq!(
-            result,
+            result.expr,
             "new Map([...__bg.get_map()].map(([__k, __v]) => [__k, Item._fromInner(__v)]))"
         );
     }
@@ -838,8 +844,9 @@ mod tests {
             true,
             LC,
         );
+        assert!(result.preamble.is_none());
         assert_eq!(
-            result,
+            result.expr,
             "new Map([...await __bg.get_map()].map(([__k, __v]) => [__k, Item._fromInner(__v)]))"
         );
     }
@@ -857,8 +864,12 @@ mod tests {
             LC,
         );
         assert_eq!(
-            result,
-            "((__v) => __v == null ? null : (__v).map((__v) => Item._fromInner(__v)))(__bg.maybe_list())"
+            result.preamble.as_deref(),
+            Some("const __v = __bg.maybe_list();")
+        );
+        assert_eq!(
+            result.expr,
+            "__v == null ? null : (__v).map((__v) => Item._fromInner(__v))"
         );
     }
 
@@ -874,8 +885,9 @@ mod tests {
             false,
             LC,
         );
+        assert!(result.preamble.is_none());
         assert_eq!(
-            result,
+            result.expr,
             "(__bg.list_maybe()).map((__v) => ((__v) => __v == null ? null : Item._fromInner(__v))(__v))"
         );
     }
@@ -883,7 +895,7 @@ mod tests {
     #[test]
     fn lift_return_no_lifting_for_plain_types() {
         assert_eq!(
-            lift_return("__bg.foo()", Some(&Type::String), false, LC),
+            lift_return("__bg.foo()", Some(&Type::String), false, LC).expr,
             "__bg.foo()"
         );
         assert_eq!(
@@ -895,7 +907,8 @@ mod tests {
                 }),
                 false,
                 LC
-            ),
+            )
+            .expr,
             "__bg.foo()"
         );
     }
@@ -910,7 +923,8 @@ mod tests {
             false,
             LC,
         );
-        assert_eq!(result, "__bg.get_name() ?? null");
+        assert!(result.preamble.is_none());
+        assert_eq!(result.expr, "__bg.get_name() ?? null");
     }
 
     #[test]
@@ -923,7 +937,8 @@ mod tests {
             true,
             LC,
         );
-        assert_eq!(result, "(await __bg.get_name()) ?? null");
+        assert!(result.preamble.is_none());
+        assert_eq!(result.expr, "(await __bg.get_name()) ?? null");
     }
 
     #[test]
@@ -1025,7 +1040,7 @@ mod tests {
         assert!(result.contains("export namespace Shape {"), "got: {result}");
         assert!(
             result.contains(
-                "export function area(self: Shape): number { return __bg.shape_area(self); }"
+                "export function area(value: Shape): number { return __bg.shape_area(value); }"
             ),
             "got: {result}"
         );
@@ -1197,7 +1212,7 @@ mod tests {
         let cfg = config::JsBindingsConfig::default();
         let result = render_enum_type(&e, &cfg, LC);
         assert!(
-            result.contains("export type Status = 'Active' | 'Inactive' | string;"),
+            result.contains("export type Status = 'Active' | 'Inactive' | (string & {});"),
             "got: {result}"
         );
     }
@@ -1231,7 +1246,7 @@ mod tests {
             "got: {result}"
         );
         assert!(
-            result.contains("| { tag: string; [key: string]: unknown };"),
+            result.contains("| { tag: string & {}; [key: string]: unknown };"),
             "got: {result}"
         );
     }
@@ -1254,7 +1269,10 @@ mod tests {
         };
         let cfg = config::JsBindingsConfig::default();
         let result = render_error_class(&e, &cfg, LC);
-        assert!(result.contains("tag: 'NotFound' | string"), "got: {result}");
+        assert!(
+            result.contains("tag: 'NotFound' | (string & {})"),
+            "got: {result}"
+        );
     }
 
     #[test]
@@ -1281,7 +1299,7 @@ mod tests {
         let cfg = config::JsBindingsConfig::default();
         let result = render_error_class(&e, &cfg, LC);
         assert!(
-            result.contains("| { tag: string; [key: string]: unknown };"),
+            result.contains("| { tag: string & {}; [key: string]: unknown };"),
             "got: {result}"
         );
     }
@@ -1992,7 +2010,7 @@ mod tests {
             inner_type: Box::new(Type::String),
         };
         let result = lift_return("__bg.foo()", Some(&t), false, "crate_name");
-        assert_eq!(result, "__bg.foo() ?? null");
+        assert_eq!(result.expr, "__bg.foo() ?? null");
     }
 
     #[test]
@@ -2001,13 +2019,13 @@ mod tests {
             inner_type: Box::new(Type::String),
         };
         let result = lift_return("__bg.foo()", Some(&t), true, "crate_name");
-        assert_eq!(result, "(await __bg.foo()) ?? null");
+        assert_eq!(result.expr, "(await __bg.foo()) ?? null");
     }
 
     #[test]
     fn lift_return_no_lift_needed() {
         let result = lift_return("__bg.foo()", Some(&Type::String), false, "crate_name");
-        assert_eq!(result, "__bg.foo()");
+        assert_eq!(result.expr, "__bg.foo()");
     }
 
     // -----------------------------------------------------------------------
@@ -2120,11 +2138,11 @@ mod tests {
         let result = render_record_interface(&r, &cfg, LC);
         assert!(result.contains("export namespace Point {"), "got: {result}");
         assert!(
-            result.contains("export function toString(self: Point): string"),
+            result.contains("export function toString(value: Point): string"),
             "got: {result}"
         );
         assert!(
-            result.contains("export function equals(self: Point, other: Point): boolean"),
+            result.contains("export function equals(value: Point, other: Point): boolean"),
             "got: {result}"
         );
         // No hash method since hash is None
@@ -2156,11 +2174,11 @@ mod tests {
         let result = render_enum_type(&e, &cfg, LC);
         assert!(result.contains("export namespace Color {"), "got: {result}");
         assert!(
-            result.contains("export function toString(self: Color): string"),
+            result.contains("export function toString(value: Color): string"),
             "got: {result}"
         );
         assert!(
-            result.contains("export function hashCode(self: Color): bigint"),
+            result.contains("export function hashCode(value: Color): bigint"),
             "got: {result}"
         );
         assert!(!result.contains("equals"), "got: {result}");
@@ -2209,11 +2227,11 @@ mod tests {
         let result = render_record_interface(&r, &cfg, LC);
         assert!(result.contains("export namespace Point {"), "got: {result}");
         assert!(
-            result.contains("export function toDebugString(self: Point): string"),
+            result.contains("export function toDebugString(value: Point): string"),
             "got: {result}"
         );
         assert!(
-            result.contains("export function compareTo(self: Point, other: Point): number"),
+            result.contains("export function compareTo(value: Point, other: Point): number"),
             "got: {result}"
         );
         // No display/eq/hash since they are None
@@ -2247,11 +2265,11 @@ mod tests {
         let result = render_enum_type(&e, &cfg, LC);
         assert!(result.contains("export namespace Color {"), "got: {result}");
         assert!(
-            result.contains("export function toDebugString(self: Color): string"),
+            result.contains("export function toDebugString(value: Color): string"),
             "got: {result}"
         );
         assert!(
-            result.contains("export function compareTo(self: Color, other: Color): number"),
+            result.contains("export function compareTo(value: Color, other: Color): number"),
             "got: {result}"
         );
         assert!(!result.contains("toString"), "got: {result}");

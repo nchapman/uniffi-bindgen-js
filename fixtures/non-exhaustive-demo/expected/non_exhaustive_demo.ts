@@ -4,11 +4,11 @@ export { __init as init };
 
 export class AppError extends Error {
   override readonly name = 'AppError' as const;
-  constructor(public readonly tag: 'NotFound' | 'PermissionDenied' | string) {
+  constructor(public readonly tag: 'NotFound' | 'PermissionDenied' | (string & {})) {
     super(tag);
   }
   static NotFound(): AppError { return new AppError('NotFound'); }
   static PermissionDenied(): AppError { return new AppError('PermissionDenied'); }
 }
 
-export type Status = 'Active' | 'Inactive' | string;
+export type Status = 'Active' | 'Inactive' | (string & {});

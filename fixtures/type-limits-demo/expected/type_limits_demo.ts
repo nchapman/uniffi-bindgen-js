@@ -77,6 +77,7 @@ function _liftLargeError(e: unknown): never {
 }
 
 export namespace TypeLimitsDemo {
+  /** @throws {LargeError} */
   export function maybeThrow(idx: number): void {
     try { __bg.maybe_throw(idx); } catch (e) { _liftLargeError(e); }
   }

@@ -36,7 +36,7 @@ export class Counter {
   /** @internal */
   static _fromInner(inner: __bg.Counter): Counter { return new Counter(inner); }
   /** Creates a new counter starting at the given value. */
-  static new(start: bigint): Counter { return Counter._fromInner(new __bg.Counter(start)); }
+  static create(start: bigint): Counter { return Counter._fromInner(new __bg.Counter(start)); }
   /** Returns the current value. */
   get(): bigint {
     this._assertLive();

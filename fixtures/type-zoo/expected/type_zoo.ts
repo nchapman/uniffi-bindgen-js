@@ -7,6 +7,10 @@ export namespace TypeZoo {
   export function echoBool(v: boolean): boolean { return __bg.echo_bool(v); }
   export function echoBoolMap(m: Map<string, boolean>): Map<string, boolean> { return __bg.echo_bool_map(m); }
   export function echoBytes(data: Uint8Array): Uint8Array { return __bg.echo_bytes(data); }
+  /**
+   * @param d - Duration in seconds.
+   * @returns Duration in seconds.
+   */
   export function echoDuration(d: number): number { return __bg.echo_duration(d); }
   export function echoF32(v: number): number { return __bg.echo_f32(v); }
   export function echoF64(v: number): number { return __bg.echo_f64(v); }

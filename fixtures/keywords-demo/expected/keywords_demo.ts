@@ -30,7 +30,7 @@ export class SuperWidget {
   }
   /** @internal */
   static _fromInner(inner: __bg.SuperWidget): SuperWidget { return new SuperWidget(inner); }
-  static new(): SuperWidget { return SuperWidget._fromInner(new __bg.SuperWidget()); }
+  static create(): SuperWidget { return SuperWidget._fromInner(new __bg.SuperWidget()); }
   class_(var_: string): string {
     this._assertLive();
     return this._inner["class"](var_);

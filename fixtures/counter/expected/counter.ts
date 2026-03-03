@@ -13,7 +13,7 @@ export class Counter {
   }
   /** @internal */
   static _fromInner(inner: __bg.Counter): Counter { return new Counter(inner); }
-  static new(start: bigint): Counter { return Counter._fromInner(new __bg.Counter(start)); }
+  static create(start: bigint): Counter { return Counter._fromInner(new __bg.Counter(start)); }
   decrement(): void {
     this._assertLive();
     this._inner.decrement();

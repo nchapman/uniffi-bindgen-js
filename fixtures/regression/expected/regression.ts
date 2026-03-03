@@ -42,13 +42,17 @@ export class SafeDivider {
   /** @internal */
   static _fromInner(inner: __bg.SafeDivider): SafeDivider { return new SafeDivider(inner); }
   /** Default constructor — always succeeds. */
-  static new(initial: number): SafeDivider { return SafeDivider._fromInner(new __bg.SafeDivider(initial)); }
-  /** Named constructor that can fail — exercises named-ctor [Throws] path. */
+  static create(initial: number): SafeDivider { return SafeDivider._fromInner(new __bg.SafeDivider(initial)); }
+  /**
+   * Named constructor that can fail — exercises named-ctor [Throws] path.
+   * @throws {DivError}
+   */
   static fromPositive(initial: number): SafeDivider {
     try { return SafeDivider._fromInner(__bg.safe_divider_from_positive(initial)); } catch (e) { return _liftDivError(e); }
   }
   /**
    * Divide and return the result — exercises method [Throws] + return branch.
+   * @throws {DivError}
    */
   divide(divisor: number): number {
     this._assertLive();
