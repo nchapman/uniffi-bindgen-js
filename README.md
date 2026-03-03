@@ -48,10 +48,10 @@ Generate bindings from a UDL file:
 uniffi-bindgen-js generate path/to/definitions.udl --out-dir out/
 ```
 
-Generate from a compiled library (library mode):
+Generate from a compiled library (auto-detected from `.so`/`.dylib`/`.dll` extension):
 
 ```bash
-uniffi-bindgen-js generate path/to/libmycrate.so --library --out-dir out/
+uniffi-bindgen-js generate path/to/libmycrate.so --out-dir out/
 ```
 
 ### CLI flags
@@ -59,7 +59,6 @@ uniffi-bindgen-js generate path/to/libmycrate.so --library --out-dir out/
 | Flag | Description |
 |---|---|
 | `--out-dir <dir>` | Output directory for generated TypeScript files |
-| `--library` | Treat source as a compiled cdylib (library mode) |
 | `--config <file>` | Path to `uniffi.toml` configuration |
 | `--crate <name>` | In library mode, generate bindings for this crate only |
 

@@ -9,23 +9,20 @@ uniffi-bindgen-js is a JavaScript/TypeScript backend for UniFFI — it generates
 ## Build & Test Commands
 
 ```bash
-# Build Rust workspace
-cargo build --workspace
-
-# Run Rust tests (unit + golden)
-cargo test --workspace
-
 # Full CI check (run before committing)
-cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test --workspace
+just check
 
-# Build WASM fixture and JS bindings, then run all tests (Rust + JS smoke tests)
-./scripts/test_bindings.sh
+# Run all tests including JS runtime tests
+just test-all
 
-# Build bindings only (WASM + generator + pnpm install)
-./scripts/build_bindings.sh
+# Typecheck all golden TypeScript files
+just typecheck-golden
+
+# Regenerate all UDL-mode golden files
+just regen-golden
 
 # Generate bindings from a UDL file
-cargo run --bin uniffi-bindgen-js -- generate fixtures/simple-fns/src/simple_fns.udl --out-dir /tmp/out
+just generate fixtures/simple-fns/src/simple_fns.udl --out-dir /tmp/out
 
 # Run a single Rust test
 cargo test -p ubjs_bindgen golden_simple_fixture
@@ -80,6 +77,8 @@ For each fixture with a wasm crate (e.g., `fixtures/simple-fns/wasm/`):
 ### Golden Test Pattern
 
 Fixtures live in `fixtures/{name}/` with UDL input at `src/{name}.udl` and expected output at `expected/{name}.ts`. The test harness (`crates/ubjs_bindgen/tests/golden_generated.rs`) generates bindings and compares byte-for-byte against expected files. When changing generator output, update the corresponding expected files.
+
+Additionally, `scripts/typecheck_golden.sh` (or `just typecheck-golden`) runs `tsc --noEmit` on all golden files with auto-generated `.d.ts` stubs for WASM imports, catching type errors that byte-for-byte comparison alone would miss.
 
 ### Naming Conventions
 
@@ -155,8 +154,8 @@ These external repos are used for correctness verification:
 | JS generation logic | `crates/ubjs_bindgen/src/js/mod.rs` |
 | CLI definition | `crates/ubjs_bindgen/src/cli.rs` |
 | Golden test harness | `crates/ubjs_bindgen/tests/golden_generated.rs` |
+| Golden file typechecker | `scripts/typecheck_golden.sh` |
 | WASM fixture crates | `fixtures/{name}/wasm/` (one per smoke-tested fixture) |
 | JS smoke tests | `binding_tests/test/*.test.ts` |
 | Build script | `scripts/build_bindings.sh` |
-| Implementation plan | `PLAN.md` |
-| Phase template | `PLAN_TEMPLATE.md` |
+| Task runner | `justfile` |
