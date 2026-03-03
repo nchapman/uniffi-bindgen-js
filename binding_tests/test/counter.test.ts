@@ -20,13 +20,13 @@ beforeAll(async () => {
 
 describe('Counter', () => {
   it('starts at the given value', () => {
-    const c = Counter.new(0n);
+    const c = Counter.create(0n);
     expect(c.get()).toBe(0n);
     c.free();
   });
 
   it('increments correctly', () => {
-    const c = Counter.new(10n);
+    const c = Counter.create(10n);
     c.increment();
     c.increment();
     expect(c.get()).toBe(12n);
@@ -34,34 +34,34 @@ describe('Counter', () => {
   });
 
   it('decrements correctly', () => {
-    const c = Counter.new(5n);
+    const c = Counter.create(5n);
     c.decrement();
     expect(c.get()).toBe(4n);
     c.free();
   });
 
   it('handles negative values', () => {
-    const c = Counter.new(-1n);
+    const c = Counter.create(-1n);
     c.decrement();
     expect(c.get()).toBe(-2n);
     c.free();
   });
 
   it('resets to a given value (exercises multi-word method camelCase)', () => {
-    const c = Counter.new(0n);
+    const c = Counter.create(0n);
     c.resetTo(42n);
     expect(c.get()).toBe(42n);
     c.free();
   });
 
   it('double-free does not throw', () => {
-    const c = Counter.new(0n);
+    const c = Counter.create(0n);
     c.free();
     expect(() => c.free()).not.toThrow();
   });
 
   it('use after free throws', () => {
-    const c = Counter.new(0n);
+    const c = Counter.create(0n);
     c.free();
     expect(() => c.get()).toThrow(/has been freed/);
   });

@@ -46,13 +46,13 @@ describe('KeywordsDemo namespace functions', () => {
 
 describe('SuperWidget', () => {
   it('constructs and tracks state', () => {
-    const w = SuperWidget.new();
+    const w = SuperWidget.create();
     expect(w.return_()).toBe(0);
     w.free();
   });
 
   it('class_ increments counter and formats output', () => {
-    const w = SuperWidget.new();
+    const w = SuperWidget.create();
     expect(w.class_('x')).toBe('widget(1):x');
     expect(w.class_('y')).toBe('widget(2):y');
     expect(w.return_()).toBe(2);
@@ -60,13 +60,13 @@ describe('SuperWidget', () => {
   });
 
   it('throws after free', () => {
-    const w = SuperWidget.new();
+    const w = SuperWidget.create();
     w.free();
     expect(() => w.class_('z')).toThrow();
   });
 
   it('double free is safe', () => {
-    const w = SuperWidget.new();
+    const w = SuperWidget.create();
     w.free();
     expect(() => w.free()).not.toThrow();
   });
