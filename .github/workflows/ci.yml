@@ -34,6 +34,18 @@ jobs:
       - name: Test workspace
         run: cargo test --workspace
 
+  typecheck-golden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install TypeScript
+        run: npm install -g typescript
+      - name: Typecheck golden files
+        run: ./scripts/typecheck_golden.sh
+
   build-runtime-artifacts:
     needs: lint-and-unit
     runs-on: ubuntu-latest

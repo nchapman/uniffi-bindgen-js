@@ -14,5 +14,8 @@ echo "==> Building bindings..."
 echo "==> Running Rust tests..."
 cargo test --workspace
 
+echo "==> Typechecking golden files..."
+"$REPO_ROOT/scripts/typecheck_golden.sh"
+
 echo "==> Running JS smoke tests..."
 (cd "$REPO_ROOT/binding_tests" && pnpm test)

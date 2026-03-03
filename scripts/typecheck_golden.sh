@@ -32,7 +32,8 @@ for ts_file in "$REPO_ROOT"/fixtures/*/expected/*.ts; do
     done
 
     # Extract function names used as __bg.func_name( (function calls)
-    (grep -oE '__bg\.[a-z][a-z0-9_]*\(' "$ts_file" || true) | sed 's/__bg\.//;s/($//' | sort -u | while read -r fn; do
+    # Include _-prefixed names for escaped reserved words (e.g., _class, _delete)
+    (grep -oE '__bg\._?[a-z][a-z0-9_]*\(' "$ts_file" || true) | sed 's/__bg\.//;s/($//' | sort -u | while read -r fn; do
       [ -z "$fn" ] && continue
       echo "export declare function $fn(...args: any[]): any;"
     done
@@ -64,7 +65,7 @@ cat > "$TMPDIR/tsconfig.json" <<'EOF'
   "compilerOptions": {
     "target": "ES2022",
     "module": "ES2022",
-    "lib": ["ES2022", "ESNext.Disposable"],
+    "lib": ["ES2022", "ESNext.Disposable", "DOM"],
     "moduleResolution": "bundler",
     "strict": false,
     "noEmit": true,
@@ -80,7 +81,7 @@ echo "Typechecking $count golden files..."
 cd "$TMPDIR"
 
 # Run tsc — if it fails, the generated TypeScript has structural errors.
-npx tsc --noEmit 2>&1 || {
+tsc --noEmit 2>&1 || {
   echo ""
   echo "ERROR: Generated TypeScript files have type errors."
   echo "Fix the generator output and re-run."
