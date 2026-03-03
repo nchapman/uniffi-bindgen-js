@@ -1,6 +1,6 @@
 use clap::Parser;
 
 fn main() -> anyhow::Result<()> {
-    let cli = ubjs_bindgen::cli::Cli::parse();
-    ubjs_bindgen::run(cli)
+    let cli = uniffi_bindgen_js::cli::Cli::parse();
+    uniffi_bindgen_js::run(cli)
 }

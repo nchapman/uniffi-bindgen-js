@@ -1,7 +1,8 @@
 [package]
-name = "ubjs_runtime"
+name = "uniffi-bindgen-js-runtime"
 description = "Runtime support library for uniffi-bindgen-js generated bindings"
 version.workspace = true
+publish = false
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
@@ -10,4 +11,5 @@ keywords.workspace = true
 categories.workspace = true
 
 [lib]
+name = "uniffi_bindgen_js_runtime"
 path = "src/lib.rs"

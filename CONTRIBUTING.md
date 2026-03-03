@@ -12,7 +12,7 @@ Thank you for your interest in contributing! This document covers the essentials
 
 ```bash
 # Clone and build
-git clone https://github.com/aspect-build/uniffi-bindgen-js.git
+git clone https://github.com/nchapman/uniffi-bindgen-js.git
 cd uniffi-bindgen-js
 cargo build --workspace
 
@@ -56,7 +56,7 @@ Golden tests compare generated TypeScript output byte-for-byte against expected 
 
 To auto-update all golden files at once:
 ```bash
-UPDATE_GOLDEN=1 cargo test -p ubjs_bindgen --test golden_generated
+UPDATE_GOLDEN=1 cargo test -p uniffi-bindgen-js --test golden_generated
 ```
 
 ## Code Style
@@ -68,7 +68,7 @@ UPDATE_GOLDEN=1 cargo test -p ubjs_bindgen --test golden_generated
 
 ## Reporting Issues
 
-Open an issue at [github.com/aspect-build/uniffi-bindgen-js/issues](https://github.com/aspect-build/uniffi-bindgen-js/issues) with:
+Open an issue at [github.com/nchapman/uniffi-bindgen-js/issues](https://github.com/nchapman/uniffi-bindgen-js/issues) with:
 - UniFFI version and Rust toolchain version
 - Minimal UDL that reproduces the problem
 - Expected vs actual generated output

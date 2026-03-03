@@ -1,5 +1,5 @@
 [package]
-name = "ubjs_testing"
+name = "uniffi-bindgen-js-testing"
 description = "Test utilities for uniffi-bindgen-js"
 publish = false
 version.workspace = true
@@ -11,4 +11,5 @@ keywords.workspace = true
 categories.workspace = true
 
 [lib]
+name = "uniffi_bindgen_js_testing"
 path = "src/lib.rs"

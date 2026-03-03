@@ -1,5 +1,5 @@
 [package]
-name = "ubjs_bindgen"
+name = "uniffi-bindgen-js"
 description = "TypeScript/JavaScript bindings generator for UniFFI"
 version.workspace = true
 edition.workspace = true
@@ -8,9 +8,10 @@ authors.workspace = true
 repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
+readme = "../../README.md"
 
 [lib]
-name = "ubjs_bindgen"
+name = "uniffi_bindgen_js"
 path = "src/lib.rs"
 
 [[bin]]

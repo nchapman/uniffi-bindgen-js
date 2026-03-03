@@ -39,16 +39,15 @@ All crates pick up the new version automatically.
 ## Publish
 
 ```bash
-# Publish crates in dependency order
-cargo publish -p ubjs_runtime
-cargo publish -p ubjs_bindgen
+# Publish the crate
+cargo publish -p uniffi-bindgen-js
 
 # Tag the release
 git tag vX.Y.Z
 git push origin vX.Y.Z
 ```
 
-Wait for each `cargo publish` to propagate before publishing dependent crates.
+Wait for `cargo publish` to propagate before tagging the release.
 
 ## Post-release
 

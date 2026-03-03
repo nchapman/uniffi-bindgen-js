@@ -25,8 +25,8 @@ just regen-golden
 just generate fixtures/simple-fns/src/simple_fns.udl --out-dir /tmp/out
 
 # Run a single Rust test
-cargo test -p ubjs_bindgen golden_simple_fixture
-cargo test -p ubjs_bindgen pascal_case
+cargo test -p uniffi-bindgen-js golden_simple_fixture
+cargo test -p uniffi-bindgen-js pascal_case
 
 # Run JS smoke tests (requires generated/ artifacts from build_bindings.sh)
 cd binding_tests && pnpm test
@@ -36,9 +36,9 @@ cd binding_tests && pnpm test
 
 ### Crate Layout
 
-- **`crates/ubjs_bindgen`** — Main code generator. CLI entrypoint, config parsing, JS/TS output.
-- **`crates/ubjs_runtime`** — Runtime support library for generated JS bindings.
-- **`crates/ubjs_testing`** — Shared test utilities for fixture and integration testing.
+- **`crates/ubjs_bindgen`** (`uniffi-bindgen-js`) — Main code generator. CLI entrypoint, config parsing, JS/TS output.
+- **`crates/ubjs_runtime`** (`uniffi-bindgen-js-runtime`) — Runtime support library for generated JS bindings.
+- **`crates/ubjs_testing`** (`uniffi-bindgen-js-testing`) — Shared test utilities for fixture and integration testing.
 
 ### Generator Pipeline
 
@@ -86,7 +86,8 @@ Additionally, `scripts/typecheck_golden.sh` (or `just typecheck-golden`) runs `t
 - Exported TypeScript names use camelCase (e.g., `broken_greet` → `brokenGreet`)
 - Inner wasm-bindgen calls use the original Rust snake_case name (e.g., `this._inner.reset_to(v)`)
 - Output files are lowercase `.ts` (e.g., `simple_fns.ts`)
-- Crate names prefixed with `ubjs_`
+- Published crate: `uniffi-bindgen-js` (lib name: `uniffi_bindgen_js`)
+- Support crates: `uniffi-bindgen-js-runtime` (lib: `uniffi_bindgen_js_runtime`), `uniffi-bindgen-js-testing` (lib: `uniffi_bindgen_js_testing`)
 
 ### UDL Feature Coverage
 

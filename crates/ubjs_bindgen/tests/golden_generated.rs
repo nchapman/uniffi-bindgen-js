@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use ubjs_bindgen::cli::GenerateArgs;
+use uniffi_bindgen_js::cli::GenerateArgs;
 
 fn run_golden(fixture_name: &str, udl_file: &str, ts_file: &str) {
     run_golden_impl(fixture_name, udl_file, ts_file, ts_file, None);
@@ -55,7 +55,7 @@ fn run_golden_impl(
 
     let _ = fs::remove_dir_all(&out_dir);
 
-    ubjs_bindgen::js::generate_bindings(&GenerateArgs {
+    uniffi_bindgen_js::js::generate_bindings(&GenerateArgs {
         source: fixture,
         out_dir: out_dir.clone(),
         config,
