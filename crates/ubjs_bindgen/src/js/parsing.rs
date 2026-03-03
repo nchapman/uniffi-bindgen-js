@@ -138,6 +138,7 @@ fn component_interface_to_metadata(
                 parse_methods(&ms)
             },
             docstring: o.docstring().map(ToOwned::to_owned),
+            traits: extract_traits(&o.uniffi_trait_methods()),
         })
         .collect();
 
@@ -334,8 +335,10 @@ fn parse_enums(ci: &ComponentInterface) -> (Vec<UdlError>, Vec<UdlEnum>) {
 fn extract_traits(utm: &UniffiTraitMethods) -> SynthesisedTraits {
     SynthesisedTraits {
         display: utm.display_fmt.as_ref().map(|m| m.name().to_string()),
+        debug: utm.debug_fmt.as_ref().map(|m| m.name().to_string()),
         eq: utm.eq_eq.as_ref().map(|m| m.name().to_string()),
         hash: utm.hash_hash.as_ref().map(|m| m.name().to_string()),
+        ord: utm.ord_cmp.as_ref().map(|m| m.name().to_string()),
     }
 }
 

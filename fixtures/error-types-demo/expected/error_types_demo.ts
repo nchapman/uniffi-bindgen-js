@@ -23,6 +23,8 @@ export class ErrorInterface extends Error {
     this._assertLive();
     return this._inner.link(index) ?? null;
   }
+  toString(): string { this._assertLive(); return __bg.error_interface_uniffi_trait_display(this._inner); }
+  toDebugString(): string { this._assertLive(); return __bg.error_interface_uniffi_trait_debug(this._inner); }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
     if (this._freed) return;

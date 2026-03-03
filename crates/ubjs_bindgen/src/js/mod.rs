@@ -357,6 +357,7 @@ mod tests {
     use super::external_types::collect_external_imports;
     use super::naming::*;
     use super::render_helpers::*;
+    use super::render_objects::render_object_class;
     use super::render_types::*;
     use super::type_lifting::*;
     use super::types::LOCAL_CRATE_SENTINEL;
@@ -2112,7 +2113,7 @@ mod tests {
             traits: SynthesisedTraits {
                 display: Some("uniffi_trait_display".into()),
                 eq: Some("uniffi_trait_eq_eq".into()),
-                hash: None,
+                ..Default::default()
             },
         };
         let cfg = config::JsBindingsConfig::default();
@@ -2147,8 +2148,8 @@ mod tests {
             constructors: vec![],
             traits: SynthesisedTraits {
                 display: Some("uniffi_trait_display".into()),
-                eq: None,
                 hash: Some("uniffi_trait_hash".into()),
+                ..Default::default()
             },
         };
         let cfg = config::JsBindingsConfig::default();
@@ -2183,5 +2184,137 @@ mod tests {
         let cfg = config::JsBindingsConfig::default();
         let result = render_record_interface(&r, &cfg, LC);
         assert!(!result.contains("namespace"), "got: {result}");
+    }
+
+    #[test]
+    fn record_with_debug_and_ord_traits() {
+        let r = UdlRecord {
+            name: "Point".into(),
+            fields: vec![UdlField {
+                name: "x".into(),
+                type_: Type::Float64,
+                docstring: None,
+                default: None,
+            }],
+            docstring: None,
+            methods: vec![],
+            constructors: vec![],
+            traits: SynthesisedTraits {
+                debug: Some("uniffi_trait_debug".into()),
+                ord: Some("uniffi_trait_ord_cmp".into()),
+                ..Default::default()
+            },
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_record_interface(&r, &cfg, LC);
+        assert!(result.contains("export namespace Point {"), "got: {result}");
+        assert!(
+            result.contains("export function toDebugString(self: Point): string"),
+            "got: {result}"
+        );
+        assert!(
+            result.contains("export function compareTo(self: Point, other: Point): number"),
+            "got: {result}"
+        );
+        // No display/eq/hash since they are None
+        assert!(!result.contains("toString"), "got: {result}");
+        assert!(!result.contains("equals"), "got: {result}");
+        assert!(!result.contains("hashCode"), "got: {result}");
+    }
+
+    #[test]
+    fn enum_with_debug_and_ord_traits() {
+        let e = UdlEnum {
+            name: "Color".into(),
+            variants: vec![UdlVariant {
+                name: "Red".into(),
+                fields: vec![],
+                docstring: None,
+                discr: None,
+            }],
+            is_flat: true,
+            is_non_exhaustive: false,
+            docstring: None,
+            methods: vec![],
+            constructors: vec![],
+            traits: SynthesisedTraits {
+                debug: Some("uniffi_trait_debug".into()),
+                ord: Some("uniffi_trait_ord_cmp".into()),
+                ..Default::default()
+            },
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_enum_type(&e, &cfg, LC);
+        assert!(result.contains("export namespace Color {"), "got: {result}");
+        assert!(
+            result.contains("export function toDebugString(self: Color): string"),
+            "got: {result}"
+        );
+        assert!(
+            result.contains("export function compareTo(self: Color, other: Color): number"),
+            "got: {result}"
+        );
+        assert!(!result.contains("toString"), "got: {result}");
+        assert!(!result.contains("equals"), "got: {result}");
+        assert!(!result.contains("hashCode"), "got: {result}");
+    }
+
+    #[test]
+    fn object_with_all_traits() {
+        let o = UdlObject {
+            name: "Widget".into(),
+            constructors: vec![],
+            methods: vec![],
+            docstring: None,
+            is_error: false,
+            traits: SynthesisedTraits {
+                display: Some("uniffi_trait_display".into()),
+                debug: Some("uniffi_trait_debug".into()),
+                eq: Some("uniffi_trait_eq_eq".into()),
+                hash: Some("uniffi_trait_hash".into()),
+                ord: Some("uniffi_trait_ord_cmp".into()),
+            },
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_object_class(&o, &cfg, LC);
+        assert!(
+            result.contains("toString(): string { this._assertLive(); return __bg.widget_uniffi_trait_display(this._inner); }"),
+            "got: {result}"
+        );
+        assert!(
+            result.contains("toDebugString(): string { this._assertLive(); return __bg.widget_uniffi_trait_debug(this._inner); }"),
+            "got: {result}"
+        );
+        assert!(
+            result.contains("equals(other: Widget): boolean { this._assertLive(); return __bg.widget_uniffi_trait_eq_eq(this._inner, other._inner); }"),
+            "got: {result}"
+        );
+        assert!(
+            result.contains("hashCode(): bigint { this._assertLive(); return __bg.widget_uniffi_trait_hash(this._inner); }"),
+            "got: {result}"
+        );
+        assert!(
+            result.contains("compareTo(other: Widget): number { this._assertLive(); return __bg.widget_uniffi_trait_ord_cmp(this._inner, other._inner); }"),
+            "got: {result}"
+        );
+    }
+
+    #[test]
+    fn object_without_traits_has_no_trait_methods() {
+        let o = UdlObject {
+            name: "Widget".into(),
+            constructors: vec![],
+            methods: vec![],
+            docstring: None,
+            is_error: false,
+            traits: SynthesisedTraits::default(),
+        };
+        let cfg = config::JsBindingsConfig::default();
+        let result = render_object_class(&o, &cfg, LC);
+        assert!(!result.contains("toString()"), "got: {result}");
+        assert!(!result.contains("toDebugString"), "got: {result}");
+        assert!(!result.contains("equals"), "got: {result}");
+        assert!(!result.contains("hashCode"), "got: {result}");
+        assert!(!result.contains("compareTo"), "got: {result}");
     }
 }

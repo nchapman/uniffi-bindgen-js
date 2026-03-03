@@ -422,7 +422,11 @@ pub(super) fn render_record_interface(
 
     // Record methods, constructors, and trait methods are emitted in a companion namespace
     // (TS declaration merging allows a namespace with the same name as an interface).
-    let has_traits = r.traits.display.is_some() || r.traits.eq.is_some() || r.traits.hash.is_some();
+    let has_traits = r.traits.display.is_some()
+        || r.traits.debug.is_some()
+        || r.traits.eq.is_some()
+        || r.traits.hash.is_some()
+        || r.traits.ord.is_some();
     let has_companion = !r.methods.is_empty() || !r.constructors.is_empty() || has_traits;
     if has_companion {
         let name = &r.name;
@@ -601,7 +605,11 @@ pub(super) fn render_enum_type(
 
     // Enum methods, constructors, and trait methods are emitted in a companion namespace
     // (TS declaration merging allows a namespace with the same name as a type alias).
-    let has_traits = e.traits.display.is_some() || e.traits.eq.is_some() || e.traits.hash.is_some();
+    let has_traits = e.traits.display.is_some()
+        || e.traits.debug.is_some()
+        || e.traits.eq.is_some()
+        || e.traits.hash.is_some()
+        || e.traits.ord.is_some();
     let has_companion = !e.methods.is_empty() || !e.constructors.is_empty() || has_traits;
     if has_companion {
         let name = &e.name;
@@ -702,14 +710,24 @@ pub(super) fn render_callback_interface(
 // Synthesised trait method generation
 // ---------------------------------------------------------------------------
 
-/// Render synthesised trait methods (Display, Eq, Hash) as functions in a companion namespace.
+/// Render synthesised trait methods (Display, Debug, Eq, Hash, Ord) as functions in a companion namespace.
 /// These call into wasm-bindgen exports named by the UniFFI trait convention.
-fn render_trait_methods(traits: &SynthesisedTraits, type_name: &str, bg_name: &str) -> String {
+pub(super) fn render_trait_methods(
+    traits: &SynthesisedTraits,
+    type_name: &str,
+    bg_name: &str,
+) -> String {
     let mut out = String::new();
 
     if let Some(method_name) = &traits.display {
         out.push_str(&format!(
             "  export function toString(self: {type_name}): string {{ return __bg.{bg_name}_{method_name}(self); }}\n"
+        ));
+    }
+
+    if let Some(method_name) = &traits.debug {
+        out.push_str(&format!(
+            "  export function toDebugString(self: {type_name}): string {{ return __bg.{bg_name}_{method_name}(self); }}\n"
         ));
     }
 
@@ -722,6 +740,12 @@ fn render_trait_methods(traits: &SynthesisedTraits, type_name: &str, bg_name: &s
     if let Some(method_name) = &traits.hash {
         out.push_str(&format!(
             "  export function hashCode(self: {type_name}): bigint {{ return __bg.{bg_name}_{method_name}(self); }}\n"
+        ));
+    }
+
+    if let Some(method_name) = &traits.ord {
+        out.push_str(&format!(
+            "  export function compareTo(self: {type_name}, other: {type_name}): number {{ return __bg.{bg_name}_{method_name}(self, other); }}\n"
         ));
     }
 

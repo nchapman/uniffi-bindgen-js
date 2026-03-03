@@ -78,15 +78,19 @@ pub(super) struct UdlEnum {
     pub traits: SynthesisedTraits,
 }
 
-/// Synthesised trait methods (Display, Eq, Hash).
+/// Synthesised trait methods (Display, Debug, Eq, Hash, Ord).
 #[derive(Debug, Default)]
 pub(super) struct SynthesisedTraits {
     /// Method name for Display::fmt (produces `toString()`).
     pub display: Option<String>,
+    /// Method name for Debug::fmt (produces `toDebugString()`).
+    pub debug: Option<String>,
     /// Method name for PartialEq::eq (produces `equals(other)`).
     pub eq: Option<String>,
     /// Method name for Hash::hash (produces `hashCode()`).
     pub hash: Option<String>,
+    /// Method name for Ord::cmp (produces `compareTo(other)`).
+    pub ord: Option<String>,
 }
 
 /// A `dictionary` declaration — generates a TypeScript interface.
@@ -134,6 +138,8 @@ pub(super) struct UdlObject {
     pub docstring: Option<String>,
     /// True when this object is used as a `[Throws=...]` error type.
     pub is_error: bool,
+    /// Synthesised trait methods (Display, Debug, Eq, Hash, Ord).
+    pub traits: SynthesisedTraits,
 }
 
 /// A `[Custom]` typedef — generates a TypeScript type alias.

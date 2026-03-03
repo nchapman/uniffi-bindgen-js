@@ -159,6 +159,33 @@ pub(super) fn render_object_class(
         ));
     }
 
+    // Synthesised trait methods (instance methods on the class)
+    if let Some(method_name) = &o.traits.display {
+        out.push_str(&format!(
+            "  toString(): string {{ this._assertLive(); return __bg.{bg_name}_{method_name}(this._inner); }}\n"
+        ));
+    }
+    if let Some(method_name) = &o.traits.debug {
+        out.push_str(&format!(
+            "  toDebugString(): string {{ this._assertLive(); return __bg.{bg_name}_{method_name}(this._inner); }}\n"
+        ));
+    }
+    if let Some(method_name) = &o.traits.eq {
+        out.push_str(&format!(
+            "  equals(other: {name}): boolean {{ this._assertLive(); return __bg.{bg_name}_{method_name}(this._inner, other._inner); }}\n"
+        ));
+    }
+    if let Some(method_name) = &o.traits.hash {
+        out.push_str(&format!(
+            "  hashCode(): bigint {{ this._assertLive(); return __bg.{bg_name}_{method_name}(this._inner); }}\n"
+        ));
+    }
+    if let Some(method_name) = &o.traits.ord {
+        out.push_str(&format!(
+            "  compareTo(other: {name}): number {{ this._assertLive(); return __bg.{bg_name}_{method_name}(this._inner, other._inner); }}\n"
+        ));
+    }
+
     // free() — wasm-bindgen generates this on all object classes.
     // Guarded against double-free; marks the object as freed.
     out.push_str("  /** Releases the underlying WASM resource. Safe to call more than once. */\n");
