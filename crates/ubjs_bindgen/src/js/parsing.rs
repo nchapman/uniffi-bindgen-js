@@ -114,6 +114,7 @@ fn component_interface_to_metadata(
         .map(|o| UdlObject {
             name: o.name().to_string(),
             is_error: ci.is_name_used_as_error(o.name()),
+            is_trait: o.is_trait_interface(),
             constructors: o
                 .constructors()
                 .iter()

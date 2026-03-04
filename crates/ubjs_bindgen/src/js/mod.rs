@@ -404,7 +404,7 @@ fn render_ts_ffi(
     for cb in &metadata.callback_interfaces {
         if !cfg.exclude.contains(&cb.name) {
             out.push('\n');
-            out.push_str(&ffi::gen_callback_vtable_registration(cb, &namespace));
+            out.push_str(&ffi::gen_callback_vtable_registration(cb, namespace));
         }
     }
 
@@ -424,16 +424,16 @@ fn render_ts_ffi(
     out.push_str("// --- Serialization helpers ---\n");
     for r in &metadata.records {
         out.push('\n');
-        out.push_str(&ffi::gen_record_lower_fn(r));
+        out.push_str(&ffi::gen_record_lower_fn(r, namespace));
         out.push_str(&ffi::gen_record_lift_fn(r));
     }
     for e in &metadata.enums {
         out.push('\n');
         if e.is_flat {
-            out.push_str(&ffi::gen_flat_enum_lower_fn(e));
+            out.push_str(&ffi::gen_flat_enum_lower_fn(e, namespace));
             out.push_str(&ffi::gen_flat_enum_lift_fn(e));
         } else {
-            out.push_str(&ffi::gen_data_enum_lower_fn(e));
+            out.push_str(&ffi::gen_data_enum_lower_fn(e, namespace));
             out.push_str(&ffi::gen_data_enum_lift_fn(e));
         }
     }
@@ -550,9 +550,7 @@ use render_helpers::{
 ///
 /// Note: Only handles direct `Type::Object` args. Objects nested inside
 /// `Optional<Object>`, `Sequence<Object>`, etc. are serialized via the
-/// `gen_lower_expr` path which writes `._handle` directly — those handles
-/// are NOT cloned. This is a known limitation; add nested-object cloning
-/// when test coverage for `Optional<Object>` args is added.
+/// `gen_lower_expr` path which clones handles via `_rt.cloneObjectHandle`.
 fn prepare_object_args(
     args: &[UdlArg],
     js_arg_names: &[String],
@@ -562,10 +560,7 @@ fn prepare_object_args(
 ) -> Vec<(String, uniffi_bindgen::interface::Type)> {
     let mut result = Vec::new();
     for (name, a) in js_arg_names.iter().zip(args.iter()) {
-        if let uniffi_bindgen::interface::Type::Object {
-            name: obj_name, ..
-        } = &a.type_
-        {
+        if let uniffi_bindgen::interface::Type::Object { name: obj_name, .. } = &a.type_ {
             let clone_fn = ffi::fn_clone(namespace, obj_name);
             let clone_var = format!("_clone_{name}");
             out.push_str(&format!(
@@ -587,7 +582,10 @@ fn prepare_object_args(
 /// Safety: Object types use the "u64" future suffix (handles are u64).
 /// They never go through the rust_buffer path, so "return _result;" appears
 /// exactly once and the replacement is unambiguous.
-fn apply_object_return_wrap(body: &mut String, return_type: Option<&uniffi_bindgen::interface::Type>) {
+fn apply_object_return_wrap(
+    body: &mut String,
+    return_type: Option<&uniffi_bindgen::interface::Type>,
+) {
     if let Some(uniffi_bindgen::interface::Type::Object { name, .. }) = return_type {
         *body = body.replace(
             "return _result;",
@@ -655,6 +653,7 @@ fn render_function_ffi(f: &UdlFunction, namespace: &str, cfg: &config::JsBinding
     } else {
         ffi::gen_ffi_call(
             &ffi_name,
+            namespace,
             &arg_pairs,
             f.return_type.as_ref(),
             throws_name.as_deref(),
@@ -715,22 +714,24 @@ fn render_object_class_ffi(
         "  static _fromHandle(handle: bigint): {name} {{ return new {name}(handle); }}\n"
     ));
 
-    // Constructors
-    let primary_ctor = o.constructors.iter().find(|c| c.name == "new");
-    let named_ctors: Vec<&UdlConstructor> =
-        o.constructors.iter().filter(|c| c.name != "new").collect();
+    // Constructors (skipped for [Trait] interfaces — they're only created by Rust)
+    if !o.is_trait {
+        let primary_ctor = o.constructors.iter().find(|c| c.name == "new");
+        let named_ctors: Vec<&UdlConstructor> =
+            o.constructors.iter().filter(|c| c.name != "new").collect();
 
-    if let Some(ctor) = primary_ctor {
-        out.push_str(&render_ctor_ffi(ctor, name, namespace, "create", cfg));
-    }
+        if let Some(ctor) = primary_ctor {
+            out.push_str(&render_ctor_ffi(ctor, name, namespace, "create", cfg));
+        }
 
-    for ctor in named_ctors {
-        let exported = cfg
-            .rename
-            .get(&format!("{}.{}", name, ctor.name))
-            .map(|s| safe_js_identifier(s))
-            .unwrap_or_else(|| safe_js_identifier(&camel_case(&ctor.name)));
-        out.push_str(&render_ctor_ffi(ctor, name, namespace, &exported, cfg));
+        for ctor in named_ctors {
+            let exported = cfg
+                .rename
+                .get(&format!("{}.{}", name, ctor.name))
+                .map(|s| safe_js_identifier(s))
+                .unwrap_or_else(|| safe_js_identifier(&camel_case(&ctor.name)));
+            out.push_str(&render_ctor_ffi(ctor, name, namespace, &exported, cfg));
+        }
     }
 
     // Methods
@@ -825,6 +826,7 @@ fn render_ctor_ffi(
     } else {
         ffi::gen_ffi_call(
             &ffi_name,
+            namespace,
             &arg_pairs,
             Some(&handle_type),
             throws_name.as_deref(),
@@ -913,6 +915,7 @@ fn render_method_ffi(
     } else {
         ffi::gen_ffi_call(
             &ffi_name,
+            namespace,
             &arg_pairs,
             m.return_type.as_ref(),
             throws_name.as_deref(),
@@ -2870,6 +2873,7 @@ mod tests {
             methods: vec![],
             docstring: None,
             is_error: false,
+            is_trait: false,
             traits: SynthesisedTraits {
                 display: Some("uniffi_trait_display".into()),
                 debug: Some("uniffi_trait_debug".into()),
@@ -2910,6 +2914,7 @@ mod tests {
             methods: vec![],
             docstring: None,
             is_error: false,
+            is_trait: false,
             traits: SynthesisedTraits::default(),
         };
         let cfg = config::JsBindingsConfig::default();

@@ -1,0 +1,22 @@
+namespace ffi_traits {
+  sequence<Drawable> make_shapes();
+  string describe_all(sequence<Drawable> shapes);
+  f64 total_area(sequence<Drawable> shapes);
+};
+
+[Trait]
+interface Drawable {
+    string describe();
+    f64 area();
+};
+
+interface Circle {
+  constructor(f64 radius);
+  f64 radius();
+};
+
+interface Rect {
+  constructor(f64 width, f64 height);
+  f64 width();
+  f64 height();
+};

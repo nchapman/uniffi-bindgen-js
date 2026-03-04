@@ -3,6 +3,8 @@ namespace ffi_basic {
   string greet(string name);
   u64 get_counter_value(Counter counter);
   Counter clone_counter(Counter counter);
+  u64? get_optional_counter_value(Counter? counter);
+  sequence<u64> get_counter_values(sequence<Counter> counters);
 };
 
 interface Counter {

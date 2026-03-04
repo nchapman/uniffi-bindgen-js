@@ -21,6 +21,16 @@ pub fn clone_counter(counter: std::sync::Arc<Counter>) -> std::sync::Arc<Counter
     })
 }
 
+#[uniffi::export]
+pub fn get_optional_counter_value(counter: Option<std::sync::Arc<Counter>>) -> Option<u64> {
+    counter.map(|c| *c.value.lock().unwrap())
+}
+
+#[uniffi::export]
+pub fn get_counter_values(counters: Vec<std::sync::Arc<Counter>>) -> Vec<u64> {
+    counters.iter().map(|c| *c.value.lock().unwrap()).collect()
+}
+
 #[derive(uniffi::Object)]
 pub struct Counter {
     value: std::sync::Mutex<u64>,

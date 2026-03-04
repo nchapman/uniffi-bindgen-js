@@ -190,15 +190,15 @@ pub(super) fn gen_read_return(t: &Type, offset_expr: &str) -> String {
 // the inner UniFFI binary serialization format.
 
 /// Generate a TypeScript expression that lowers a top-level argument to a RustBufferDescriptor.
-fn gen_top_level_lower(var: &str, t: &Type) -> String {
+fn gen_top_level_lower(var: &str, t: &Type, namespace: &str) -> String {
     match t {
         // String has a custom lower/lift in UniFFI that uses raw UTF-8 in
         // the RustBuffer (no length prefix). All other compound types use
         // the standard serialized format via lower_into_rust_buffer().
         Type::String => format!("_rt.lowerString({var})"),
-        Type::Custom { builtin, .. } => gen_top_level_lower(var, builtin),
+        Type::Custom { builtin, .. } => gen_top_level_lower(var, builtin, namespace),
         _ => {
-            let lower_body = gen_lower_expr(var, t);
+            let lower_body = gen_lower_expr(var, t, namespace);
             format!("_rt.lowerIntoBuffer((w) => {{ {lower_body}; }})")
         }
     }
@@ -234,7 +234,7 @@ fn gen_top_level_lift(t: &Type, offset_expr: &str) -> String {
 ///   `w.writeString(name)` for strings
 ///   `w.writeI32(1); w.writeString(v.field1); ...` for enums
 ///   etc.
-fn gen_lower_expr(var: &str, t: &Type) -> String {
+fn gen_lower_expr(var: &str, t: &Type, namespace: &str) -> String {
     match t {
         Type::String => format!("w.writeString({var})"),
         Type::Bytes => format!("w.writeBytes({var})"),
@@ -252,19 +252,19 @@ fn gen_lower_expr(var: &str, t: &Type) -> String {
         Type::Duration => format!("w.writeDuration({var})"),
         Type::Timestamp => format!("w.writeTimestamp({var})"),
         Type::Optional { inner_type } => {
-            let inner_lower = gen_lower_expr("_v", inner_type);
+            let inner_lower = gen_lower_expr("_v", inner_type, namespace);
             format!("w.writeOptional({var}, (_w, _v) => {{ {inner_lower}; }})")
         }
         Type::Sequence { inner_type } => {
-            let inner_lower = gen_lower_expr("_v", inner_type);
+            let inner_lower = gen_lower_expr("_v", inner_type, namespace);
             format!("w.writeSequence({var}, (_w, _v) => {{ {inner_lower}; }})")
         }
         Type::Map {
             key_type,
             value_type,
         } => {
-            let key_lower = gen_lower_expr("_k", key_type);
-            let val_lower = gen_lower_expr("_v", value_type);
+            let key_lower = gen_lower_expr("_k", key_type, namespace);
+            let val_lower = gen_lower_expr("_v", value_type, namespace);
             format!(
                 "w.writeMap({var}, (_w, _k) => {{ {key_lower}; }}, (_w, _v) => {{ {val_lower}; }})"
             )
@@ -279,13 +279,16 @@ fn gen_lower_expr(var: &str, t: &Type) -> String {
         }
         Type::Custom { builtin, .. } => {
             // Custom types: lower via the builtin type
-            gen_lower_expr(var, builtin)
+            gen_lower_expr(var, builtin, namespace)
         }
-        Type::Object { .. } => {
-            // Objects are handles, not serialized. This path shouldn't be reached
-            // for FFI buffer element writes, but if an Object appears inside a
-            // RustBuffer (e.g. Optional<Object>), it's lowered as a u64 handle.
-            format!("w.writeU64({var}._handle)")
+        Type::Object { name, .. } => {
+            // Objects inside compound types (Optional<Obj>, Sequence<Obj>, etc.)
+            // must be cloned before lowering, matching Kotlin's FfiConverter.lower()
+            // which always calls uniffiCloneHandle(). The scaffolding consumes handles
+            // via Arc::from_raw, so without cloning, the JS-side object would be
+            // left with a dangling/freed Rust allocation.
+            let clone_fn = fn_clone(namespace, name);
+            format!("w.writeU64(_rt.cloneObjectHandle('{clone_fn}', {var}._handle))")
         }
         Type::CallbackInterface { .. } => {
             // Callback interfaces are lowered as u64 handles via the handle map.
@@ -420,12 +423,12 @@ fn element_read_fn(t: &Type) -> &'static str {
 use super::types::{UdlEnum, UdlError, UdlRecord};
 
 /// Generate a `_lowerFoo(w, value)` helper function for a record type.
-pub(super) fn gen_record_lower_fn(r: &UdlRecord) -> String {
+pub(super) fn gen_record_lower_fn(r: &UdlRecord, namespace: &str) -> String {
     let name = &r.name;
     let mut out = format!("function _lower{name}(w: UniFFIWriter, value: {name}): void {{\n");
     for f in &r.fields {
         let ts_field = safe_js_identifier(&camel_case(&f.name));
-        let lower = gen_lower_expr(&format!("value.{ts_field}"), &f.type_);
+        let lower = gen_lower_expr(&format!("value.{ts_field}"), &f.type_, namespace);
         // Every field must always be serialized — default values affect the TS
         // signature (making the param optional) but not the binary format.
         out.push_str(&format!("  {lower};\n"));
@@ -448,7 +451,7 @@ pub(super) fn gen_record_lift_fn(r: &UdlRecord) -> String {
 }
 
 /// Generate a `_lowerFoo(w, value)` helper for a flat enum (string literal union).
-pub(super) fn gen_flat_enum_lower_fn(e: &UdlEnum) -> String {
+pub(super) fn gen_flat_enum_lower_fn(e: &UdlEnum, _namespace: &str) -> String {
     let name = &e.name;
     let mut out = format!("function _lower{name}(w: UniFFIWriter, value: {name}): void {{\n");
     // Flat enums are serialized as i32 variant ordinal (1-based)
@@ -490,7 +493,7 @@ pub(super) fn gen_flat_enum_lift_fn(e: &UdlEnum) -> String {
 }
 
 /// Generate lower/lift helpers for a data enum (discriminated union).
-pub(super) fn gen_data_enum_lower_fn(e: &UdlEnum) -> String {
+pub(super) fn gen_data_enum_lower_fn(e: &UdlEnum, namespace: &str) -> String {
     let name = &e.name;
     let mut out = format!("function _lower{name}(w: UniFFIWriter, value: {name}): void {{\n");
     for (i, v) in e.variants.iter().enumerate() {
@@ -499,7 +502,7 @@ pub(super) fn gen_data_enum_lower_fn(e: &UdlEnum) -> String {
         out.push_str(&format!("    w.writeI32({});\n", i + 1));
         for f in &v.fields {
             let ts_field = safe_js_identifier(&camel_case(&f.name));
-            let lower = gen_lower_expr(&format!("value.{ts_field}"), &f.type_);
+            let lower = gen_lower_expr(&format!("value.{ts_field}"), &f.type_, namespace);
             out.push_str(&format!("    {lower};\n"));
         }
         out.push_str("    return;\n  }\n");
@@ -641,6 +644,7 @@ pub(super) fn gen_rich_error_lift_fn(e: &UdlError) -> String {
 /// `indent` is the base indentation (e.g. "    " for method bodies).
 pub(super) fn gen_ffi_call(
     ffi_name: &str,
+    namespace: &str,
     args: &[(&str, &Type)], // (js_var_name, type)
     return_type: Option<&Type>,
     throws_name: Option<&str>,
@@ -660,7 +664,7 @@ pub(super) fn gen_ffi_call(
     for (var, t) in args {
         if is_rust_buffer_type(t) {
             let rb_var = format!("_rb_{}", var.replace('.', "_"));
-            let lower = gen_top_level_lower(var, t);
+            let lower = gen_top_level_lower(var, t, namespace);
             rb_setups.push(format!("{indent}const {rb_var} = {lower};"));
         }
     }
@@ -770,7 +774,7 @@ pub(super) fn gen_async_ffi_call(
     for (var, t) in args {
         if is_rust_buffer_type(t) {
             let rb_var = format!("_rb_{}", var.replace('.', "_"));
-            let lower = gen_top_level_lower(var, t);
+            let lower = gen_top_level_lower(var, t, namespace);
             lines.push(format!("{indent}const {rb_var} = {lower};"));
         }
     }
@@ -810,9 +814,7 @@ pub(super) fn gen_async_ffi_call(
     lines.push(format!("{indent}const _retPtr = _rt.scratchAlloc(1 * 8);"));
 
     // Call FFI buffer function to create the future
-    lines.push(format!(
-        "{indent}_rt.call('{ffi_name}', _argPtr, _retPtr);"
-    ));
+    lines.push(format!("{indent}_rt.call('{ffi_name}', _argPtr, _retPtr);"));
     lines.push(format!(
         "{indent}const _futureHandle = _rt.readHandleElement(_retPtr);"
     ));
@@ -872,9 +874,7 @@ pub(super) fn gen_async_ffi_call(
 
     // Check status (error lifting)
     let status_check = if let Some(err_name) = throws_name {
-        format!(
-            "{indent}  _rt.checkCallStatus(_statusPtr, (rb) => _liftError{err_name}(rb));",
-        )
+        format!("{indent}  _rt.checkCallStatus(_statusPtr, (rb) => _liftError{err_name}(rb));",)
     } else {
         format!("{indent}  _rt.checkCallStatus(_statusPtr);")
     };
@@ -936,9 +936,7 @@ fn gen_top_level_lift_from_rb(t: &Type, rb_expr: &str) -> String {
         Type::Custom { builtin, .. } => gen_top_level_lift_from_rb(builtin, rb_expr),
         _ => {
             let lift_body = gen_lift_expr("r", t);
-            format!(
-                "_rt.liftFromBuffer({rb_expr}, (r) => {{ return {lift_body}; }})"
-            )
+            format!("_rt.liftFromBuffer({rb_expr}, (r) => {{ return {lift_body}; }})")
         }
     }
 }
@@ -955,7 +953,12 @@ use super::types::UdlCallbackInterface;
 /// Primitives and handles use their native WASM types.
 fn wasm_type_str(t: &Type) -> &'static str {
     match t {
-        Type::Int8 | Type::UInt8 | Type::Int16 | Type::UInt16 | Type::Int32 | Type::UInt32
+        Type::Int8
+        | Type::UInt8
+        | Type::Int16
+        | Type::UInt16
+        | Type::Int32
+        | Type::UInt32
         | Type::Boolean => "i32",
         Type::Int64 | Type::UInt64 => "i64",
         Type::Float32 => "f32",
@@ -1018,7 +1021,7 @@ fn gen_callback_arg_lift(var: &str, t: &Type) -> String {
 ///
 /// For compound types, we need to lower the value into a RustBuffer and write it
 /// to the output pointer as a RustBuffer C struct.
-fn gen_callback_ret_lower(result_var: &str, out_ptr: &str, t: &Type) -> String {
+fn gen_callback_ret_lower(result_var: &str, out_ptr: &str, t: &Type, namespace: &str) -> String {
     match t {
         Type::String => {
             format!(
@@ -1026,7 +1029,7 @@ fn gen_callback_ret_lower(result_var: &str, out_ptr: &str, t: &Type) -> String {
             )
         }
         _ if is_callback_ptr_type(t) => {
-            let lower_body = gen_lower_expr(result_var, t);
+            let lower_body = gen_lower_expr(result_var, t, namespace);
             format!(
                 "const _retRb = _rt.lowerIntoBuffer((w) => {{ {lower_body}; }}); _rt._writeRustBufferStruct({out_ptr}, _retRb);"
             )
@@ -1048,7 +1051,7 @@ fn gen_callback_ret_lower(result_var: &str, out_ptr: &str, t: &Type) -> String {
         Type::Object { .. } | Type::CallbackInterface { .. } => {
             format!("_rt._dv().setBigUint64({out_ptr}, {result_var}, true);")
         }
-        _ => format!("/* unsupported callback return type */"),
+        _ => "/* unsupported callback return type */".to_string(),
     }
 }
 
@@ -1065,7 +1068,9 @@ pub(super) fn gen_callback_vtable_registration(
 ) -> String {
     let mut out = String::new();
     let cb_name = &cb.name;
-    out.push_str(&format!("// --- VTable for callback interface {cb_name} ---\n"));
+    out.push_str(&format!(
+        "// --- VTable for callback interface {cb_name} ---\n"
+    ));
 
     // For each method, determine its WASM signature
     // VTable method signature: (handle: i64, ...args_as_ptrs..., out_return: i32, call_status: i32) -> void
@@ -1087,9 +1092,7 @@ pub(super) fn gen_callback_vtable_registration(
     // Entry 1: uniffi_clone
     out.push_str("  {\n");
     out.push_str("    params: ['i64'], results: ['i64'],\n");
-    out.push_str(
-        "    fn: (handle: bigint) => { return _rt.cloneCallbackHandle(handle); },\n",
-    );
+    out.push_str("    fn: (handle: bigint) => { return _rt.cloneCallbackHandle(handle); },\n");
     out.push_str("  },\n");
 
     // Entries 2+: methods
@@ -1126,10 +1129,7 @@ pub(super) fn gen_callback_vtable_registration(
         }
         param_names.push("_statusPtr: number".to_string());
 
-        out.push_str(&format!(
-            "    fn: ({}) => {{\n",
-            param_names.join(", ")
-        ));
+        out.push_str(&format!("    fn: ({}) => {{\n", param_names.join(", ")));
         // Save scratch offset — callbacks run DURING a WASM call, so the outer
         // call's scratch data must be preserved.
         out.push_str("      const _savedScratch = _rt.scratchSave();\n");
@@ -1151,7 +1151,7 @@ pub(super) fn gen_callback_vtable_registration(
         if has_return {
             out.push_str(&format!("        const _result = {call_expr};\n"));
             let ret_type = m.return_type.as_ref().unwrap();
-            let lower_code = gen_callback_ret_lower("_result", "_outPtr", ret_type);
+            let lower_code = gen_callback_ret_lower("_result", "_outPtr", ret_type, namespace);
             out.push_str(&format!("        {lower_code}\n"));
         } else {
             out.push_str(&format!("        {call_expr};\n"));

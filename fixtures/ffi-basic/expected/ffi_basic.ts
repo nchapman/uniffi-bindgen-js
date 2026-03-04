@@ -104,6 +104,28 @@ export namespace FfiBasic {
     _rt.scratchReset();
     return _result;
   }
+  export function getCounterValues(counters: Counter[]): BigUint64Array {
+    const _rb_counters = _rt.lowerIntoBuffer((w) => { w.writeSequence(counters, (_w, _v) => { w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', _v._handle)); }); });
+    const _argPtr = _rt.scratchAlloc(3 * 8);
+    _rt.writeRustBufferElements(_argPtr, _rb_counters);
+    const _retPtr = _rt.scratchAlloc(7 * 8);
+    _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_get_counter_values', _argPtr, _retPtr);
+    _rt.checkCallStatus(_retPtr + 24);
+    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readU64()); });
+    _rt.scratchReset();
+    return _result;
+  }
+  export function getOptionalCounterValue(counter: Counter | null): bigint | null {
+    const _rb_counter = _rt.lowerIntoBuffer((w) => { w.writeOptional(counter, (_w, _v) => { w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', _v._handle)); }); });
+    const _argPtr = _rt.scratchAlloc(3 * 8);
+    _rt.writeRustBufferElements(_argPtr, _rb_counter);
+    const _retPtr = _rt.scratchAlloc(7 * 8);
+    _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_get_optional_counter_value', _argPtr, _retPtr);
+    _rt.checkCallStatus(_retPtr + 24);
+    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readU64()); });
+    _rt.scratchReset();
+    return _result;
+  }
   export function greet(name: string): string {
     const _rb_name = _rt.lowerString(name);
     const _argPtr = _rt.scratchAlloc(3 * 8);

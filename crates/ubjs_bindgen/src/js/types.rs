@@ -138,6 +138,8 @@ pub(super) struct UdlObject {
     pub docstring: Option<String>,
     /// True when this object is used as a `[Throws=...]` error type.
     pub is_error: bool,
+    /// True for `[Trait]` interfaces (abstract, no direct constructors).
+    pub is_trait: bool,
     /// Synthesised trait methods (Display, Debug, Eq, Hash, Ord).
     pub traits: SynthesisedTraits,
 }

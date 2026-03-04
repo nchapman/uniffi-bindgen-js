@@ -59,6 +59,7 @@ build_ffi_fixture "ffi-compound"   "ffi_compound"
 build_ffi_fixture "ffi-errors"     "ffi_errors"
 build_ffi_fixture "ffi-callbacks"  "ffi_callbacks"
 build_ffi_fixture "ffi-async"      "ffi_async"
+build_ffi_fixture "ffi-traits"     "ffi_traits"
 
 echo "==> Installing JS dependencies..."
 (cd "$REPO_ROOT/binding_tests" && pnpm install --frozen-lockfile)
