@@ -49,6 +49,19 @@ regen-golden:
   done
   echo "Regenerated all UDL-mode golden files."
 
+# ---------- Library-mode ----------
+
+# Build the library-mode native fixture cdylib.
+build-library-fixture:
+  ./scripts/build_library_mode_fixture.sh
+
+# Build the library-mode fixture and run its golden test.
+test-library:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  LIB_PATH="$(./scripts/build_library_mode_fixture.sh)"
+  UBJS_LIBRARY_MODE_LIB="$LIB_PATH" cargo test -p uniffi-bindgen-js golden_library_mode -- --include-ignored
+
 # ---------- Full integration ----------
 
 # Build WASM fixtures, generate bindings, and run JS runtime tests.

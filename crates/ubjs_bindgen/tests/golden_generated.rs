@@ -3,6 +3,44 @@ use std::path::PathBuf;
 
 use uniffi_bindgen_js::cli::GenerateArgs;
 
+/// Run a golden test in library mode: generate bindings from a compiled cdylib
+/// and compare against the expected output.
+fn run_golden_library(
+    lib_path: &str, // OS path from UBJS_LIBRARY_MODE_LIB env var
+    crate_name: Option<&str>,
+    ts_file: &str,
+    expected_path: &str,
+) {
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let expected = repo.join(expected_path);
+    let out_dir = repo.join(format!(
+        "target/test-generated-js/library-mode/{}",
+        ts_file.replace('.', "_")
+    ));
+
+    let _ = fs::remove_dir_all(&out_dir);
+
+    uniffi_bindgen_js::js::generate_bindings(&GenerateArgs {
+        source: PathBuf::from(lib_path),
+        out_dir: out_dir.clone(),
+        config: None,
+        library: true,
+        crate_name: crate_name.map(ToOwned::to_owned),
+    })
+    .expect("library-mode generation should succeed");
+
+    let generated = fs::read_to_string(out_dir.join(ts_file)).expect("generated file");
+
+    if std::env::var("UPDATE_GOLDEN").is_ok() {
+        fs::create_dir_all(expected.parent().unwrap()).expect("create expected dir");
+        fs::write(&expected, &generated).expect("update golden file");
+        return;
+    }
+
+    let expected = fs::read_to_string(&expected).expect("expected file");
+    assert_eq!(generated, expected);
+}
+
 fn run_golden(fixture_name: &str, udl_file: &str, ts_file: &str) {
     run_golden_impl(fixture_name, udl_file, ts_file, ts_file, None);
 }
@@ -197,5 +235,20 @@ fn golden_non_exhaustive_demo_fixture() {
         "non-exhaustive-demo",
         "non_exhaustive_demo.udl",
         "non_exhaustive_demo.ts",
+    );
+}
+
+/// Library-mode golden test. Requires a compiled cdylib from
+/// `fixtures/library-mode/native-lib/`. Run via `just test-library`.
+#[test]
+#[ignore = "requires UBJS_LIBRARY_MODE_LIB — run via `just test-library`"]
+fn golden_library_mode_fixture() {
+    let lib_path = std::env::var("UBJS_LIBRARY_MODE_LIB")
+        .expect("UBJS_LIBRARY_MODE_LIB must be set when running this test");
+    run_golden_library(
+        &lib_path,
+        None,
+        "library_mode.ts",
+        "fixtures/library-mode/expected/library_mode.ts",
     );
 }
