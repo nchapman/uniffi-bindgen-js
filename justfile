@@ -62,6 +62,16 @@ test-library:
   LIB_PATH="$(./scripts/build_library_mode_fixture.sh)"
   UBJS_LIBRARY_MODE_LIB="$LIB_PATH" cargo test -p uniffi-bindgen-js golden_library_mode -- --include-ignored
 
+# ---------- FFI-mode ----------
+
+# Build the FFI-mode wasm fixture and run its golden test.
+test-ffi:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd fixtures/ffi-basic/wasm && cargo build --target wasm32-unknown-unknown --release
+  cd -
+  cargo test -p uniffi-bindgen-js golden_ffi_basic -- --include-ignored
+
 # ---------- Full integration ----------
 
 # Build WASM fixtures, generate bindings, and run JS runtime tests.

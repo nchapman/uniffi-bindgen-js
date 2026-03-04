@@ -120,6 +120,7 @@ mod tests {
             source: std::path::PathBuf::from("/nonexistent/path.udl"),
             out_dir: std::path::PathBuf::from("/tmp"),
             config: None,
+            wasm: None,
             library: false,
             crate_name: None,
         };

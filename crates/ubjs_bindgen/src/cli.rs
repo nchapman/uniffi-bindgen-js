@@ -21,6 +21,10 @@ pub struct GenerateArgs {
     pub out_dir: PathBuf,
     #[arg(long)]
     pub config: Option<PathBuf>,
+    /// Path to the compiled .wasm file. When provided, the file is copied to the output
+    /// directory and the generated bindings load it via top-level await.
+    #[arg(long)]
+    pub wasm: Option<PathBuf>,
     /// Deprecated: library mode is now auto-detected from the file extension.
     #[arg(long, hide = true)]
     pub library: bool,

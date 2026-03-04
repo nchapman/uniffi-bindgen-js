@@ -1,0 +1,10 @@
+namespace ffi_basic {
+  u32 add(u32 a, u32 b);
+  string greet(string name);
+};
+
+interface Counter {
+  constructor(u64 initial_value);
+  void increment();
+  u64 get_value();
+};

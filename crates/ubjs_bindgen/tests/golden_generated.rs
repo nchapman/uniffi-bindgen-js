@@ -24,6 +24,7 @@ fn run_golden_library(
         source: PathBuf::from(lib_path),
         out_dir: out_dir.clone(),
         config: None,
+        wasm: None,
         library: true,
         crate_name: crate_name.map(ToOwned::to_owned),
     })
@@ -97,6 +98,7 @@ fn run_golden_impl(
         source: fixture,
         out_dir: out_dir.clone(),
         config,
+        wasm: None,
         library: false,
         crate_name: None,
     })
@@ -235,6 +237,61 @@ fn golden_non_exhaustive_demo_fixture() {
         "non-exhaustive-demo",
         "non_exhaustive_demo.udl",
         "non_exhaustive_demo.ts",
+    );
+}
+
+// ---------------------------------------------------------------------------
+// FFI-mode golden tests (--wasm)
+// ---------------------------------------------------------------------------
+
+/// Run a golden test in FFI mode: generate bindings with --wasm flag.
+/// Requires a pre-compiled .wasm file in the fixture's wasm/ directory.
+fn run_golden_ffi(fixture_name: &str, udl_file: &str, ts_file: &str, wasm_file: &str) {
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let fixture = repo.join(format!("fixtures/{fixture_name}/src/{udl_file}"));
+    let wasm = repo.join(format!(
+        "fixtures/{fixture_name}/wasm/target/wasm32-unknown-unknown/release/{wasm_file}"
+    ));
+    let expected = repo.join(format!("fixtures/{fixture_name}/expected/{ts_file}"));
+    let out_dir = repo.join(format!(
+        "target/test-generated-js/{fixture_name}/ffi_{}",
+        ts_file.replace('.', "_")
+    ));
+
+    let _ = fs::remove_dir_all(&out_dir);
+
+    uniffi_bindgen_js::js::generate_bindings(&GenerateArgs {
+        source: fixture,
+        out_dir: out_dir.clone(),
+        config: None,
+        wasm: Some(wasm),
+        library: false,
+        crate_name: None,
+    })
+    .expect("FFI-mode generation should succeed");
+
+    let generated = fs::read_to_string(out_dir.join(ts_file)).expect("generated file");
+
+    if std::env::var("UPDATE_GOLDEN").is_ok() {
+        fs::create_dir_all(expected.parent().unwrap()).expect("create expected dir");
+        fs::write(&expected, &generated).expect("update golden file");
+        return;
+    }
+
+    let expected = fs::read_to_string(expected).expect("expected file");
+    assert_eq!(generated, expected);
+}
+
+/// FFI-mode golden test. Requires wasm compiled via:
+/// `cd fixtures/ffi-basic/wasm && cargo build --target wasm32-unknown-unknown --release`
+#[test]
+#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
+fn golden_ffi_basic_fixture() {
+    run_golden_ffi(
+        "ffi-basic",
+        "ffi_basic.udl",
+        "ffi_basic.ts",
+        "ffi_basic.wasm",
     );
 }
 
