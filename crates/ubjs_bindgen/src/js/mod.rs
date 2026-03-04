@@ -21,7 +21,7 @@ mod types;
 use external_types::collect_external_imports;
 use naming::pascal_case;
 use parsing::{namespace_from_source, parse_udl_metadata};
-use render_helpers::{render_jsdoc, ts_type_str, type_name};
+use render_helpers::{render_jsdoc, ts_type_str, ts_type_str_ffi, type_name};
 use render_objects::{render_function, render_object_class};
 use render_types::{
     render_callback_interface, render_enum_type, render_error_class, render_lift_fn,
@@ -345,7 +345,7 @@ fn render_ts_ffi(
                 .get(&ct.name)
                 .and_then(|c| c.type_name.as_deref())
                 .map(|s| s.to_string())
-                .unwrap_or_else(|| ts_type_str(&ct.builtin));
+                .unwrap_or_else(|| ts_type_str_ffi(&ct.builtin));
             out.push('\n');
             out.push_str(&format!("export type {} = {};\n", exported, ts_type));
         }
@@ -533,8 +533,8 @@ fn render_ts_ffi(
 
 use naming::{camel_case, safe_js_identifier};
 use render_helpers::{
-    duration_annotations, duration_return_annotation, render_jsdoc_with_throws, render_param,
-    ts_return_type,
+    duration_annotations, duration_return_annotation, render_jsdoc_with_throws, render_param_ffi,
+    ts_return_type_ffi,
 };
 
 /// Emit clone calls for Object-typed arguments and build the arg pairs
@@ -603,8 +603,8 @@ fn render_function_ffi(f: &UdlFunction, namespace: &str, cfg: &config::JsBinding
         .map(|s| safe_js_identifier(s))
         .unwrap_or_else(|| safe_js_identifier(&camel_case(&f.name)));
 
-    let params: Vec<String> = f.args.iter().map(render_param).collect();
-    let ts_ret = ts_return_type(f.return_type.as_ref(), f.is_async);
+    let params: Vec<String> = f.args.iter().map(render_param_ffi).collect();
+    let ts_ret = ts_return_type_ffi(f.return_type.as_ref(), f.is_async);
 
     let ffi_name = ffi::ffibuf_fn_func(namespace, &f.name);
 
@@ -772,7 +772,7 @@ fn render_ctor_ffi(
 ) -> String {
     let mut out = String::new();
 
-    let params: Vec<String> = ctor.args.iter().map(render_param).collect();
+    let params: Vec<String> = ctor.args.iter().map(render_param_ffi).collect();
     let async_kw = if ctor.is_async { "async " } else { "" };
     let ret_type = if ctor.is_async {
         format!("Promise<{class_name}>")
@@ -852,8 +852,8 @@ fn render_method_ffi(
 ) -> String {
     let mut out = String::new();
 
-    let params: Vec<String> = m.args.iter().map(render_param).collect();
-    let ts_ret = ts_return_type(m.return_type.as_ref(), m.is_async);
+    let params: Vec<String> = m.args.iter().map(render_param_ffi).collect();
+    let ts_ret = ts_return_type_ffi(m.return_type.as_ref(), m.is_async);
     let async_kw = if m.is_async { "async " } else { "" };
 
     let throws_name = m.throws_type.as_ref().map(type_name);

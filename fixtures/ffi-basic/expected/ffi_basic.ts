@@ -104,7 +104,7 @@ export namespace FfiBasic {
     _rt.scratchReset();
     return _result;
   }
-  export function getCounterValues(counters: Counter[]): BigUint64Array {
+  export function getCounterValues(counters: Counter[]): bigint[] {
     const _rb_counters = _rt.lowerIntoBuffer((w) => { w.writeSequence(counters, (_w, _v) => { w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', _v._handle)); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_counters);

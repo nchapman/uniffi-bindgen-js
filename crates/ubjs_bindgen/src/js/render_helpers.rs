@@ -111,8 +111,17 @@ pub(super) fn render_jsdoc_with_throws(
 /// Render a function/method parameter as `name: Type`, `name: Type = default`,
 /// or `name?: Type` (when the default is unspecified).
 pub(super) fn render_param(arg: &UdlArg) -> String {
+    render_param_inner(arg, false)
+}
+
+/// Like [`render_param`] but for FFI-mode output.
+pub(super) fn render_param_ffi(arg: &UdlArg) -> String {
+    render_param_inner(arg, true)
+}
+
+fn render_param_inner(arg: &UdlArg, ffi_mode: bool) -> String {
     let ts_name = safe_js_identifier(&camel_case(&arg.name));
-    let ts_type = ts_type_str(&arg.type_);
+    let ts_type = ts_type_str_inner(&arg.type_, ffi_mode);
     match &arg.default {
         Some(DefaultValue::Literal(lit)) => {
             format!("{ts_name}: {ts_type} = {}", render_literal(lit))
@@ -176,6 +185,18 @@ pub(super) fn render_literal(lit: &Literal) -> String {
 }
 
 pub(super) fn ts_type_str(t: &Type) -> String {
+    ts_type_str_inner(t, false)
+}
+
+/// Like [`ts_type_str`] but for FFI-mode output.
+///
+/// In FFI mode `Sequence<i64/u64>` is `bigint[]` (deserialized via `readSequence`).
+/// Legacy mode maps these to `BigInt64Array`/`BigUint64Array` to match wasm-bindgen.
+pub(super) fn ts_type_str_ffi(t: &Type) -> String {
+    ts_type_str_inner(t, true)
+}
+
+fn ts_type_str_inner(t: &Type, ffi_mode: bool) -> String {
     match t {
         Type::String => "string".to_string(),
         Type::Boolean => "boolean".to_string(),
@@ -192,15 +213,20 @@ pub(super) fn ts_type_str(t: &Type) -> String {
         // We emit `Date` as the idiomatic JS type; the wasm fixture crate is
         // responsible for converting to/from a JS Date object.
         Type::Timestamp => "Date".to_string(),
-        Type::Optional { inner_type } => format!("{} | null", ts_type_str(inner_type)),
+        Type::Optional { inner_type } => {
+            format!("{} | null", ts_type_str_inner(inner_type, ffi_mode))
+        }
         Type::Sequence { inner_type } => {
             // wasm-bindgen maps Box<[i64]> / Box<[u64]> to typed arrays, not plain arrays.
-            match inner_type.as_ref() {
-                Type::Int64 => return "BigInt64Array".to_string(),
-                Type::UInt64 => return "BigUint64Array".to_string(),
-                _ => {}
+            // In FFI mode, readSequence always returns T[], so skip this.
+            if !ffi_mode {
+                match inner_type.as_ref() {
+                    Type::Int64 => return "BigInt64Array".to_string(),
+                    Type::UInt64 => return "BigUint64Array".to_string(),
+                    _ => {}
+                }
             }
-            let inner = ts_type_str(inner_type);
+            let inner = ts_type_str_inner(inner_type, ffi_mode);
             // Parenthesize compound inner types to avoid precedence issues
             // e.g. `(string | null)[]` not `string | null[]`
             if matches!(
@@ -217,8 +243,8 @@ pub(super) fn ts_type_str(t: &Type) -> String {
             value_type,
         } => format!(
             "Map<{}, {}>",
-            ts_type_str(key_type),
-            ts_type_str(value_type)
+            ts_type_str_inner(key_type, ffi_mode),
+            ts_type_str_inner(value_type, ffi_mode)
         ),
         Type::Enum { name, .. }
         | Type::Record { name, .. }
@@ -247,6 +273,18 @@ pub(super) fn type_name(t: &Type) -> String {
 pub(super) fn ts_return_type(return_type: Option<&Type>, is_async: bool) -> String {
     let base = return_type
         .map(ts_type_str)
+        .unwrap_or_else(|| "void".to_string());
+    if is_async {
+        format!("Promise<{base}>")
+    } else {
+        base
+    }
+}
+
+/// Like [`ts_return_type`] but for FFI-mode output.
+pub(super) fn ts_return_type_ffi(return_type: Option<&Type>, is_async: bool) -> String {
+    let base = return_type
+        .map(ts_type_str_ffi)
         .unwrap_or_else(|| "void".to_string());
     if is_async {
         format!("Promise<{base}>")
