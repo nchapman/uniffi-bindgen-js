@@ -59,14 +59,13 @@ impl CustomTypeConfig {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
 struct RootConfig {
     #[serde(default)]
     bindings: BindingsConfig,
 }
 
 #[derive(Debug, Default, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(default)]
 struct BindingsConfig {
     js: JsBindingsConfig,
 }
@@ -163,6 +162,25 @@ mod tests {
     fn custom_type_lower_expr_identity_when_unset() {
         let ct = CustomTypeConfig::default();
         assert_eq!(ct.lower_expr("myUrl"), "myUrl");
+    }
+
+    #[test]
+    fn parse_shared_multi_language_toml() {
+        let toml_str = r#"
+[bindings.js]
+module_name = "MyModule"
+
+[bindings.python]
+package_name = "my_package"
+
+[bindings.swift]
+module_name = "MySwiftModule"
+
+[bindings.kotlin]
+package_name = "com.example"
+"#;
+        let parsed: RootConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(parsed.bindings.js.module_name.as_deref(), Some("MyModule"));
     }
 
     #[test]
