@@ -1,0 +1,70 @@
+/// Feature coverage fixture: defaults, named ctors, docstrings,
+/// reserved words, enums, records with defaults.
+namespace ffi_features {
+  /// Greet by name, defaults to "world".
+  string greet(optional string? name = null);
+
+  /// Add with optional second operand (defaults to zero).
+  u32 add_maybe(u32 a, optional u32? b = null);
+
+  /// Reserved-word function names.
+  u32 class(u32 switch);
+  string return(string var);
+  boolean delete(boolean static);
+
+  /// Accepts a record with reserved-word fields.
+  string describe_keywords(ReturnValue rv);
+
+  /// Returns the enum variant name.
+  string status_name(Status s);
+};
+
+/// A record with reserved-word field names.
+dictionary ReturnValue {
+  string class;
+  u32 return;
+  boolean typeof;
+};
+
+/// A record with field defaults.
+dictionary Config {
+  string host;
+  u32 port = 8080;
+  boolean verbose = false;
+  string? label = null;
+};
+
+/// A flat enum.
+enum Status {
+  "Active",
+  "Inactive",
+};
+
+/// Error for named constructor.
+[Error]
+enum BuildError {
+  "InvalidInput",
+  "Overflow",
+};
+
+/// An object with named constructors, docstrings, and reserved-word methods.
+interface Widget {
+  /// Default constructor.
+  constructor(string label);
+
+  /// Named constructor that can fail.
+  [Name=from_positive, Throws=BuildError]
+  constructor(i32 value);
+
+  /// Get the label.
+  string get_label();
+
+  /// Reserved-word method name.
+  u32 class();
+
+  /// Returns the config with defaults filled in.
+  Config get_config();
+
+  /// Method with default argument.
+  string format(optional string? prefix = null);
+};

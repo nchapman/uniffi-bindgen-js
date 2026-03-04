@@ -1,0 +1,14 @@
+[package]
+name = "ffi-features"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+name = "ffi_features"
+
+[dependencies]
+uniffi = { version = "0.31.0", features = ["scaffolding-ffi-buffer-fns", "wasm-unstable-single-threaded"] }
+thiserror = "2"

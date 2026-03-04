@@ -350,6 +350,17 @@ fn golden_ffi_traits_fixture() {
     );
 }
 
+#[test]
+#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
+fn golden_ffi_features_fixture() {
+    run_golden_ffi(
+        "ffi-features",
+        "ffi_features.udl",
+        "ffi_features.ts",
+        "ffi_features.wasm",
+    );
+}
+
 /// Library-mode golden test. Requires a compiled cdylib from
 /// `fixtures/library-mode/native-lib/`. Run via `just test-library`.
 #[test]
