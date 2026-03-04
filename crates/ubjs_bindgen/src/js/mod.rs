@@ -17,10 +17,11 @@ mod render_types;
 pub mod runtime_ts;
 mod type_lifting;
 mod types;
+mod wasm_metadata;
 
 use external_types::collect_external_imports;
 use naming::pascal_case;
-use parsing::{namespace_from_source, parse_udl_metadata};
+use parsing::{namespace_from_source, parse_metadata};
 use render_helpers::{render_jsdoc, ts_type_str, ts_type_str_ffi, type_name};
 use render_objects::{render_function, render_object_class};
 use render_types::{
@@ -29,16 +30,28 @@ use render_types::{
 };
 use types::*;
 
-/// Returns `true` when the source file extension is not `.udl`, indicating
-/// it is a compiled cdylib (`.dylib`, `.so`, `.dll`) to read metadata from.
-fn source_is_library(source: &std::path::Path) -> bool {
-    source.extension().and_then(|e| e.to_str()) != Some("udl")
+fn source_extension(source: &std::path::Path) -> Option<&str> {
+    source.extension().and_then(|e| e.to_str())
+}
+
+/// Returns `true` when the source is a compiled native cdylib (`.dylib`, `.so`, `.dll`).
+fn source_is_native_library(source: &std::path::Path) -> bool {
+    matches!(source_extension(source), Some("dylib" | "so" | "dll"))
 }
 
 pub fn generate_bindings(args: &GenerateArgs) -> Result<()> {
     let cfg = config::load(args)?;
-    let library_mode = args.library || source_is_library(&args.source);
-    let metadata = parse_udl_metadata(&args.source, args.crate_name.as_deref(), library_mode)?;
+    let source_ext = source_extension(&args.source);
+    let is_wasm_source = source_ext == Some("wasm");
+
+    // When source IS a .wasm file, extract metadata directly from it
+    // and auto-enable FFI-direct output (no --wasm flag needed).
+    let metadata = if is_wasm_source {
+        parsing::parse_wasm_source(&args.source, args.crate_name.as_deref())?
+    } else {
+        let library_mode = args.library || source_is_native_library(&args.source);
+        parse_metadata(&args.source, args.crate_name.as_deref(), library_mode)?
+    };
     let namespace = if metadata.namespace.is_empty() {
         namespace_from_source(&args.source)?
     } else {
@@ -53,9 +66,10 @@ pub fn generate_bindings(args: &GenerateArgs) -> Result<()> {
     fs::create_dir_all(&args.out_dir)
         .with_context(|| format!("failed to create output dir: {}", args.out_dir.display()))?;
 
-    // When --wasm is provided, emit the new FFI-direct format.
-    // Otherwise, emit the legacy wasm-pack wrapper format for backward compatibility.
-    if args.wasm.is_some() {
+    // FFI-direct mode: when source IS a .wasm file, or when --wasm is provided.
+    // Otherwise, emit the legacy wasm-pack wrapper format.
+    let ffi_mode = is_wasm_source || args.wasm.is_some();
+    if ffi_mode {
         let content = render_ts_ffi(&module_name, &namespace, &metadata, &cfg)?;
         let out_file = args.out_dir.join(format!("{namespace}.ts"));
         fs::write(&out_file, &content)
@@ -66,12 +80,20 @@ pub fn generate_bindings(args: &GenerateArgs) -> Result<()> {
         fs::write(&runtime_file, runtime_ts::RUNTIME_TS)
             .with_context(|| format!("failed to write: {}", runtime_file.display()))?;
 
-        // Copy .wasm file to output directory
-        if let Some(wasm_path) = &args.wasm {
+        // Copy .wasm file to output directory (skip if source == destination)
+        let wasm_source = if is_wasm_source {
+            Some(args.source.clone())
+        } else {
+            args.wasm.clone()
+        };
+        if let Some(wasm_path) = &wasm_source {
             let wasm_filename = format!("{namespace}.wasm");
             let dest = args.out_dir.join(&wasm_filename);
-            fs::copy(wasm_path, &dest)
-                .with_context(|| format!("failed to copy WASM: {}", wasm_path.display()))?;
+            let same_file = wasm_path.canonicalize().ok() == dest.canonicalize().ok();
+            if !same_file {
+                fs::copy(wasm_path, &dest)
+                    .with_context(|| format!("failed to copy WASM: {}", wasm_path.display()))?;
+            }
         }
     } else {
         let content = render_ts(&module_name, &namespace, &metadata, &cfg)?;
@@ -90,7 +112,7 @@ pub fn generate_bindings(args: &GenerateArgs) -> Result<()> {
 fn render_ts(
     module_name: &str,
     namespace: &str,
-    metadata: &UdlMetadata,
+    metadata: &BindingsMetadata,
     cfg: &config::JsBindingsConfig,
 ) -> Result<String> {
     let mut out = String::new();
@@ -184,7 +206,7 @@ fn render_ts(
     }
 
     // Object re-exports (top-level)
-    let visible_objects: Vec<&UdlObject> = metadata
+    let visible_objects: Vec<&ObjectDef> = metadata
         .objects
         .iter()
         .filter(|o| !cfg.exclude.contains(&o.name))
@@ -278,7 +300,7 @@ fn render_ts(
     }
 
     // Namespace with top-level functions — omit entirely if there are none.
-    let visible_fns: Vec<&UdlFunction> = metadata
+    let visible_fns: Vec<&FnDef> = metadata
         .functions
         .iter()
         .filter(|f| !cfg.exclude.contains(&f.name))
@@ -304,7 +326,7 @@ fn render_ts(
 fn render_ts_ffi(
     module_name: &str,
     namespace: &str,
-    metadata: &UdlMetadata,
+    metadata: &BindingsMetadata,
     cfg: &config::JsBindingsConfig,
 ) -> Result<String> {
     let mut out = String::new();
@@ -409,7 +431,7 @@ fn render_ts_ffi(
     }
 
     // Object classes — NEW: handle-based with FFI calls
-    let visible_objects: Vec<&UdlObject> = metadata
+    let visible_objects: Vec<&ObjectDef> = metadata
         .objects
         .iter()
         .filter(|o| !cfg.exclude.contains(&o.name))
@@ -508,7 +530,7 @@ fn render_ts_ffi(
     }
 
     // Namespace with top-level functions — NEW: FFI call bodies
-    let visible_fns: Vec<&UdlFunction> = metadata
+    let visible_fns: Vec<&FnDef> = metadata
         .functions
         .iter()
         .filter(|f| !cfg.exclude.contains(&f.name))
@@ -552,7 +574,7 @@ use render_helpers::{
 /// `Optional<Object>`, `Sequence<Object>`, etc. are serialized via the
 /// `gen_lower_expr` path which clones handles via `_rt.cloneObjectHandle`.
 fn prepare_object_args(
-    args: &[UdlArg],
+    args: &[ArgDef],
     js_arg_names: &[String],
     namespace: &str,
     indent: &str,
@@ -594,7 +616,7 @@ fn apply_object_return_wrap(
     }
 }
 
-fn render_function_ffi(f: &UdlFunction, namespace: &str, cfg: &config::JsBindingsConfig) -> String {
+fn render_function_ffi(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfig) -> String {
     let mut out = String::new();
 
     let exported = cfg
@@ -675,7 +697,7 @@ fn render_function_ffi(f: &UdlFunction, namespace: &str, cfg: &config::JsBinding
 // ---------------------------------------------------------------------------
 
 fn render_object_class_ffi(
-    o: &UdlObject,
+    o: &ObjectDef,
     namespace: &str,
     cfg: &config::JsBindingsConfig,
 ) -> String {
@@ -717,7 +739,7 @@ fn render_object_class_ffi(
     // Constructors (skipped for [Trait] interfaces — they're only created by Rust)
     if !o.is_trait {
         let primary_ctor = o.constructors.iter().find(|c| c.name == "new");
-        let named_ctors: Vec<&UdlConstructor> =
+        let named_ctors: Vec<&CtorDef> =
             o.constructors.iter().filter(|c| c.name != "new").collect();
 
         if let Some(ctor) = primary_ctor {
@@ -764,7 +786,7 @@ fn render_object_class_ffi(
 }
 
 fn render_ctor_ffi(
-    ctor: &UdlConstructor,
+    ctor: &CtorDef,
     class_name: &str,
     namespace: &str,
     exported: &str,
@@ -844,7 +866,7 @@ fn render_ctor_ffi(
 }
 
 fn render_method_ffi(
-    m: &UdlMethod,
+    m: &MethodDef,
     class_name: &str,
     namespace: &str,
     exported: &str,
@@ -1164,7 +1186,7 @@ mod tests {
 
     #[test]
     fn render_param_no_default() {
-        let arg = UdlArg {
+        let arg = ArgDef {
             name: "user_name".into(),
             type_: Type::String,
             default: None,
@@ -1174,7 +1196,7 @@ mod tests {
 
     #[test]
     fn render_param_literal_default() {
-        let arg = UdlArg {
+        let arg = ArgDef {
             name: "count".into(),
             type_: Type::Int32,
             default: Some(DefaultValue::Literal(Literal::UInt(
@@ -1188,7 +1210,7 @@ mod tests {
 
     #[test]
     fn render_param_unspecified_default() {
-        let arg = UdlArg {
+        let arg = ArgDef {
             name: "label".into(),
             type_: Type::String,
             default: Some(DefaultValue::Default),
@@ -1565,8 +1587,8 @@ mod tests {
     // render_enum_methods_on_class tests
     // -----------------------------------------------------------------------
 
-    fn make_method(name: &str, return_type: Option<Type>, is_async: bool) -> UdlMethod {
-        UdlMethod {
+    fn make_method(name: &str, return_type: Option<Type>, is_async: bool) -> MethodDef {
+        MethodDef {
             name: name.into(),
             args: vec![],
             return_type,
@@ -1604,9 +1626,9 @@ mod tests {
 
     #[test]
     fn render_enum_type_with_methods_has_companion_namespace() {
-        let e = UdlEnum {
+        let e = EnumDef {
             name: "Shape".into(),
-            variants: vec![UdlVariant {
+            variants: vec![VariantDef {
                 name: "Circle".into(),
                 fields: vec![],
                 docstring: None,
@@ -1636,9 +1658,9 @@ mod tests {
 
     #[test]
     fn render_enum_type_without_methods_no_namespace() {
-        let e = UdlEnum {
+        let e = EnumDef {
             name: "Dir".into(),
-            variants: vec![UdlVariant {
+            variants: vec![VariantDef {
                 name: "Up".into(),
                 fields: vec![],
                 docstring: None,
@@ -1693,8 +1715,8 @@ mod tests {
 
     #[test]
     fn missing_external_package_errors_for_object() {
-        let metadata = UdlMetadata {
-            functions: vec![UdlFunction {
+        let metadata = BindingsMetadata {
+            functions: vec![FnDef {
                 name: "get_ext".into(),
                 args: vec![],
                 return_type: Some(Type::Object {
@@ -1724,8 +1746,8 @@ mod tests {
 
     #[test]
     fn missing_external_package_errors_for_custom_type() {
-        let metadata = UdlMetadata {
-            custom_types: vec![UdlCustomType {
+        let metadata = BindingsMetadata {
+            custom_types: vec![CustomTypeDef {
                 name: "RemoteUrl".into(),
                 builtin: Type::String,
                 module_path: "remote_crate::types".into(),
@@ -1744,8 +1766,8 @@ mod tests {
 
     #[test]
     fn external_package_with_config_succeeds() {
-        let metadata = UdlMetadata {
-            functions: vec![UdlFunction {
+        let metadata = BindingsMetadata {
+            functions: vec![FnDef {
                 name: "get_ext".into(),
                 args: vec![],
                 return_type: Some(Type::Object {
@@ -1774,16 +1796,16 @@ mod tests {
 
     #[test]
     fn non_exhaustive_flat_enum_appends_string_catchall() {
-        let e = UdlEnum {
+        let e = EnumDef {
             name: "Status".into(),
             variants: vec![
-                UdlVariant {
+                VariantDef {
                     name: "Active".into(),
                     fields: vec![],
                     docstring: None,
                     discr: None,
                 },
-                UdlVariant {
+                VariantDef {
                     name: "Inactive".into(),
                     fields: vec![],
                     docstring: None,
@@ -1807,11 +1829,11 @@ mod tests {
 
     #[test]
     fn non_exhaustive_data_enum_appends_tag_string_catchall() {
-        let e = UdlEnum {
+        let e = EnumDef {
             name: "Shape".into(),
-            variants: vec![UdlVariant {
+            variants: vec![VariantDef {
                 name: "Circle".into(),
-                fields: vec![UdlField {
+                fields: vec![FieldDef {
                     name: "radius".into(),
                     type_: Type::Float64,
                     docstring: None,
@@ -1841,9 +1863,9 @@ mod tests {
 
     #[test]
     fn non_exhaustive_flat_error_appends_string_tag() {
-        let e = UdlError {
+        let e = ErrorDef {
             name: "AppError".into(),
-            variants: vec![UdlVariant {
+            variants: vec![VariantDef {
                 name: "NotFound".into(),
                 fields: vec![],
                 docstring: None,
@@ -1865,11 +1887,11 @@ mod tests {
 
     #[test]
     fn non_exhaustive_rich_error_appends_catchall_variant() {
-        let e = UdlError {
+        let e = ErrorDef {
             name: "NetError".into(),
-            variants: vec![UdlVariant {
+            variants: vec![VariantDef {
                 name: "Timeout".into(),
-                fields: vec![UdlField {
+                fields: vec![FieldDef {
                     name: "elapsed_ms".into(),
                     type_: Type::UInt32,
                     docstring: None,
@@ -1894,9 +1916,9 @@ mod tests {
 
     #[test]
     fn non_exhaustive_flat_error_lift_has_fallback() {
-        let e = UdlError {
+        let e = ErrorDef {
             name: "AppError".into(),
-            variants: vec![UdlVariant {
+            variants: vec![VariantDef {
                 name: "NotFound".into(),
                 fields: vec![],
                 docstring: None,
@@ -1917,9 +1939,9 @@ mod tests {
 
     #[test]
     fn non_exhaustive_rich_error_lift_has_fallback() {
-        let e = UdlError {
+        let e = ErrorDef {
             name: "NetError".into(),
-            variants: vec![UdlVariant {
+            variants: vec![VariantDef {
                 name: "Timeout".into(),
                 fields: vec![],
                 docstring: None,
@@ -1942,8 +1964,8 @@ mod tests {
 
     #[test]
     fn local_types_not_treated_as_external() {
-        let metadata = UdlMetadata {
-            functions: vec![UdlFunction {
+        let metadata = BindingsMetadata {
+            functions: vec![FnDef {
                 name: "get_local".into(),
                 args: vec![],
                 return_type: Some(Type::Object {
@@ -1967,8 +1989,8 @@ mod tests {
     // Enum constructor tests
     // -----------------------------------------------------------------------
 
-    fn make_ctor(name: &str, args: Vec<UdlArg>) -> UdlConstructor {
-        UdlConstructor {
+    fn make_ctor(name: &str, args: Vec<ArgDef>) -> CtorDef {
+        CtorDef {
             name: name.into(),
             args,
             throws_type: None,
@@ -1979,9 +2001,9 @@ mod tests {
 
     #[test]
     fn enum_constructors_rendered_in_companion_namespace() {
-        let e = UdlEnum {
+        let e = EnumDef {
             name: "Color".into(),
-            variants: vec![UdlVariant {
+            variants: vec![VariantDef {
                 name: "Red".into(),
                 fields: vec![],
                 docstring: None,
@@ -1993,7 +2015,7 @@ mod tests {
             methods: vec![],
             constructors: vec![make_ctor(
                 "from_hex",
-                vec![UdlArg {
+                vec![ArgDef {
                     name: "hex".into(),
                     type_: Type::String,
                     default: None,
@@ -2014,10 +2036,10 @@ mod tests {
 
     #[test]
     fn flat_enum_with_discriminants_emits_values_object() {
-        let e = UdlEnum {
+        let e = EnumDef {
             name: "Priority".into(),
             variants: vec![
-                UdlVariant {
+                VariantDef {
                     name: "Low".into(),
                     fields: vec![],
                     docstring: None,
@@ -2027,7 +2049,7 @@ mod tests {
                         Type::UInt8,
                     )),
                 },
-                UdlVariant {
+                VariantDef {
                     name: "Medium".into(),
                     fields: vec![],
                     docstring: None,
@@ -2037,7 +2059,7 @@ mod tests {
                         Type::UInt8,
                     )),
                 },
-                UdlVariant {
+                VariantDef {
                     name: "High".into(),
                     fields: vec![],
                     docstring: None,
@@ -2081,16 +2103,16 @@ mod tests {
 
     #[test]
     fn flat_enum_without_discriminants_omits_values_object() {
-        let e = UdlEnum {
+        let e = EnumDef {
             name: "Color".into(),
             variants: vec![
-                UdlVariant {
+                VariantDef {
                     name: "Red".into(),
                     fields: vec![],
                     docstring: None,
                     discr: None,
                 },
-                UdlVariant {
+                VariantDef {
                     name: "Green".into(),
                     fields: vec![],
                     docstring: None,
@@ -2114,9 +2136,9 @@ mod tests {
 
     #[test]
     fn error_constructors_rendered_as_static_methods() {
-        let e = UdlError {
+        let e = ErrorDef {
             name: "AppError".into(),
-            variants: vec![UdlVariant {
+            variants: vec![VariantDef {
                 name: "Generic".into(),
                 fields: vec![],
                 docstring: None,
@@ -2128,7 +2150,7 @@ mod tests {
             methods: vec![],
             constructors: vec![make_ctor(
                 "from_code",
-                vec![UdlArg {
+                vec![ArgDef {
                     name: "code".into(),
                     type_: Type::Int32,
                     default: None,
@@ -2145,9 +2167,9 @@ mod tests {
 
     #[test]
     fn enum_with_constructors_and_methods_has_both() {
-        let e = UdlEnum {
+        let e = EnumDef {
             name: "Shape".into(),
-            variants: vec![UdlVariant {
+            variants: vec![VariantDef {
                 name: "Circle".into(),
                 fields: vec![],
                 docstring: None,
@@ -2159,7 +2181,7 @@ mod tests {
             methods: vec![make_method("area", Some(Type::Float64), false)],
             constructors: vec![make_ctor(
                 "parse",
-                vec![UdlArg {
+                vec![ArgDef {
                     name: "s".into(),
                     type_: Type::String,
                     default: None,
@@ -2393,7 +2415,7 @@ mod tests {
 
     #[test]
     fn render_param_with_literal_default() {
-        let arg = UdlArg {
+        let arg = ArgDef {
             name: "count".into(),
             type_: Type::Int32,
             default: Some(DefaultValue::Literal(Literal::UInt(
@@ -2407,7 +2429,7 @@ mod tests {
 
     #[test]
     fn render_param_with_unspecified_default() {
-        let arg = UdlArg {
+        let arg = ArgDef {
             name: "value".into(),
             type_: Type::String,
             default: Some(DefaultValue::Default),
@@ -2622,7 +2644,7 @@ mod tests {
 
     #[test]
     fn external_types_empty_metadata() {
-        let metadata = UdlMetadata::default();
+        let metadata = BindingsMetadata::default();
         let ext = HashMap::new();
         let result = collect_external_imports(&metadata, &ext, LC).unwrap();
         assert!(result.is_empty());
@@ -2630,10 +2652,10 @@ mod tests {
 
     #[test]
     fn external_types_collects_from_function_args() {
-        let metadata = UdlMetadata {
-            functions: vec![UdlFunction {
+        let metadata = BindingsMetadata {
+            functions: vec![FnDef {
                 name: "greet".into(),
-                args: vec![UdlArg {
+                args: vec![ArgDef {
                     name: "item".into(),
                     type_: Type::Object {
                         name: "Widget".into(),
@@ -2663,11 +2685,11 @@ mod tests {
             module_path: "ext_crate::types".into(),
             imp: uniffi_bindgen::interface::ObjectImpl::Struct,
         };
-        let metadata = UdlMetadata {
+        let metadata = BindingsMetadata {
             functions: vec![
-                UdlFunction {
+                FnDef {
                     name: "f1".into(),
-                    args: vec![UdlArg {
+                    args: vec![ArgDef {
                         name: "a".into(),
                         type_: ext_obj.clone(),
                         default: None,
@@ -2677,9 +2699,9 @@ mod tests {
                     is_async: false,
                     docstring: None,
                 },
-                UdlFunction {
+                FnDef {
                     name: "f2".into(),
-                    args: vec![UdlArg {
+                    args: vec![ArgDef {
                         name: "b".into(),
                         type_: ext_obj,
                         default: None,
@@ -2705,9 +2727,9 @@ mod tests {
 
     #[test]
     fn record_with_traits_has_companion_namespace() {
-        let r = UdlRecord {
+        let r = RecordDef {
             name: "Point".into(),
-            fields: vec![UdlField {
+            fields: vec![FieldDef {
                 name: "x".into(),
                 type_: Type::Float64,
                 docstring: None,
@@ -2739,9 +2761,9 @@ mod tests {
 
     #[test]
     fn enum_with_traits_has_companion_namespace() {
-        let e = UdlEnum {
+        let e = EnumDef {
             name: "Color".into(),
-            variants: vec![UdlVariant {
+            variants: vec![VariantDef {
                 name: "Red".into(),
                 fields: vec![],
                 docstring: None,
@@ -2774,9 +2796,9 @@ mod tests {
 
     #[test]
     fn record_without_traits_no_namespace() {
-        let r = UdlRecord {
+        let r = RecordDef {
             name: "Point".into(),
-            fields: vec![UdlField {
+            fields: vec![FieldDef {
                 name: "x".into(),
                 type_: Type::Float64,
                 docstring: None,
@@ -2794,9 +2816,9 @@ mod tests {
 
     #[test]
     fn record_with_debug_and_ord_traits() {
-        let r = UdlRecord {
+        let r = RecordDef {
             name: "Point".into(),
-            fields: vec![UdlField {
+            fields: vec![FieldDef {
                 name: "x".into(),
                 type_: Type::Float64,
                 docstring: None,
@@ -2830,9 +2852,9 @@ mod tests {
 
     #[test]
     fn enum_with_debug_and_ord_traits() {
-        let e = UdlEnum {
+        let e = EnumDef {
             name: "Color".into(),
-            variants: vec![UdlVariant {
+            variants: vec![VariantDef {
                 name: "Red".into(),
                 fields: vec![],
                 docstring: None,
@@ -2867,7 +2889,7 @@ mod tests {
 
     #[test]
     fn object_with_all_traits() {
-        let o = UdlObject {
+        let o = ObjectDef {
             name: "Widget".into(),
             constructors: vec![],
             methods: vec![],
@@ -2908,7 +2930,7 @@ mod tests {
 
     #[test]
     fn object_without_traits_has_no_trait_methods() {
-        let o = UdlObject {
+        let o = ObjectDef {
             name: "Widget".into(),
             constructors: vec![],
             methods: vec![],

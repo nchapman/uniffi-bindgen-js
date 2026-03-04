@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use anyhow::Result;
 use uniffi_bindgen::interface::Type;
 
-use super::types::UdlMetadata;
+use super::types::BindingsMetadata;
 
 /// Collect all external types referenced in `metadata` and map them to TypeScript
 /// import statements.  Returns a `BTreeMap<import_path, sorted_type_names>` so
@@ -18,7 +18,7 @@ use super::types::UdlMetadata;
 /// `ComponentInterface::from_webidl(…, "crate_name")`, so it is the module
 /// prefix of every type that is defined in the current UDL file.
 pub(super) fn collect_external_imports(
-    metadata: &UdlMetadata,
+    metadata: &BindingsMetadata,
     external_packages: &HashMap<String, String>,
     local_crate: &str,
 ) -> Result<BTreeMap<String, BTreeSet<String>>> {
@@ -146,7 +146,7 @@ pub(super) fn collect_external_imports(
             if let Some(r) = &m.return_type {
                 visit!(r);
             }
-            // UdlCallbackMethod has no throws_type by design; see types.rs.
+            // CallbackMethodDef has no throws_type by design; see types.rs.
         }
     }
     // Custom types carry their own module_path, so an external `[Custom]` typedef

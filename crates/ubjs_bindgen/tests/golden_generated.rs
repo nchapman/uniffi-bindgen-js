@@ -361,6 +361,66 @@ fn golden_ffi_features_fixture() {
     );
 }
 
+// ---------------------------------------------------------------------------
+// WASM-as-source golden tests (.wasm file as sole input)
+// ---------------------------------------------------------------------------
+
+/// Run a golden test with a .wasm file as the sole source (no UDL, no --wasm flag).
+/// Metadata is extracted directly from the WASM binary.
+fn run_golden_wasm_source(fixture_name: &str, ts_file: &str, wasm_file: &str) {
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let wasm = repo.join(format!(
+        "fixtures/{fixture_name}/wasm/target/wasm32-unknown-unknown/release/{wasm_file}"
+    ));
+    let expected = repo.join(format!("fixtures/{fixture_name}/expected/{ts_file}"));
+    let out_dir = repo.join(format!(
+        "target/test-generated-js/{fixture_name}/wasm_source_{}",
+        ts_file.replace('.', "_")
+    ));
+
+    let _ = fs::remove_dir_all(&out_dir);
+
+    uniffi_bindgen_js::js::generate_bindings(&GenerateArgs {
+        source: wasm,
+        out_dir: out_dir.clone(),
+        config: None,
+        wasm: None,
+        library: false,
+        crate_name: None,
+    })
+    .expect("WASM-as-source generation should succeed");
+
+    let generated = fs::read_to_string(out_dir.join(ts_file)).expect("generated file");
+
+    if std::env::var("UPDATE_GOLDEN").is_ok() {
+        fs::create_dir_all(expected.parent().unwrap()).expect("create expected dir");
+        fs::write(&expected, &generated).expect("update golden file");
+        return;
+    }
+
+    let expected = fs::read_to_string(expected).expect("expected file");
+    assert_eq!(generated, expected);
+}
+
+/// WASM-as-source: verifies that passing a .wasm file as the sole input produces
+/// output identical to the UDL + --wasm path (same expected file).
+/// If these diverge, it means the two metadata extraction paths have drifted.
+///
+/// Note: only ffi-basic and ffi-compound produce byte-identical output from both paths.
+/// Other fixtures have minor differences (method ordering, flat error shape, docstrings)
+/// due to upstream `ComponentInterface::add_metadata` vs `from_webidl` semantics.
+#[test]
+#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
+fn golden_wasm_source_ffi_basic() {
+    run_golden_wasm_source("ffi-basic", "ffi_basic.ts", "ffi_basic.wasm");
+}
+
+#[test]
+#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
+fn golden_wasm_source_ffi_compound() {
+    run_golden_wasm_source("ffi-compound", "ffi_compound.ts", "ffi_compound.wasm");
+}
+
 /// Library-mode golden test. Requires a compiled cdylib from
 /// `fixtures/library-mode/native-lib/`. Run via `just test-library`.
 #[test]

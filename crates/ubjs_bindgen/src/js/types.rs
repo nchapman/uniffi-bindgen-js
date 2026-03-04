@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Internal data types extracted from UDL
+// Internal IR types for bindings generation
 // ---------------------------------------------------------------------------
 
 use uniffi_bindgen::interface::{DefaultValue, Literal, Type};
@@ -10,9 +10,9 @@ use uniffi_bindgen::interface::{DefaultValue, Literal, Type};
 pub(super) const LOCAL_CRATE_SENTINEL: &str = "crate_name";
 
 #[derive(Debug)]
-pub(super) struct UdlFunction {
+pub(super) struct FnDef {
     pub name: String,
-    pub args: Vec<UdlArg>,
+    pub args: Vec<ArgDef>,
     pub return_type: Option<Type>,
     pub throws_type: Option<Type>,
     pub is_async: bool,
@@ -20,7 +20,7 @@ pub(super) struct UdlFunction {
 }
 
 #[derive(Debug)]
-pub(super) struct UdlArg {
+pub(super) struct ArgDef {
     pub name: String,
     pub type_: Type,
     pub default: Option<DefaultValue>,
@@ -29,7 +29,7 @@ pub(super) struct UdlArg {
 /// A variant field (used in rich error variants and data enum variants),
 /// or a record field (used in dictionary declarations).
 #[derive(Debug)]
-pub(super) struct UdlField {
+pub(super) struct FieldDef {
     pub name: String,
     pub type_: Type,
     pub docstring: Option<String>,
@@ -38,10 +38,10 @@ pub(super) struct UdlField {
 
 /// One variant of an enum or error type.
 #[derive(Debug)]
-pub(super) struct UdlVariant {
+pub(super) struct VariantDef {
     pub name: String,
     /// Empty for flat variants (no associated data).
-    pub fields: Vec<UdlField>,
+    pub fields: Vec<FieldDef>,
     pub docstring: Option<String>,
     /// Explicit discriminant value (e.g. `= 10`), if declared.
     pub discr: Option<Literal>,
@@ -49,31 +49,31 @@ pub(super) struct UdlVariant {
 
 /// A [Error] enum — generates a TypeScript error class.
 #[derive(Debug)]
-pub(super) struct UdlError {
+pub(super) struct ErrorDef {
     pub name: String,
-    pub variants: Vec<UdlVariant>,
+    pub variants: Vec<VariantDef>,
     pub is_flat: bool,
     pub is_non_exhaustive: bool,
     pub docstring: Option<String>,
     /// Methods declared on the error enum.
-    pub methods: Vec<UdlMethod>,
+    pub methods: Vec<MethodDef>,
     /// Constructors declared on the error enum (proc-macro only).
-    pub constructors: Vec<UdlConstructor>,
+    pub constructors: Vec<CtorDef>,
 }
 
 /// A plain enum or [Enum] interface — generates a TypeScript union type.
 #[derive(Debug)]
-pub(super) struct UdlEnum {
+pub(super) struct EnumDef {
     pub name: String,
-    pub variants: Vec<UdlVariant>,
+    pub variants: Vec<VariantDef>,
     /// true ↔ all variants are unit variants (no fields); serialises as a string.
     pub is_flat: bool,
     pub is_non_exhaustive: bool,
     pub docstring: Option<String>,
     /// Methods declared on the enum (from `impl` blocks).
-    pub methods: Vec<UdlMethod>,
+    pub methods: Vec<MethodDef>,
     /// Constructors declared on the enum (proc-macro only).
-    pub constructors: Vec<UdlConstructor>,
+    pub constructors: Vec<CtorDef>,
     /// Synthesised trait methods.
     pub traits: SynthesisedTraits,
 }
@@ -95,24 +95,24 @@ pub(super) struct SynthesisedTraits {
 
 /// A `dictionary` declaration — generates a TypeScript interface.
 #[derive(Debug)]
-pub(super) struct UdlRecord {
+pub(super) struct RecordDef {
     pub name: String,
-    pub fields: Vec<UdlField>,
+    pub fields: Vec<FieldDef>,
     pub docstring: Option<String>,
     /// Methods declared on the record (from `impl` blocks, proc-macro only).
-    pub methods: Vec<UdlMethod>,
+    pub methods: Vec<MethodDef>,
     /// Constructors declared on the record (proc-macro only).
-    pub constructors: Vec<UdlConstructor>,
+    pub constructors: Vec<CtorDef>,
     /// Synthesised trait methods.
     pub traits: SynthesisedTraits,
 }
 
 /// A constructor of an `interface` object.
 #[derive(Debug)]
-pub(super) struct UdlConstructor {
+pub(super) struct CtorDef {
     /// Exported name in JS.  Usually "new".
     pub name: String,
-    pub args: Vec<UdlArg>,
+    pub args: Vec<ArgDef>,
     pub throws_type: Option<Type>,
     pub is_async: bool,
     pub docstring: Option<String>,
@@ -120,9 +120,9 @@ pub(super) struct UdlConstructor {
 
 /// A method on an `interface` object.
 #[derive(Debug)]
-pub(super) struct UdlMethod {
+pub(super) struct MethodDef {
     pub name: String,
-    pub args: Vec<UdlArg>,
+    pub args: Vec<ArgDef>,
     pub return_type: Option<Type>,
     pub throws_type: Option<Type>,
     pub is_async: bool,
@@ -131,10 +131,10 @@ pub(super) struct UdlMethod {
 
 /// An `interface` declaration — generates a TypeScript class.
 #[derive(Debug)]
-pub(super) struct UdlObject {
+pub(super) struct ObjectDef {
     pub name: String,
-    pub constructors: Vec<UdlConstructor>,
-    pub methods: Vec<UdlMethod>,
+    pub constructors: Vec<CtorDef>,
+    pub methods: Vec<MethodDef>,
     pub docstring: Option<String>,
     /// True when this object is used as a `[Throws=...]` error type.
     pub is_error: bool,
@@ -146,7 +146,7 @@ pub(super) struct UdlObject {
 
 /// A `[Custom]` typedef — generates a TypeScript type alias.
 #[derive(Debug)]
-pub(super) struct UdlCustomType {
+pub(super) struct CustomTypeDef {
     /// The custom type name (e.g. `Url`).
     pub name: String,
     /// The underlying builtin type (e.g. `Type::String`).
@@ -166,9 +166,9 @@ pub(super) struct UdlCustomType {
 /// contract. Wasm fixture crates must use `wasm_bindgen_futures` and return a
 /// `js_sys::Promise` to back async callback methods at runtime.
 #[derive(Debug)]
-pub(super) struct UdlCallbackMethod {
+pub(super) struct CallbackMethodDef {
     pub name: String,
-    pub args: Vec<UdlArg>,
+    pub args: Vec<ArgDef>,
     pub return_type: Option<Type>,
     pub is_async: bool,
     pub docstring: Option<String>,
@@ -176,29 +176,29 @@ pub(super) struct UdlCallbackMethod {
 
 /// A `callback interface` declaration — generates a TypeScript interface.
 #[derive(Debug)]
-pub(super) struct UdlCallbackInterface {
+pub(super) struct CallbackInterfaceDef {
     pub name: String,
-    pub methods: Vec<UdlCallbackMethod>,
+    pub methods: Vec<CallbackMethodDef>,
     pub docstring: Option<String>,
 }
 
 #[derive(Debug)]
-pub(super) struct UdlMetadata {
+pub(super) struct BindingsMetadata {
     pub namespace: String,
     pub namespace_docstring: Option<String>,
     /// The module_path prefix for types local to this crate.
     /// For UDL mode this is `LOCAL_CRATE_SENTINEL`; for library mode it is the actual crate name.
     pub local_crate: String,
-    pub functions: Vec<UdlFunction>,
-    pub errors: Vec<UdlError>,
-    pub enums: Vec<UdlEnum>,
-    pub records: Vec<UdlRecord>,
-    pub objects: Vec<UdlObject>,
-    pub custom_types: Vec<UdlCustomType>,
-    pub callback_interfaces: Vec<UdlCallbackInterface>,
+    pub functions: Vec<FnDef>,
+    pub errors: Vec<ErrorDef>,
+    pub enums: Vec<EnumDef>,
+    pub records: Vec<RecordDef>,
+    pub objects: Vec<ObjectDef>,
+    pub custom_types: Vec<CustomTypeDef>,
+    pub callback_interfaces: Vec<CallbackInterfaceDef>,
 }
 
-impl Default for UdlMetadata {
+impl Default for BindingsMetadata {
     fn default() -> Self {
         Self {
             namespace: String::new(),

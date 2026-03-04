@@ -17,7 +17,7 @@ use super::types::*;
 
 /// Render a single constructor (primary or named) as a static factory method.
 pub(super) fn render_ctor(
-    ctor: &UdlConstructor,
+    ctor: &CtorDef,
     class_name: &str,
     call_prefix: &str,
     exported: &str,
@@ -66,7 +66,7 @@ pub(super) fn render_ctor(
 }
 
 pub(super) fn render_object_class(
-    o: &UdlObject,
+    o: &ObjectDef,
     cfg: &config::JsBindingsConfig,
     local_crate: &str,
 ) -> String {
@@ -89,8 +89,7 @@ pub(super) fn render_object_class(
     // Constructors — the primary constructor wraps the wasm-bindgen `new` call.
     // Named constructors become static factory methods.
     let primary_ctor = o.constructors.iter().find(|c| c.name == "new");
-    let named_ctors: Vec<&UdlConstructor> =
-        o.constructors.iter().filter(|c| c.name != "new").collect();
+    let named_ctors: Vec<&CtorDef> = o.constructors.iter().filter(|c| c.name != "new").collect();
 
     // Private base constructor — always present for internal use
     out.push_str(&format!("  private constructor(inner: __bg.{name}) {{\n"));
@@ -261,7 +260,7 @@ fn lift_custom_return(
 }
 
 pub(super) fn render_function(
-    f: &UdlFunction,
+    f: &FnDef,
     cfg: &config::JsBindingsConfig,
     local_crate: &str,
 ) -> String {

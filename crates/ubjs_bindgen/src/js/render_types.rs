@@ -48,7 +48,7 @@ fn lift_custom_return(
 // ---------------------------------------------------------------------------
 
 pub(super) fn render_error_class(
-    e: &UdlError,
+    e: &ErrorDef,
     cfg: &config::JsBindingsConfig,
     local_crate: &str,
 ) -> String {
@@ -187,7 +187,7 @@ pub(super) fn render_error_class(
 /// Render enum constructors as static methods on a class or in a companion namespace.
 /// Enum constructors are exported by wasm-bindgen as `{snake_case_enum}_{ctor_name}(...)`.
 pub(super) fn render_enum_constructors_on_class(
-    constructors: &[UdlConstructor],
+    constructors: &[CtorDef],
     enum_name: &str,
     cfg: &config::JsBindingsConfig,
 ) -> String {
@@ -196,7 +196,7 @@ pub(super) fn render_enum_constructors_on_class(
 
 /// Render enum constructors as static functions in a companion namespace.
 pub(super) fn render_enum_constructors_in_namespace(
-    constructors: &[UdlConstructor],
+    constructors: &[CtorDef],
     enum_name: &str,
     cfg: &config::JsBindingsConfig,
 ) -> String {
@@ -206,7 +206,7 @@ pub(super) fn render_enum_constructors_in_namespace(
 /// Shared implementation for rendering enum constructors.
 /// `decl_kind` is either `"static"` (for class bodies) or `"export function"` (for namespaces).
 fn render_enum_constructors(
-    constructors: &[UdlConstructor],
+    constructors: &[CtorDef],
     enum_name: &str,
     cfg: &config::JsBindingsConfig,
     decl_kind: &str,
@@ -270,7 +270,7 @@ fn render_enum_constructors(
 /// Render methods on an error class (instance methods that delegate to wasm-bindgen).
 /// Error enum methods are exported by wasm-bindgen as `{snake_case_enum}_{method_name}(self, ...)`.
 pub(super) fn render_enum_methods_on_class(
-    methods: &[UdlMethod],
+    methods: &[MethodDef],
     enum_name: &str,
     cfg: &config::JsBindingsConfig,
     local_crate: &str,
@@ -335,7 +335,7 @@ pub(super) fn render_enum_methods_on_class(
 // Error lift helper generation
 // ---------------------------------------------------------------------------
 
-pub(super) fn render_lift_fn(e: &UdlError) -> String {
+pub(super) fn render_lift_fn(e: &ErrorDef) -> String {
     let mut out = String::new();
     let name = &e.name;
     let fn_name = format!("_lift{name}");
@@ -419,7 +419,7 @@ pub(super) fn render_object_error_lift_fn(name: &str) -> String {
 // ---------------------------------------------------------------------------
 
 pub(super) fn render_record_interface(
-    r: &UdlRecord,
+    r: &RecordDef,
     cfg: &config::JsBindingsConfig,
     local_crate: &str,
 ) -> String {
@@ -528,7 +528,7 @@ pub(super) fn render_record_interface(
 // ---------------------------------------------------------------------------
 
 pub(super) fn render_enum_type(
-    e: &UdlEnum,
+    e: &EnumDef,
     cfg: &config::JsBindingsConfig,
     local_crate: &str,
 ) -> String {
@@ -726,7 +726,7 @@ pub(super) fn render_enum_type(
 // ---------------------------------------------------------------------------
 
 pub(super) fn render_callback_interface(
-    cb: &UdlCallbackInterface,
+    cb: &CallbackInterfaceDef,
     cfg: &config::JsBindingsConfig,
 ) -> String {
     let mut out = String::new();

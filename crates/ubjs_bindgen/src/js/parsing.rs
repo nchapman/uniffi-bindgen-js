@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// UDL parsing via uniffi_bindgen ComponentInterface
+// Metadata parsing: UDL, library mode, and WASM sources
 // ---------------------------------------------------------------------------
 
 use std::collections::HashSet;
@@ -12,11 +12,11 @@ use uniffi_bindgen::interface::{AsType, ComponentInterface, Type, UniffiTraitMet
 
 use super::types::*;
 
-pub(super) fn parse_udl_metadata(
+pub(super) fn parse_metadata(
     source: &Path,
     crate_name: Option<&str>,
     library_mode: bool,
-) -> Result<UdlMetadata> {
+) -> Result<BindingsMetadata> {
     if source.extension().and_then(|e| e.to_str()) != Some("udl") {
         if !library_mode {
             anyhow::bail!(
@@ -56,22 +56,22 @@ pub(super) fn parse_udl_metadata(
     component_interface_to_metadata(ci, LOCAL_CRATE_SENTINEL)
 }
 
-/// Convert a `ComponentInterface` into our internal `UdlMetadata`.
+/// Convert a `ComponentInterface` into our internal `BindingsMetadata`.
 /// `local_crate` is the module-path prefix for types defined in this crate
 /// (for UDL: `LOCAL_CRATE_SENTINEL`, for library mode: the actual crate name).
 fn component_interface_to_metadata(
     ci: ComponentInterface,
     local_crate: &str,
-) -> Result<UdlMetadata> {
+) -> Result<BindingsMetadata> {
     let functions = ci
         .function_definitions()
         .iter()
-        .map(|f| UdlFunction {
+        .map(|f| FnDef {
             name: f.name().to_string(),
             args: f
                 .arguments()
                 .into_iter()
-                .map(|a| UdlArg {
+                .map(|a| ArgDef {
                     name: a.name().to_string(),
                     type_: a.as_type(),
                     default: a.default_value().cloned(),
@@ -89,12 +89,12 @@ fn component_interface_to_metadata(
     let records = ci
         .record_definitions()
         .iter()
-        .map(|r| UdlRecord {
+        .map(|r| RecordDef {
             name: r.name().to_string(),
             fields: r
                 .fields()
                 .iter()
-                .map(|f| UdlField {
+                .map(|f| FieldDef {
                     name: f.name().to_string(),
                     type_: f.as_type(),
                     docstring: f.docstring().map(ToOwned::to_owned),
@@ -111,19 +111,19 @@ fn component_interface_to_metadata(
     let objects = ci
         .object_definitions()
         .iter()
-        .map(|o| UdlObject {
+        .map(|o| ObjectDef {
             name: o.name().to_string(),
             is_error: ci.is_name_used_as_error(o.name()),
             is_trait: o.is_trait_interface(),
             constructors: o
                 .constructors()
                 .iter()
-                .map(|c| UdlConstructor {
+                .map(|c| CtorDef {
                     name: c.name().to_string(),
                     args: c
                         .arguments()
                         .into_iter()
-                        .map(|a| UdlArg {
+                        .map(|a| ArgDef {
                             name: a.name().to_string(),
                             type_: a.as_type(),
                             default: a.default_value().cloned(),
@@ -146,17 +146,17 @@ fn component_interface_to_metadata(
     let callback_interfaces = ci
         .callback_interface_definitions()
         .iter()
-        .map(|cb| UdlCallbackInterface {
+        .map(|cb| CallbackInterfaceDef {
             name: cb.name().to_string(),
             methods: cb
                 .methods()
                 .iter()
-                .map(|m| UdlCallbackMethod {
+                .map(|m| CallbackMethodDef {
                     name: m.name().to_string(),
                     args: m
                         .arguments()
                         .into_iter()
-                        .map(|a| UdlArg {
+                        .map(|a| ArgDef {
                             name: a.name().to_string(),
                             type_: a.as_type(),
                             default: a.default_value().cloned(),
@@ -174,7 +174,7 @@ fn component_interface_to_metadata(
     // Collect all [Custom] typedefs from the type universe, sorted by name for
     // deterministic output (iter_local_types order is not guaranteed by uniffi-bindgen).
     let mut seen_custom: HashSet<String> = HashSet::new();
-    let mut custom_types: Vec<UdlCustomType> = Vec::new();
+    let mut custom_types: Vec<CustomTypeDef> = Vec::new();
     for t in ci.iter_local_types() {
         if let Type::Custom {
             name,
@@ -183,7 +183,7 @@ fn component_interface_to_metadata(
         } = t
         {
             if seen_custom.insert(name.clone()) {
-                custom_types.push(UdlCustomType {
+                custom_types.push(CustomTypeDef {
                     name: name.clone(),
                     builtin: *builtin.clone(),
                     module_path: module_path.clone(),
@@ -193,7 +193,7 @@ fn component_interface_to_metadata(
     }
     custom_types.sort_by(|a, b| a.name.cmp(&b.name));
 
-    Ok(UdlMetadata {
+    Ok(BindingsMetadata {
         namespace: ci.namespace().to_string(),
         namespace_docstring: ci.namespace_docstring().map(ToOwned::to_owned),
         local_crate: local_crate.to_string(),
@@ -207,15 +207,15 @@ fn component_interface_to_metadata(
     })
 }
 
-pub(super) fn parse_methods(methods: &[uniffi_bindgen::interface::Method]) -> Vec<UdlMethod> {
+pub(super) fn parse_methods(methods: &[uniffi_bindgen::interface::Method]) -> Vec<MethodDef> {
     methods
         .iter()
-        .map(|m| UdlMethod {
+        .map(|m| MethodDef {
             name: m.name().to_string(),
             args: m
                 .arguments()
                 .into_iter()
-                .map(|a| UdlArg {
+                .map(|a| ArgDef {
                     name: a.name().to_string(),
                     type_: a.as_type(),
                     default: a.default_value().cloned(),
@@ -231,15 +231,15 @@ pub(super) fn parse_methods(methods: &[uniffi_bindgen::interface::Method]) -> Ve
 
 pub(super) fn parse_constructors(
     constructors: &[uniffi_bindgen::interface::Constructor],
-) -> Vec<UdlConstructor> {
+) -> Vec<CtorDef> {
     constructors
         .iter()
-        .map(|c| UdlConstructor {
+        .map(|c| CtorDef {
             name: c.name().to_string(),
             args: c
                 .arguments()
                 .into_iter()
-                .map(|a| UdlArg {
+                .map(|a| ArgDef {
                     name: a.name().to_string(),
                     type_: a.as_type(),
                     default: a.default_value().cloned(),
@@ -252,22 +252,22 @@ pub(super) fn parse_constructors(
         .collect()
 }
 
-fn parse_enums(ci: &ComponentInterface) -> (Vec<UdlError>, Vec<UdlEnum>) {
+fn parse_enums(ci: &ComponentInterface) -> (Vec<ErrorDef>, Vec<EnumDef>) {
     let mut errors = Vec::new();
     let mut enums = Vec::new();
 
     for e in ci.enum_definitions() {
         let has_discr = e.variant_discr_type().is_some();
-        let variants: Vec<UdlVariant> = e
+        let variants: Vec<VariantDef> = e
             .variants()
             .iter()
             .enumerate()
-            .map(|(i, v)| UdlVariant {
+            .map(|(i, v)| VariantDef {
                 name: v.name().to_string(),
                 fields: v
                     .fields()
                     .iter()
-                    .map(|f| UdlField {
+                    .map(|f| FieldDef {
                         name: f.name().to_string(),
                         type_: f.as_type(),
                         docstring: f.docstring().map(ToOwned::to_owned),
@@ -288,7 +288,7 @@ fn parse_enums(ci: &ComponentInterface) -> (Vec<UdlError>, Vec<UdlEnum>) {
         let traits = extract_traits(&e.uniffi_trait_methods());
 
         if ci.is_name_used_as_error(e.name()) {
-            errors.push(UdlError {
+            errors.push(ErrorDef {
                 name: e.name().to_string(),
                 variants,
                 is_flat: e.is_flat(),
@@ -298,7 +298,7 @@ fn parse_enums(ci: &ComponentInterface) -> (Vec<UdlError>, Vec<UdlEnum>) {
                 constructors,
             });
         } else {
-            enums.push(UdlEnum {
+            enums.push(EnumDef {
                 name: e.name().to_string(),
                 variants,
                 is_flat: e.is_flat(),
@@ -332,4 +332,37 @@ pub(super) fn namespace_from_source(source: &Path) -> Result<String> {
         .and_then(|s| s.to_str())
         .map(ToOwned::to_owned)
         .ok_or_else(|| anyhow::anyhow!("source path must have a valid UTF-8 file stem"))
+}
+
+/// Parse metadata directly from a compiled `.wasm` file.
+///
+/// Extracts `UNIFFI_META_*` symbols, groups them into a `ComponentInterface`,
+/// then converts to our IR — exactly matching the native library-mode pipeline.
+pub(super) fn parse_wasm_source(
+    source: &Path,
+    crate_name: Option<&str>,
+) -> Result<BindingsMetadata> {
+    let items = super::wasm_metadata::extract_from_wasm(source)
+        .with_context(|| format!("failed to extract metadata from: {}", source.display()))?;
+
+    let mut groups = uniffi_meta::create_metadata_groups(&items);
+    uniffi_meta::group_metadata(&mut groups, items).context("failed to group WASM metadata")?;
+
+    let group = if let Some(crate_name) = crate_name {
+        groups
+            .remove(crate_name)
+            .ok_or_else(|| anyhow::anyhow!("crate '{crate_name}' not found in WASM metadata"))?
+    } else {
+        groups
+            .into_values()
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("no UniFFI components found in WASM metadata"))?
+    };
+
+    let local_crate = group.namespace.crate_name.clone();
+    let mut ci = ComponentInterface::new(&local_crate);
+    ci.add_metadata(group)
+        .context("failed to build ComponentInterface from WASM metadata")?;
+
+    component_interface_to_metadata(ci, &local_crate)
 }

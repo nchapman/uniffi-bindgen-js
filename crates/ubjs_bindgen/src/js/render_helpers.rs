@@ -5,7 +5,7 @@
 use uniffi_bindgen::interface::{DefaultValue, Literal, Type};
 
 use super::naming::{camel_case, is_js_reserved, safe_js_identifier};
-use super::types::UdlArg;
+use super::types::ArgDef;
 
 /// Build a member access + call expression, using bracket notation for reserved words.
 ///
@@ -110,16 +110,16 @@ pub(super) fn render_jsdoc_with_throws(
 
 /// Render a function/method parameter as `name: Type`, `name: Type = default`,
 /// or `name?: Type` (when the default is unspecified).
-pub(super) fn render_param(arg: &UdlArg) -> String {
+pub(super) fn render_param(arg: &ArgDef) -> String {
     render_param_inner(arg, false)
 }
 
 /// Like [`render_param`] but for FFI-mode output.
-pub(super) fn render_param_ffi(arg: &UdlArg) -> String {
+pub(super) fn render_param_ffi(arg: &ArgDef) -> String {
     render_param_inner(arg, true)
 }
 
-fn render_param_inner(arg: &UdlArg, ffi_mode: bool) -> String {
+fn render_param_inner(arg: &ArgDef, ffi_mode: bool) -> String {
     let ts_name = safe_js_identifier(&camel_case(&arg.name));
     let ts_type = ts_type_str_inner(&arg.type_, ffi_mode);
     match &arg.default {
@@ -136,7 +136,7 @@ fn render_param_inner(arg: &UdlArg, ffi_mode: bool) -> String {
 }
 
 /// Build `@param` annotations for Duration-typed parameters.
-pub(super) fn duration_annotations(args: &[UdlArg]) -> Vec<String> {
+pub(super) fn duration_annotations(args: &[ArgDef]) -> Vec<String> {
     args.iter()
         .filter(|a| matches!(a.type_, Type::Duration))
         .map(|a| {

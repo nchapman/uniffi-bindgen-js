@@ -420,10 +420,10 @@ fn element_read_fn(t: &Type) -> &'static str {
 // Type-specific lower/lift helper generation (for records and enums)
 // ---------------------------------------------------------------------------
 
-use super::types::{UdlEnum, UdlError, UdlRecord};
+use super::types::{EnumDef, ErrorDef, RecordDef};
 
 /// Generate a `_lowerFoo(w, value)` helper function for a record type.
-pub(super) fn gen_record_lower_fn(r: &UdlRecord, namespace: &str) -> String {
+pub(super) fn gen_record_lower_fn(r: &RecordDef, namespace: &str) -> String {
     let name = &r.name;
     let mut out = format!("function _lower{name}(w: UniFFIWriter, value: {name}): void {{\n");
     for f in &r.fields {
@@ -438,7 +438,7 @@ pub(super) fn gen_record_lower_fn(r: &UdlRecord, namespace: &str) -> String {
 }
 
 /// Generate a `_liftFoo(r)` helper function for a record type.
-pub(super) fn gen_record_lift_fn(r: &UdlRecord) -> String {
+pub(super) fn gen_record_lift_fn(r: &RecordDef) -> String {
     let name = &r.name;
     let mut out = format!("function _lift{name}(r: UniFFIReader): {name} {{\n  return {{\n");
     for f in &r.fields {
@@ -451,7 +451,7 @@ pub(super) fn gen_record_lift_fn(r: &UdlRecord) -> String {
 }
 
 /// Generate a `_lowerFoo(w, value)` helper for a flat enum (string literal union).
-pub(super) fn gen_flat_enum_lower_fn(e: &UdlEnum, _namespace: &str) -> String {
+pub(super) fn gen_flat_enum_lower_fn(e: &EnumDef, _namespace: &str) -> String {
     let name = &e.name;
     let mut out = format!("function _lower{name}(w: UniFFIWriter, value: {name}): void {{\n");
     // Flat enums are serialized as i32 variant ordinal (1-based)
@@ -470,7 +470,7 @@ pub(super) fn gen_flat_enum_lower_fn(e: &UdlEnum, _namespace: &str) -> String {
 }
 
 /// Generate a `_liftFoo(r)` helper for a flat enum.
-pub(super) fn gen_flat_enum_lift_fn(e: &UdlEnum) -> String {
+pub(super) fn gen_flat_enum_lift_fn(e: &EnumDef) -> String {
     let name = &e.name;
     let mut out = format!("function _lift{name}(r: UniFFIReader): {name} {{\n");
     out.push_str("  const ordinal = r.readI32();\n");
@@ -493,7 +493,7 @@ pub(super) fn gen_flat_enum_lift_fn(e: &UdlEnum) -> String {
 }
 
 /// Generate lower/lift helpers for a data enum (discriminated union).
-pub(super) fn gen_data_enum_lower_fn(e: &UdlEnum, namespace: &str) -> String {
+pub(super) fn gen_data_enum_lower_fn(e: &EnumDef, namespace: &str) -> String {
     let name = &e.name;
     let mut out = format!("function _lower{name}(w: UniFFIWriter, value: {name}): void {{\n");
     for (i, v) in e.variants.iter().enumerate() {
@@ -514,7 +514,7 @@ pub(super) fn gen_data_enum_lower_fn(e: &UdlEnum, namespace: &str) -> String {
     out
 }
 
-pub(super) fn gen_data_enum_lift_fn(e: &UdlEnum) -> String {
+pub(super) fn gen_data_enum_lift_fn(e: &EnumDef) -> String {
     let name = &e.name;
     let mut out = format!("function _lift{name}(r: UniFFIReader): {name} {{\n");
     out.push_str("  const ordinal = r.readI32();\n");
@@ -554,7 +554,7 @@ pub(super) fn gen_data_enum_lift_fn(e: &UdlEnum) -> String {
 }
 
 /// Generate a lift function for a flat error type (from RustCallStatus error buffer).
-pub(super) fn gen_flat_error_lift_fn(e: &UdlError) -> String {
+pub(super) fn gen_flat_error_lift_fn(e: &ErrorDef) -> String {
     let name = &e.name;
     let mut out = format!("function _liftError{name}(rb: any): {name} {{\n");
     out.push_str("  return _rt.liftFromBuffer(rb, (r) => {\n");
@@ -581,7 +581,7 @@ pub(super) fn gen_flat_error_lift_fn(e: &UdlError) -> String {
 }
 
 /// Generate a lift function for a rich error type.
-pub(super) fn gen_rich_error_lift_fn(e: &UdlError) -> String {
+pub(super) fn gen_rich_error_lift_fn(e: &ErrorDef) -> String {
     let name = &e.name;
     let variant_type = format!("{name}Variant");
     let mut out = format!("function _liftError{name}(rb: any): {name} {{\n");
@@ -627,7 +627,7 @@ pub(super) fn gen_rich_error_lift_fn(e: &UdlError) -> String {
 // FFI call generation
 // ---------------------------------------------------------------------------
 
-// (FFI call generation uses Type directly, not our own UdlArg/UdlFunction)
+// (FFI call generation uses Type directly, not our own ArgDef/FnDef)
 
 /// Generate a complete FFI call block for a function/method.
 ///
@@ -945,7 +945,7 @@ fn gen_top_level_lift_from_rb(t: &Type, rb_expr: &str) -> String {
 // Callback interface VTable generation
 // ---------------------------------------------------------------------------
 
-use super::types::UdlCallbackInterface;
+use super::types::CallbackInterfaceDef;
 
 /// WASM type string for a UniFFI Type used in callback method signatures.
 ///
@@ -1063,7 +1063,7 @@ fn gen_callback_ret_lower(result_var: &str, out_ptr: &str, t: &Type, namespace: 
 /// 3. Writes the VTable struct to persistent memory
 /// 4. Calls the VTable init function
 pub(super) fn gen_callback_vtable_registration(
-    cb: &UdlCallbackInterface,
+    cb: &CallbackInterfaceDef,
     namespace: &str,
 ) -> String {
     let mut out = String::new();
