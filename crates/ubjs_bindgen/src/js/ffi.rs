@@ -110,11 +110,12 @@ pub(super) fn gen_read_return(t: &Type, offset_expr: &str) -> String {
 /// Generate a TypeScript expression that lowers a top-level argument to a RustBufferDescriptor.
 fn gen_top_level_lower(var: &str, t: &Type) -> String {
     match t {
+        // String has a custom lower/lift in UniFFI that uses raw UTF-8 in
+        // the RustBuffer (no length prefix). All other compound types use
+        // the standard serialized format via lower_into_rust_buffer().
         Type::String => format!("_rt.lowerString({var})"),
-        Type::Bytes => format!("_rt.lowerBytes({var})"),
         Type::Custom { builtin, .. } => gen_top_level_lower(var, builtin),
         _ => {
-            // Compound types: use UniFFI binary serialization
             let lower_body = gen_lower_expr(var, t);
             format!("_rt.lowerIntoBuffer((w) => {{ {lower_body}; }})")
         }
@@ -126,15 +127,13 @@ fn gen_top_level_lower(var: &str, t: &Type) -> String {
 /// `offset_expr` points to the first RustBuffer element in the return buffer.
 fn gen_top_level_lift(t: &Type, offset_expr: &str) -> String {
     match t {
+        // String has a custom lower/lift in UniFFI that uses raw UTF-8 in
+        // the RustBuffer (no length prefix).
         Type::String => {
             format!("_rt.liftString(_rt.readRustBufferElements({offset_expr}))")
         }
-        Type::Bytes => {
-            format!("_rt.liftBytes(_rt.readRustBufferElements({offset_expr}))")
-        }
         Type::Custom { builtin, .. } => gen_top_level_lift(builtin, offset_expr),
         _ => {
-            // Compound types: use UniFFI binary deserialization
             let lift_body = gen_lift_expr("r", t);
             format!(
                 "_rt.liftFromBuffer(_rt.readRustBufferElements({offset_expr}), (r) => {{ return {lift_body}; }})"

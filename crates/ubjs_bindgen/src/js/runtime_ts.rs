@@ -506,18 +506,6 @@ export class UniffiRuntime {
     return new TextDecoder().decode(copy);
   }
 
-  /** Lower bytes to a RustBuffer containing raw bytes (no length prefix). */
-  lowerBytes(value: Uint8Array): RustBufferDescriptor {
-    return this.rustBufferFromBytes(value);
-  }
-
-  /** Lift a RustBuffer containing raw bytes. */
-  liftBytes(rb: RustBufferDescriptor): Uint8Array {
-    const bytes = new Uint8Array(this._memory.buffer, rb.dataPtr, rb.len);
-    const copy = new Uint8Array(bytes);
-    this.freeRustBuffer(rb);
-    return copy;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -641,14 +629,12 @@ export class UniFFIWriter {
   }
 
   writeTimestamp(date: Date): void {
-    // Timestamp = i8 sign (0=positive, 1=negative) + u64 secs + u32 nanos
+    // Timestamp = i64 seconds_from_epoch + u32 nanos (matches UniFFI SystemTime format)
     const ms = date.getTime();
-    const sign = ms >= 0 ? 0 : 1;
+    const totalSecs = Math.trunc(ms / 1000);
     const absMs = Math.abs(ms);
-    const secs = Math.floor(absMs / 1000);
     const nanos = (absMs % 1000) * 1_000_000;
-    this.writeI8(sign);
-    this.writeU64(BigInt(secs));
+    this.writeI64(BigInt(totalSecs));
     this.writeU32(nanos);
   }
 
@@ -782,12 +768,12 @@ export class UniFFIReader {
   }
 
   readTimestamp(): Date {
-    // Timestamp = i8 sign + u64 secs + u32 nanos → Date
-    const sign = this.readI8();
-    const secs = Number(this.readU64());
+    // Timestamp = i64 seconds_from_epoch + u32 nanos (matches UniFFI SystemTime format)
+    const seconds = this.readI64();
     const nanos = this.readU32();
-    const ms = secs * 1000 + Math.floor(nanos / 1_000_000);
-    return new Date(sign === 0 ? ms : -ms);
+    const secs = Number(seconds);
+    const ms = secs * 1000 + Math.floor(nanos / 1_000_000) * (secs >= 0 ? 1 : -1);
+    return new Date(ms);
   }
 
   readOptional<T>(readInner: (r: UniFFIReader) => T): T | null {

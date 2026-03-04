@@ -1,0 +1,63 @@
+namespace ffi_compound {
+  // --- Primitives ---
+  boolean identity_bool(boolean v);
+  i8 identity_i8(i8 v);
+  u8 identity_u8(u8 v);
+  i16 identity_i16(i16 v);
+  u16 identity_u16(u16 v);
+  i32 identity_i32(i32 v);
+  u32 identity_u32(u32 v);
+  i64 identity_i64(i64 v);
+  u64 identity_u64(u64 v);
+  f32 identity_f32(f32 v);
+  f64 identity_f64(f64 v);
+  string identity_string(string v);
+  bytes identity_bytes(bytes v);
+
+  // --- Optional ---
+  string? identity_optional_string(string? v);
+  i32? identity_optional_i32(i32? v);
+
+  // --- Sequence ---
+  sequence<i32> identity_seq_i32(sequence<i32> v);
+  sequence<string> identity_seq_string(sequence<string> v);
+
+  // --- Map ---
+  record<string, i32> identity_map_string_i32(record<string, i32> v);
+
+  // --- Duration & Timestamp ---
+  duration identity_duration(duration v);
+  timestamp identity_timestamp(timestamp v);
+
+  // --- Record ---
+  Point make_point(f64 x, f64 y);
+  f64 point_distance(Point a, Point b);
+
+  // --- Flat enum ---
+  string color_name(Color c);
+
+  // --- Data enum ---
+  f64 shape_area(Shape s);
+
+  // --- Nested compound ---
+  sequence<Point> identity_seq_point(sequence<Point> v);
+  record<string, Point> identity_map_point(record<string, Point> v);
+  Point? identity_optional_point(Point? v);
+};
+
+dictionary Point {
+  f64 x;
+  f64 y;
+};
+
+enum Color {
+  "Red",
+  "Green",
+  "Blue",
+};
+
+[Enum]
+interface Shape {
+  Circle(f64 radius);
+  Rect(f64 width, f64 height);
+};

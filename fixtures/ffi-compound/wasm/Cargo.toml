@@ -1,0 +1,13 @@
+[package]
+name = "ffi-compound"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ffi_compound"
+crate-type = ["cdylib"]
+
+[dependencies]
+uniffi = { version = "0.31.0", features = ["scaffolding-ffi-buffer-fns", "wasm-unstable-single-threaded"] }
+
+[workspace]

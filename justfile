@@ -64,13 +64,15 @@ test-library:
 
 # ---------- FFI-mode ----------
 
-# Build the FFI-mode wasm fixture and run its golden test.
+# Build all FFI-mode wasm fixtures and run their golden tests.
 test-ffi:
   #!/usr/bin/env bash
   set -euo pipefail
-  cd fixtures/ffi-basic/wasm && cargo build --target wasm32-unknown-unknown --release
-  cd -
-  cargo test -p uniffi-bindgen-js golden_ffi_basic -- --include-ignored
+  for d in fixtures/ffi-*/wasm; do
+    echo "Building $(basename "$(dirname "$d")") wasm..."
+    (cd "$d" && cargo build --target wasm32-unknown-unknown --release)
+  done
+  cargo test -p uniffi-bindgen-js golden_ffi_ -- --include-ignored
 
 # ---------- Full integration ----------
 

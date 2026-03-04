@@ -1,0 +1,44 @@
+namespace ffi_errors {
+  // Function that throws a flat error
+  [Throws=MathError]
+  string safe_divide(f64 a, f64 b);
+
+  // Function that throws a rich error
+  [Throws=NetworkError]
+  string fetch_data(string url);
+};
+
+// Flat error: simple variant tags
+[Error]
+enum MathError {
+  "DivisionByZero",
+  "Overflow",
+};
+
+// Rich error: variants with typed fields
+[Error]
+interface NetworkError {
+  NotFound(string url);
+  Timeout(u32 after_ms);
+  ServerError(u16 code, string message);
+};
+
+// Object with constructor that throws
+interface Parser {
+  [Throws=ParseError]
+  constructor(string input);
+
+  string result();
+
+  // Method that throws
+  [Throws=ParseError]
+  string parse_section(string name);
+};
+
+// Error for object operations
+[Error]
+enum ParseError {
+  "InvalidInput",
+  "MissingSection",
+  "SyntaxError",
+};
