@@ -74,6 +74,13 @@ interface RustBufferDescriptor {
 // UniFFI Runtime
 // ---------------------------------------------------------------------------
 
+/** Descriptor for a VTable trampoline entry. */
+interface VTableEntry {
+  params: string[];
+  results: string[];
+  fn: Function;
+}
+
 export class UniffiRuntime {
   private _instance: WebAssembly.Instance;
   private _memory: WebAssembly.Memory;
@@ -82,10 +89,25 @@ export class UniffiRuntime {
   private _scratchSize: number;
   private _scratchOffset: number;
   private _namespace: string;
+  // Persistent memory for VTable structs (never reset, unlike scratch)
+  private _persistBase: number;
+  private _persistSize: number;
+  private _persistOffset: number;
+  // Indirect function table (for callback trampolines)
+  private _table: WebAssembly.Table | null;
+  // Callback handle map: JS objects keyed by u64 handle
+  private _nextHandle: bigint;
+  private _handleMap: Map<bigint, unknown>;
+  // Async/RustFuture polling infrastructure
+  private _asyncCallbackIdx: number;
+  private _asyncPendingResolves: Map<bigint, (result: number) => void>;
+  private _asyncNextId: bigint;
 
   private constructor(
     instance: WebAssembly.Instance,
     namespace: string,
+    persistBase: number,
+    persistSize: number,
     scratchBase: number,
     scratchSize: number,
   ) {
@@ -93,9 +115,18 @@ export class UniffiRuntime {
     this._memory = instance.exports.memory as WebAssembly.Memory;
     this._exports = instance.exports as Record<string, Function>;
     this._namespace = namespace;
+    this._persistBase = persistBase;
+    this._persistSize = persistSize;
+    this._persistOffset = 0;
     this._scratchBase = scratchBase;
     this._scratchSize = scratchSize;
     this._scratchOffset = 0;
+    this._table = (instance.exports.__indirect_function_table as WebAssembly.Table) ?? null;
+    this._nextHandle = 1n;
+    this._handleMap = new Map();
+    this._asyncCallbackIdx = -1;
+    this._asyncPendingResolves = new Map();
+    this._asyncNextId = 1n;
   }
 
   /**
@@ -108,21 +139,65 @@ export class UniffiRuntime {
     const wasmBytes = await loadWasmBytes(wasmUrl);
     const { instance } = await WebAssembly.instantiate(wasmBytes);
     const memory = instance.exports.memory as WebAssembly.Memory;
+    const exports = instance.exports as Record<string, Function>;
 
-    // Grow memory by 1 page (64KB) for scratch space
-    const scratchPage = memory.grow(1);
-    const scratchBase = scratchPage * 65536;
+    // Allocate scratch + persistent memory via Rust's allocator.
+    // We must NOT use memory.grow() from JS — Rust's allocator doesn't know
+    // about those pages and may allocate over them.
+    //
+    // Bootstrap: grow 1 page for temporary struct space to make the alloc call.
+    const bootPage = memory.grow(1);
+    const bootBase = bootPage * 65536;
+    const retBufPtr = bootBase;
+    const statusPtr = bootBase + 24;
+    new Uint8Array(memory.buffer, statusPtr, RUST_CALL_STATUS_STRUCT_SIZE).fill(0);
+
+    // Call ffi_{ns}_rustbuffer_alloc(retptr: i32, size: i64, status_ptr: i32)
+    // Allocate 128KB (64KB persistent + 64KB scratch)
+    const totalSize = 131072;
+    const allocFn = exports[`ffi_${namespace}_rustbuffer_alloc`];
+    if (!allocFn) {
+      throw new Error(`WASM export not found: ffi_${namespace}_rustbuffer_alloc`);
+    }
+    (allocFn as (a: number, b: bigint, c: number) => void)(retBufPtr, BigInt(totalSize), statusPtr);
+
+    const bootDv = new DataView(memory.buffer);
+    const code = bootDv.getInt8(statusPtr);
+    if (code !== 0) throw new Error('Failed to allocate scratch memory from Rust');
+
+    const dataPtr = bootDv.getUint32(retBufPtr + 16, true);
+    // Zero the entire region
+    new Uint8Array(memory.buffer, dataPtr, totalSize).fill(0);
+
+    const persistBase = dataPtr;
+    const persistSize = 65536;
+    const scratchBase = dataPtr + 65536;
     const scratchSize = 65536;
 
-    return new UniffiRuntime(instance, namespace, scratchBase, scratchSize);
+    return new UniffiRuntime(instance, namespace, persistBase, persistSize, scratchBase, scratchSize);
   }
 
   // -----------------------------------------------------------------------
   // DataView (always fresh — memory may have grown)
   // -----------------------------------------------------------------------
 
-  private _dv(): DataView {
+  /** @internal — used by generated callback trampolines */
+  _dv(): DataView {
     return new DataView(this._memory.buffer);
+  }
+
+  // -----------------------------------------------------------------------
+  // Persistent Allocator (for VTable structs that must outlive scratch resets)
+  // -----------------------------------------------------------------------
+
+  private _persistAlloc(bytes: number): number {
+    const aligned = (this._persistOffset + 7) & ~7;
+    const ptr = this._persistBase + aligned;
+    this._persistOffset = aligned + bytes;
+    if (this._persistOffset > this._persistSize) {
+      throw new Error('UniffiRuntime: persistent space exhausted');
+    }
+    return ptr;
   }
 
   // -----------------------------------------------------------------------
@@ -142,6 +217,43 @@ export class UniffiRuntime {
 
   scratchReset(): void {
     this._scratchOffset = 0;
+  }
+
+  /** Save the current scratch offset (for restoring after a callback). */
+  scratchSave(): number {
+    return this._scratchOffset;
+  }
+
+  /** Restore a previously saved scratch offset. */
+  scratchRestore(offset: number): void {
+    this._scratchOffset = offset;
+  }
+
+  // -----------------------------------------------------------------------
+  // Callback Handle Map
+  // -----------------------------------------------------------------------
+
+  /** Insert a JS callback object and return its handle. */
+  insertCallbackHandle(obj: unknown): bigint {
+    const h = this._nextHandle++;
+    this._handleMap.set(h, obj);
+    return h;
+  }
+
+  /** Get a JS callback object by handle. */
+  getCallbackHandle(h: bigint): unknown {
+    return this._handleMap.get(h);
+  }
+
+  /** Remove a callback handle (called by uniffi_free trampoline). */
+  removeCallbackHandle(h: bigint): void {
+    this._handleMap.delete(h);
+  }
+
+  /** Clone a callback handle (called by uniffi_clone trampoline). */
+  cloneCallbackHandle(h: bigint): bigint {
+    const obj = this._handleMap.get(h);
+    return this.insertCallbackHandle(obj);
   }
 
   // -----------------------------------------------------------------------
@@ -315,14 +427,16 @@ export class UniffiRuntime {
   // RustBuffer C Struct in Linear Memory (for direct C ABI calls)
   // -----------------------------------------------------------------------
 
-  private _writeRustBufferStruct(ptr: number, rb: RustBufferDescriptor): void {
+  /** @internal — used by generated callback trampolines */
+  _writeRustBufferStruct(ptr: number, rb: RustBufferDescriptor): void {
     const dv = this._dv();
     dv.setBigUint64(ptr, BigInt(rb.capacity), true);
     dv.setBigUint64(ptr + 8, BigInt(rb.len), true);
     dv.setUint32(ptr + 16, rb.dataPtr, true);
   }
 
-  private _readRustBufferStruct(ptr: number): RustBufferDescriptor {
+  /** @internal — used by generated callback trampolines */
+  _readRustBufferStruct(ptr: number): RustBufferDescriptor {
     const dv = this._dv();
     return {
       capacity: Number(dv.getBigUint64(ptr, true)),
@@ -331,7 +445,8 @@ export class UniffiRuntime {
     };
   }
 
-  private _writeRustCallStatusStruct(ptr: number): void {
+  /** @internal — used by generated async code */
+  _writeRustCallStatusStruct(ptr: number): void {
     // Zero the entire struct
     const buf = new Uint8Array(this._memory.buffer, ptr, RUST_CALL_STATUS_STRUCT_SIZE);
     buf.fill(0);
@@ -357,6 +472,34 @@ export class UniffiRuntime {
     dv.setUint32(ptr + 4, dataPtr, true);
   }
 
+  /** @internal — write success status to a RustCallStatus C struct (in callback trampolines) */
+  _writeCallStatusSuccess(ptr: number): void {
+    const dv = this._dv();
+    dv.setInt8(ptr, 0);
+    // Zero error_buf
+    dv.setBigUint64(ptr + 8, 0n, true);
+    dv.setBigUint64(ptr + 16, 0n, true);
+    dv.setUint32(ptr + 24, 0, true);
+  }
+
+  /** @internal — write panic status to a RustCallStatus C struct (in callback trampolines) */
+  _writeCallStatusPanic(ptr: number, error: unknown): void {
+    const dv = this._dv();
+    dv.setInt8(ptr, 2); // CALL_PANIC
+    // Encode error message as RustBuffer in the error_buf field
+    const msg = error instanceof Error ? error.message : String(error);
+    const encoded = new TextEncoder().encode(msg);
+    try {
+      const rb = this.rustBufferFromBytes(encoded);
+      this._writeRustBufferStruct(ptr + 8, rb);
+    } catch (_) {
+      // If we can't allocate a buffer for the error message, write empty error_buf
+      dv.setBigUint64(ptr + 8, 0n, true);
+      dv.setBigUint64(ptr + 16, 0n, true);
+      dv.setUint32(ptr + 24, 0, true);
+    }
+  }
+
   // -----------------------------------------------------------------------
   // FFI Call (uniform (i32, i32) -> void signature)
   // -----------------------------------------------------------------------
@@ -376,21 +519,115 @@ export class UniffiRuntime {
   }
 
   // -----------------------------------------------------------------------
-  // Object free (direct C ABI: (handle: i64, status_ptr: i32) -> void)
+  // Object handle lifecycle (direct C ABI)
   // -----------------------------------------------------------------------
+
+  /**
+   * Clone an object handle by calling its clone function (direct C ABI).
+   *
+   * This MUST be called before every method call because the FFI scaffolding
+   * consumes handles: `try_lift(handle)` calls `Arc::from_raw` without
+   * incrementing the reference count. Without a preceding clone the first
+   * method call would decrement the ref-count to 0 and destroy the object.
+   *
+   * Signature: (handle: i64, status_ptr: i32) -> i64
+   */
+  cloneObjectHandle(fnName: string, handle: bigint): bigint {
+    const saved = this.scratchSave();
+    const statusPtr = this.scratchAlloc(RUST_CALL_STATUS_STRUCT_SIZE);
+    this._writeRustCallStatusStruct(statusPtr);
+    const fn_ = this._exports[fnName];
+    if (!fn_) throw new Error(`WASM export not found: ${fnName}`);
+    const cloned = (fn_ as (a: bigint, b: number) => bigint)(handle, statusPtr);
+    this._checkRustCallStatusStruct(statusPtr);
+    this.scratchRestore(saved);
+    return cloned;
+  }
 
   /**
    * Free an object by calling its free function (direct C ABI).
    * Checks call status and throws on error.
    */
   callFree(fnName: string, handle: bigint): void {
+    const saved = this.scratchSave();
     const statusPtr = this.scratchAlloc(RUST_CALL_STATUS_STRUCT_SIZE);
     this._writeRustCallStatusStruct(statusPtr);
     const fn_ = this._exports[fnName];
     if (!fn_) throw new Error(`WASM export not found: ${fnName}`);
     (fn_ as (a: bigint, b: number) => void)(handle, statusPtr);
     this._checkRustCallStatusStruct(statusPtr);
-    this.scratchReset();
+    this.scratchRestore(saved);
+  }
+
+  // -----------------------------------------------------------------------
+  // Async / RustFuture Polling
+  // -----------------------------------------------------------------------
+
+  /**
+   * Lazily initialize the async continuation callback in the WASM function table.
+   * The callback signature on wasm32 is (i64 data, i32 pollResult) -> void.
+   * Returns the table index of the callback.
+   */
+  private _ensureAsyncCallback(): number {
+    if (this._asyncCallbackIdx >= 0) return this._asyncCallbackIdx;
+    if (!this._table) {
+      throw new Error(
+        'Cannot use async FFI: __indirect_function_table not exported. ' +
+        'Compile with RUSTFLAGS="-C link-arg=--export-table -C link-arg=--growable-table".'
+      );
+    }
+
+    const self = this;
+    const callback = new (WebAssembly as any).Function(
+      { parameters: ['i64', 'i32'], results: [] },
+      (data: bigint, pollResult: number) => {
+        const resolve = self._asyncPendingResolves.get(data);
+        if (resolve) {
+          self._asyncPendingResolves.delete(data);
+          resolve(pollResult);
+        }
+      },
+    );
+
+    this._asyncCallbackIdx = this._table.grow(1);
+    this._table.set(this._asyncCallbackIdx, callback);
+    return this._asyncCallbackIdx;
+  }
+
+  /**
+   * Poll a RustFuture until it is ready.
+   *
+   * @param futureHandle Handle from the initial async scaffolding call
+   * @param pollFnName WASM export name for the poll function
+   */
+  async pollToReady(futureHandle: bigint, pollFnName: string): Promise<void> {
+    const cbIdx = this._ensureAsyncCallback();
+    const pollFn = this._exports[pollFnName] as
+      (handle: bigint, callbackIdx: number, data: bigint) => void;
+    if (!pollFn) throw new Error(`WASM export not found: ${pollFnName}`);
+
+    const POLL_READY = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const pollResult = await new Promise<number>((resolve) => {
+        const id = this._asyncNextId++;
+        this._asyncPendingResolves.set(id, resolve);
+        // The callback may fire synchronously (for already-ready futures).
+        // Promise resolution is always deferred to a microtask, so this is safe.
+        pollFn(futureHandle, cbIdx, id);
+      });
+      if (pollResult === POLL_READY) break;
+    }
+  }
+
+  /**
+   * Get a WASM export function by name.
+   * Used by generated async code to call rust_future_complete and rust_future_free.
+   */
+  getExport(name: string): Function {
+    const fn_ = this._exports[name];
+    if (!fn_) throw new Error(`WASM export not found: ${name}`);
+    return fn_;
   }
 
   // -----------------------------------------------------------------------
@@ -450,7 +687,8 @@ export class UniffiRuntime {
   // UTF-8 helpers
   // -----------------------------------------------------------------------
 
-  private _readUtf8(ptr: number, len: number): string {
+  /** @internal — used by generated callback trampolines */
+  _readUtf8(ptr: number, len: number): string {
     const bytes = new Uint8Array(this._memory.buffer, ptr, len);
     return new TextDecoder().decode(bytes);
   }
@@ -504,6 +742,58 @@ export class UniffiRuntime {
     const copy = new Uint8Array(bytes);
     this.freeRustBuffer(rb);
     return new TextDecoder().decode(copy);
+  }
+
+  // -----------------------------------------------------------------------
+  // Callback Interface VTable Registration
+  // -----------------------------------------------------------------------
+
+  /**
+   * Register a callback interface VTable with the Rust scaffolding.
+   *
+   * Creates WASM-typed trampoline functions via WebAssembly.Function, adds them
+   * to the indirect function table, writes the VTable struct to persistent memory,
+   * and calls the Rust VTable init function.
+   *
+   * @param name Callback interface name (for debugging)
+   * @param initFnName WASM export name for the VTable init function
+   * @param entries Array of VTable entries: [{params, results, fn}, ...]
+   *               Order: [uniffi_free, uniffi_clone, ...methods]
+   */
+  registerCallbackVTable(name: string, initFnName: string, entries: VTableEntry[]): void {
+    if (!this._table) {
+      throw new Error(`Cannot register callback VTable for ${name}: __indirect_function_table not exported. Compile with RUSTFLAGS="-C link-arg=--export-table -C link-arg=--growable-table".`);
+    }
+
+    // Create typed WASM functions from JS closures
+    const wasmFns: WebAssembly.Function[] = [];
+    for (const entry of entries) {
+      const wasmFn = new (WebAssembly as any).Function(
+        { parameters: entry.params, results: entry.results },
+        entry.fn,
+      );
+      wasmFns.push(wasmFn);
+    }
+
+    // Grow the indirect function table and add our trampolines
+    const baseIdx = this._table.grow(entries.length);
+    for (let i = 0; i < wasmFns.length; i++) {
+      this._table.set(baseIdx + i, wasmFns[i]);
+    }
+
+    // Write VTable struct to persistent memory (4 bytes per entry = i32 function table index)
+    const vtablePtr = this._persistAlloc(entries.length * 4);
+    const dv = this._dv();
+    for (let i = 0; i < entries.length; i++) {
+      dv.setUint32(vtablePtr + i * 4, baseIdx + i, true);
+    }
+
+    // Call the Rust VTable init function: (vtable_ptr: i32) -> void
+    const initFn = this._exports[initFnName];
+    if (!initFn) {
+      throw new Error(`WASM export not found: ${initFnName}`);
+    }
+    (initFn as (ptr: number) => void)(vtablePtr);
   }
 
 }

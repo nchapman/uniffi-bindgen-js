@@ -1,0 +1,11 @@
+namespace ffi_callbacks {};
+
+callback interface Formatter {
+    string format(string input);
+};
+
+/// Accepts a Formatter callback and uses it.
+interface Processor {
+    constructor(Formatter formatter);
+    string process(string input);
+};

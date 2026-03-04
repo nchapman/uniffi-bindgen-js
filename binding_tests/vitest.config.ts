@@ -4,5 +4,10 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: false,
+    poolOptions: {
+      forks: {
+        execArgv: ['--experimental-wasm-type-reflection'],
+      },
+    },
   },
 });

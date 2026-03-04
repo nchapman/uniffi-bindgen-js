@@ -1,0 +1,10 @@
+namespace ffi_async {
+  [Async]
+  u32 async_add(u32 a, u32 b);
+
+  [Async]
+  string async_greet(string name);
+
+  [Async]
+  void async_noop();
+};

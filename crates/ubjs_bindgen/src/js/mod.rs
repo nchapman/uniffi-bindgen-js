@@ -392,11 +392,19 @@ fn render_ts_ffi(
         }
     }
 
-    // Callback interfaces (same shape as legacy)
+    // Callback interfaces (TypeScript interface declarations — same shape as legacy)
     for cb in &metadata.callback_interfaces {
         if !cfg.exclude.contains(&cb.name) {
             out.push('\n');
             out.push_str(&render_callback_interface(cb, cfg));
+        }
+    }
+
+    // Callback VTable registration (must run at module init, before any calls that use callbacks)
+    for cb in &metadata.callback_interfaces {
+        if !cfg.exclude.contains(&cb.name) {
+            out.push('\n');
+            out.push_str(&ffi::gen_callback_vtable_registration(cb, &namespace));
         }
     }
 
@@ -556,8 +564,6 @@ fn render_function_ffi(f: &UdlFunction, namespace: &str, cfg: &config::JsBinding
         "  ",
     ));
 
-    // For async functions, we'd need RustFuture infrastructure (Phase 4).
-    // For now, emit sync calls.
     let async_kw = if f.is_async { "async " } else { "" };
     out.push_str(&format!(
         "  export {async_kw}function {exported}({}): {ts_ret} {{\n",
@@ -576,13 +582,24 @@ fn render_function_ffi(f: &UdlFunction, namespace: &str, cfg: &config::JsBinding
         .map(|(name, a)| (name.as_str(), &a.type_))
         .collect();
 
-    let body = ffi::gen_ffi_call(
-        &ffi_name,
-        &arg_pairs,
-        f.return_type.as_ref(),
-        throws_name.as_deref(),
-        "    ",
-    );
+    let body = if f.is_async {
+        ffi::gen_async_ffi_call(
+            &ffi_name,
+            namespace,
+            &arg_pairs,
+            f.return_type.as_ref(),
+            throws_name.as_deref(),
+            "    ",
+        )
+    } else {
+        ffi::gen_ffi_call(
+            &ffi_name,
+            &arg_pairs,
+            f.return_type.as_ref(),
+            throws_name.as_deref(),
+            "    ",
+        )
+    };
     out.push_str(&body);
     out.push_str("\n  }\n");
 
@@ -728,13 +745,24 @@ fn render_ctor_ffi(
         imp: uniffi_bindgen::interface::ObjectImpl::Struct,
     };
 
-    let body = ffi::gen_ffi_call(
-        &ffi_name,
-        &arg_pairs,
-        Some(&handle_type),
-        throws_name.as_deref(),
-        "    ",
-    );
+    let body = if ctor.is_async {
+        ffi::gen_async_ffi_call(
+            &ffi_name,
+            namespace,
+            &arg_pairs,
+            Some(&handle_type),
+            throws_name.as_deref(),
+            "    ",
+        )
+    } else {
+        ffi::gen_ffi_call(
+            &ffi_name,
+            &arg_pairs,
+            Some(&handle_type),
+            throws_name.as_deref(),
+            "    ",
+        )
+    };
     // Replace the generic return with constructing the class from handle
     let body = body.replace(
         "return _result;",
@@ -775,9 +803,15 @@ fn render_method_ffi(
     ));
     out.push_str("    this._assertLive();\n");
 
+    // Clone the handle before passing to FFI — the scaffolding consumes handles
+    let clone_fn = ffi::fn_clone(namespace, class_name);
+    out.push_str(&format!(
+        "    const _clonedHandle = _rt.cloneObjectHandle('{clone_fn}', this._handle);\n"
+    ));
+
     let ffi_name = ffi::ffibuf_fn_method(namespace, class_name, &m.name);
 
-    // Method args: self handle + user args
+    // Method args: self handle (cloned) + user args
     let handle_type = uniffi_bindgen::interface::Type::Object {
         name: class_name.to_string(),
         module_path: String::new(),
@@ -791,18 +825,29 @@ fn render_method_ffi(
         .collect();
 
     let mut arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> =
-        vec![("this._handle", &handle_type)];
+        vec![("_clonedHandle", &handle_type)];
     for (name, a) in js_arg_names.iter().zip(m.args.iter()) {
         arg_pairs.push((name.as_str(), &a.type_));
     }
 
-    let body = ffi::gen_ffi_call(
-        &ffi_name,
-        &arg_pairs,
-        m.return_type.as_ref(),
-        throws_name.as_deref(),
-        "    ",
-    );
+    let body = if m.is_async {
+        ffi::gen_async_ffi_call(
+            &ffi_name,
+            namespace,
+            &arg_pairs,
+            m.return_type.as_ref(),
+            throws_name.as_deref(),
+            "    ",
+        )
+    } else {
+        ffi::gen_ffi_call(
+            &ffi_name,
+            &arg_pairs,
+            m.return_type.as_ref(),
+            throws_name.as_deref(),
+            "    ",
+        )
+    };
     out.push_str(&body);
     out.push_str("\n  }\n");
     out

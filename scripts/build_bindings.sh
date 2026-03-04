@@ -25,6 +25,22 @@ build_fixture() {
     "$REPO_ROOT/fixtures/${fixture}/src/${namespace}.udl"
 }
 
+build_ffi_fixture() {
+  local fixture="$1"
+  local namespace="$2"
+  local wasm_crate="$REPO_ROOT/fixtures/${fixture}/wasm"
+
+  echo "==> [${fixture}] Compiling WASM (FFI mode)..."
+  (cd "$wasm_crate" && RUSTFLAGS="-C link-arg=--export-table -C link-arg=--growable-table" \
+    cargo build --target wasm32-unknown-unknown --release)
+
+  echo "==> [${fixture}] Generating TypeScript bindings (FFI mode)..."
+  cargo run --bin uniffi-bindgen-js -- generate \
+    --wasm "$wasm_crate/target/wasm32-unknown-unknown/release/${namespace}.wasm" \
+    --out-dir "$GENERATED_DIR" \
+    "$REPO_ROOT/fixtures/${fixture}/src/${namespace}.udl"
+}
+
 build_fixture "simple-fns"      "simple_fns"
 build_fixture "arithmetic"      "arithmetic"
 build_fixture "geometry"        "geometry"
@@ -36,6 +52,13 @@ build_fixture "traits"          "traits"
 build_fixture "callbacks"       "callbacks"
 build_fixture "type-zoo"        "type_zoo"
 build_fixture "keywords-demo"   "keywords_demo"
+
+# FFI-mode fixtures (direct WASM, no wasm-pack)
+build_ffi_fixture "ffi-basic"      "ffi_basic"
+build_ffi_fixture "ffi-compound"   "ffi_compound"
+build_ffi_fixture "ffi-errors"     "ffi_errors"
+build_ffi_fixture "ffi-callbacks"  "ffi_callbacks"
+build_ffi_fixture "ffi-async"      "ffi_async"
 
 echo "==> Installing JS dependencies..."
 (cd "$REPO_ROOT/binding_tests" && pnpm install --frozen-lockfile)
