@@ -4,7 +4,8 @@ import { UniffiRuntime, UniFFIWriter, UniFFIReader } from './uniffi_runtime.js';
 const _rt = await UniffiRuntime.load(new URL('./ffi_basic.wasm', import.meta.url), 'ffi_basic');
 
 export class Counter {
-  private readonly _handle: bigint;
+  /** @internal */
+  readonly _handle: bigint;
   private _freed = false;
   private _assertLive(): void {
     if (this._freed) throw new Error('Counter object has been freed');
@@ -24,10 +25,23 @@ export class Counter {
     _rt.scratchReset();
     return new Counter(_result);
   }
+  addFrom(other: Counter): void {
+    this._assertLive();
+    const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', this._handle);
+    const _clone_other = _rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', other._handle);
+    const _argPtr = _rt.scratchAlloc(2 * 8);
+    _rt.writeHandleElement(_argPtr, _clonedHandle);
+    _rt.writeHandleElement(_argPtr + 8, _clone_other);
+    const _retPtr = _rt.scratchAlloc(4 * 8);
+    _rt.call('uniffi_ffibuffer_ffi_basic_fn_method_counter_add_from', _argPtr, _retPtr);
+    _rt.checkCallStatus(_retPtr);
+    _rt.scratchReset();
+  }
   getValue(): bigint {
     this._assertLive();
+    const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', this._handle);
     const _argPtr = _rt.scratchAlloc(1 * 8);
-    _rt.writeHandleElement(_argPtr, this._handle);
+    _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(5 * 8);
     _rt.call('uniffi_ffibuffer_ffi_basic_fn_method_counter_get_value', _argPtr, _retPtr);
     _rt.checkCallStatus(_retPtr + 8);
@@ -37,8 +51,9 @@ export class Counter {
   }
   increment(): void {
     this._assertLive();
+    const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', this._handle);
     const _argPtr = _rt.scratchAlloc(1 * 8);
-    _rt.writeHandleElement(_argPtr, this._handle);
+    _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(4 * 8);
     _rt.call('uniffi_ffibuffer_ffi_basic_fn_method_counter_increment', _argPtr, _retPtr);
     _rt.checkCallStatus(_retPtr);
@@ -64,6 +79,28 @@ export namespace FfiBasic {
     _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_add', _argPtr, _retPtr);
     _rt.checkCallStatus(_retPtr + 8);
     const _result = _rt.readU32Element(_retPtr);
+    _rt.scratchReset();
+    return _result;
+  }
+  export function cloneCounter(counter: Counter): Counter {
+    const _clone_counter = _rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', counter._handle);
+    const _argPtr = _rt.scratchAlloc(1 * 8);
+    _rt.writeHandleElement(_argPtr, _clone_counter);
+    const _retPtr = _rt.scratchAlloc(5 * 8);
+    _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_clone_counter', _argPtr, _retPtr);
+    _rt.checkCallStatus(_retPtr + 8);
+    const _result = _rt.readHandleElement(_retPtr);
+    _rt.scratchReset();
+    return Counter._fromHandle(_result);
+  }
+  export function getCounterValue(counter: Counter): bigint {
+    const _clone_counter = _rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', counter._handle);
+    const _argPtr = _rt.scratchAlloc(1 * 8);
+    _rt.writeHandleElement(_argPtr, _clone_counter);
+    const _retPtr = _rt.scratchAlloc(5 * 8);
+    _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_get_counter_value', _argPtr, _retPtr);
+    _rt.checkCallStatus(_retPtr + 8);
+    const _result = _rt.readU64Element(_retPtr);
     _rt.scratchReset();
     return _result;
   }

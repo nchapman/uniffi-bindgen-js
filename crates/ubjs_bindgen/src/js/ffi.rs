@@ -9,7 +9,7 @@
 
 use uniffi_bindgen::interface::Type;
 
-use super::naming::{camel_case, safe_js_identifier, snake_case};
+use super::naming::{camel_case, safe_js_identifier};
 
 // ---------------------------------------------------------------------------
 // Element counts
@@ -66,21 +66,24 @@ pub(super) fn ffibuf_fn_func(namespace: &str, fn_name: &str) -> String {
 }
 
 /// FFI buffer function name for a constructor.
+///
+/// Note: UniFFI uses `.to_ascii_lowercase()` for object names in FFI exports,
+/// NOT snake_case. `AsyncCounter` → `asynccounter`, not `async_counter`.
 pub(super) fn ffibuf_fn_constructor(namespace: &str, obj_name: &str, ctor_name: &str) -> String {
-    let obj_snake = snake_case(obj_name);
-    format!("uniffi_ffibuffer_{namespace}_fn_constructor_{obj_snake}_{ctor_name}")
+    let obj_lower = obj_name.to_ascii_lowercase();
+    format!("uniffi_ffibuffer_{namespace}_fn_constructor_{obj_lower}_{ctor_name}")
 }
 
 /// FFI buffer function name for a method.
 pub(super) fn ffibuf_fn_method(namespace: &str, obj_name: &str, method_name: &str) -> String {
-    let obj_snake = snake_case(obj_name);
-    format!("uniffi_ffibuffer_{namespace}_fn_method_{obj_snake}_{method_name}")
+    let obj_lower = obj_name.to_ascii_lowercase();
+    format!("uniffi_ffibuffer_{namespace}_fn_method_{obj_lower}_{method_name}")
 }
 
 /// Regular (non-FFI-buffer) function name for object free.
 pub(super) fn fn_free(namespace: &str, obj_name: &str) -> String {
-    let obj_snake = snake_case(obj_name);
-    format!("uniffi_{namespace}_fn_free_{obj_snake}")
+    let obj_lower = obj_name.to_ascii_lowercase();
+    format!("uniffi_{namespace}_fn_free_{obj_lower}")
 }
 
 /// Regular (non-FFI-buffer) function name for object clone.
@@ -91,14 +94,14 @@ pub(super) fn fn_free(namespace: &str, obj_name: &str) -> String {
 /// very first method call would decrement the ref-count to 0 and destroy the
 /// underlying Rust object.
 pub(super) fn fn_clone(namespace: &str, obj_name: &str) -> String {
-    let obj_snake = snake_case(obj_name);
-    format!("uniffi_{namespace}_fn_clone_{obj_snake}")
+    let obj_lower = obj_name.to_ascii_lowercase();
+    format!("uniffi_{namespace}_fn_clone_{obj_lower}")
 }
 
 /// Function name for callback interface VTable initialization.
 pub(super) fn fn_init_callback_vtable(namespace: &str, cb_name: &str) -> String {
-    let cb_snake = snake_case(cb_name);
-    format!("uniffi_{namespace}_fn_init_callback_vtable_{cb_snake}")
+    let cb_lower = cb_name.to_ascii_lowercase();
+    format!("uniffi_{namespace}_fn_init_callback_vtable_{cb_lower}")
 }
 
 // ---------------------------------------------------------------------------
@@ -863,7 +866,7 @@ pub(super) fn gen_async_ffi_call(
             "{indent}  _rt._writeRustCallStatusStruct(_statusPtr);"
         ));
         lines.push(format!(
-            "{indent}  const _rawResult = (_rt.getExport('{complete_fn}') as any)(_futureHandle, _statusPtr);"
+            "{indent}  const _result = (_rt.getExport('{complete_fn}') as any)(_futureHandle, _statusPtr);"
         ));
     }
 
@@ -903,7 +906,7 @@ pub(super) fn gen_async_ffi_call(
     } else {
         // Primitive or handle return (from C ABI, always a number/bigint)
         if let Some(ret_type) = return_type {
-            let raw = gen_from_ffi_raw("_rawResult", ret_type);
+            let raw = gen_from_ffi_raw("_result", ret_type);
             lines.push(format!("{indent}  _rt.scratchReset();"));
             lines.push(format!("{indent}  return {raw};"));
         } else {

@@ -1,15 +1,12 @@
 /**
  * FFI-mode smoke test: async functions via RustFuture polling.
  *
- * Tests that async Rust functions can be called from JS through the
- * RustFuture polling protocol (poll → complete → free).
- *
- * Prerequisites: run `./scripts/build_bindings.sh` to populate
- * binding_tests/generated/ with ffi_async.ts, ffi_async.wasm, and uniffi_runtime.ts.
+ * Tests async functions, async constructors, async methods,
+ * async + throws, and object arguments to async functions.
  */
 
 import { describe, it, expect } from 'vitest';
-import { FfiAsync } from '../generated/ffi_async.js';
+import { FfiAsync, AsyncCounter, AsyncError } from '../generated/ffi_async.js';
 
 describe('Async: basic functions', () => {
   it('async_add returns sum', async () => {
@@ -56,5 +53,77 @@ describe('Async: basic functions', () => {
     expect(a).toBe(3);
     expect(b).toBe('Hello, Alice!');
     expect(c).toBeUndefined();
+  });
+});
+
+describe('Async: errors (Throws)', () => {
+  it('async_divide success', async () => {
+    expect(await FfiAsync.asyncDivide(10, 2)).toBe('5');
+  });
+
+  it('async_divide throws DivisionByZero', async () => {
+    await expect(FfiAsync.asyncDivide(1, 0)).rejects.toThrow(AsyncError);
+    try {
+      await FfiAsync.asyncDivide(1, 0);
+    } catch (e) {
+      expect(e).toBeInstanceOf(AsyncError);
+      expect((e as AsyncError).tag).toBe('DivisionByZero');
+    }
+  });
+});
+
+describe('Async: object with async constructor and methods', () => {
+  it('async constructor creates counter', async () => {
+    const counter = await AsyncCounter.create(42n);
+    expect(await counter.getValue()).toBe(42n);
+    counter.free();
+  });
+
+  it('async increment', async () => {
+    const counter = await AsyncCounter.create(0n);
+    await counter.increment();
+    await counter.increment();
+    await counter.increment();
+    expect(await counter.getValue()).toBe(3n);
+    counter.free();
+  });
+
+  it('async method with throws — success', async () => {
+    const counter = await AsyncCounter.create(100n);
+    await counter.validate(); // should not throw
+    counter.free();
+  });
+
+  it('async method with throws — error', async () => {
+    const counter = await AsyncCounter.create(2_000_000n);
+    await expect(counter.validate()).rejects.toThrow(AsyncError);
+    try {
+      await counter.validate();
+    } catch (e) {
+      expect((e as AsyncError).tag).toBe('InvalidInput');
+    }
+    counter.free();
+  });
+
+  it('object argument to async function', async () => {
+    const counter = await AsyncCounter.create(99n);
+    const val = await FfiAsync.asyncGetCounterValue(counter);
+    expect(val).toBe(99n);
+    // counter should still be usable after being passed as arg
+    expect(await counter.getValue()).toBe(99n);
+    counter.free();
+  });
+
+  it('concurrent async method calls', async () => {
+    const c1 = await AsyncCounter.create(10n);
+    const c2 = await AsyncCounter.create(20n);
+    const [v1, v2] = await Promise.all([
+      c1.getValue(),
+      c2.getValue(),
+    ]);
+    expect(v1).toBe(10n);
+    expect(v2).toBe(20n);
+    c1.free();
+    c2.free();
   });
 });

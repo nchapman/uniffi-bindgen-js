@@ -38,7 +38,8 @@ export class ParseError extends Error {
 }
 
 export class Parser {
-  private readonly _handle: bigint;
+  /** @internal */
+  readonly _handle: bigint;
   private _freed = false;
   private _assertLive(): void {
     if (this._freed) throw new Error('Parser object has been freed');
@@ -63,9 +64,10 @@ export class Parser {
   /** @throws {ParseError} */
   parseSection(name: string): string {
     this._assertLive();
+    const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_errors_fn_clone_parser', this._handle);
     const _rb_name = _rt.lowerString(name);
     const _argPtr = _rt.scratchAlloc(4 * 8);
-    _rt.writeHandleElement(_argPtr, this._handle);
+    _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_name);
     const _retPtr = _rt.scratchAlloc(7 * 8);
     _rt.call('uniffi_ffibuffer_ffi_errors_fn_method_parser_parse_section', _argPtr, _retPtr);
@@ -76,8 +78,9 @@ export class Parser {
   }
   result(): string {
     this._assertLive();
+    const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_errors_fn_clone_parser', this._handle);
     const _argPtr = _rt.scratchAlloc(1 * 8);
-    _rt.writeHandleElement(_argPtr, this._handle);
+    _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
     _rt.call('uniffi_ffibuffer_ffi_errors_fn_method_parser_result', _argPtr, _retPtr);
     _rt.checkCallStatus(_retPtr + 24);

@@ -537,6 +537,65 @@ use render_helpers::{
     ts_return_type,
 };
 
+/// Emit clone calls for Object-typed arguments and build the arg pairs
+/// for gen_ffi_call / gen_async_ffi_call.
+///
+/// For each Object-typed arg, emits a clone line and replaces the arg name
+/// with the cloned handle variable (a raw bigint). Non-object args pass through.
+///
+/// Clone calls are emitted before any scratchAlloc so that `cloneObjectHandle`'s
+/// internal scratchSave/scratchRestore doesn't interfere with the caller's
+/// scratch frame. The resulting bigint values are JS locals, unaffected by
+/// subsequent scratch resets.
+///
+/// Note: Only handles direct `Type::Object` args. Objects nested inside
+/// `Optional<Object>`, `Sequence<Object>`, etc. are serialized via the
+/// `gen_lower_expr` path which writes `._handle` directly — those handles
+/// are NOT cloned. This is a known limitation; add nested-object cloning
+/// when test coverage for `Optional<Object>` args is added.
+fn prepare_object_args(
+    args: &[UdlArg],
+    js_arg_names: &[String],
+    namespace: &str,
+    indent: &str,
+    out: &mut String,
+) -> Vec<(String, uniffi_bindgen::interface::Type)> {
+    let mut result = Vec::new();
+    for (name, a) in js_arg_names.iter().zip(args.iter()) {
+        if let uniffi_bindgen::interface::Type::Object {
+            name: obj_name, ..
+        } = &a.type_
+        {
+            let clone_fn = ffi::fn_clone(namespace, obj_name);
+            let clone_var = format!("_clone_{name}");
+            out.push_str(&format!(
+                "{indent}const {clone_var} = _rt.cloneObjectHandle('{clone_fn}', {name}._handle);\n"
+            ));
+            result.push((clone_var, a.type_.clone()));
+        } else {
+            result.push((name.clone(), a.type_.clone()));
+        }
+    }
+    result
+}
+
+/// Apply Object return wrapping to generated FFI call body.
+///
+/// If the return type is an Object, replaces `return _result;` with
+/// `return {Name}._fromHandle(_result);` so the raw handle is wrapped.
+///
+/// Safety: Object types use the "u64" future suffix (handles are u64).
+/// They never go through the rust_buffer path, so "return _result;" appears
+/// exactly once and the replacement is unambiguous.
+fn apply_object_return_wrap(body: &mut String, return_type: Option<&uniffi_bindgen::interface::Type>) {
+    if let Some(uniffi_bindgen::interface::Type::Object { name, .. }) = return_type {
+        *body = body.replace(
+            "return _result;",
+            &format!("return {name}._fromHandle(_result);"),
+        );
+    }
+}
+
 fn render_function_ffi(f: &UdlFunction, namespace: &str, cfg: &config::JsBindingsConfig) -> String {
     let mut out = String::new();
 
@@ -576,13 +635,15 @@ fn render_function_ffi(f: &UdlFunction, namespace: &str, cfg: &config::JsBinding
         .iter()
         .map(|a| safe_js_identifier(&camel_case(&a.name)))
         .collect();
-    let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> = js_arg_names
+
+    // Clone Object-typed args (FFI scaffolding consumes handles)
+    let prepared = prepare_object_args(&f.args, &js_arg_names, namespace, "    ", &mut out);
+    let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> = prepared
         .iter()
-        .zip(f.args.iter())
-        .map(|(name, a)| (name.as_str(), &a.type_))
+        .map(|(name, t)| (name.as_str(), t))
         .collect();
 
-    let body = if f.is_async {
+    let mut body = if f.is_async {
         ffi::gen_async_ffi_call(
             &ffi_name,
             namespace,
@@ -600,6 +661,10 @@ fn render_function_ffi(f: &UdlFunction, namespace: &str, cfg: &config::JsBinding
             "    ",
         )
     };
+
+    // Wrap Object returns in _fromHandle()
+    apply_object_return_wrap(&mut body, f.return_type.as_ref());
+
     out.push_str(&body);
     out.push_str("\n  }\n");
 
@@ -626,7 +691,8 @@ fn render_object_class_ffi(
     }
 
     // Handle-based internals
-    out.push_str("  private readonly _handle: bigint;\n");
+    out.push_str("  /** @internal */\n");
+    out.push_str("  readonly _handle: bigint;\n");
     out.push_str("  private _freed = false;\n");
     out.push_str(&format!(
         "  private _assertLive(): void {{\n    if (this._freed) throw new Error('{name} object has been freed');\n  }}\n"
@@ -732,10 +798,12 @@ fn render_ctor_ffi(
         .iter()
         .map(|a| safe_js_identifier(&camel_case(&a.name)))
         .collect();
-    let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> = js_arg_names
+
+    // Clone Object-typed args (FFI scaffolding consumes handles)
+    let prepared = prepare_object_args(&ctor.args, &js_arg_names, namespace, "    ", &mut out);
+    let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> = prepared
         .iter()
-        .zip(ctor.args.iter())
-        .map(|(name, a)| (name.as_str(), &a.type_))
+        .map(|(name, t)| (name.as_str(), t))
         .collect();
 
     // Constructor returns a Handle (Object type)
@@ -824,13 +892,16 @@ fn render_method_ffi(
         .map(|a| safe_js_identifier(&camel_case(&a.name)))
         .collect();
 
+    // Clone Object-typed user args (FFI scaffolding consumes handles)
+    let prepared = prepare_object_args(&m.args, &js_arg_names, namespace, "    ", &mut out);
+
     let mut arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> =
         vec![("_clonedHandle", &handle_type)];
-    for (name, a) in js_arg_names.iter().zip(m.args.iter()) {
-        arg_pairs.push((name.as_str(), &a.type_));
+    for (name, t) in &prepared {
+        arg_pairs.push((name.as_str(), t));
     }
 
-    let body = if m.is_async {
+    let mut body = if m.is_async {
         ffi::gen_async_ffi_call(
             &ffi_name,
             namespace,
@@ -848,6 +919,10 @@ fn render_method_ffi(
             "    ",
         )
     };
+
+    // Wrap Object returns in _fromHandle()
+    apply_object_return_wrap(&mut body, m.return_type.as_ref());
+
     out.push_str(&body);
     out.push_str("\n  }\n");
     out

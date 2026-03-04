@@ -20,6 +20,7 @@ _rt.registerCallbackVTable('Formatter', 'uniffi_ffi_callbacks_fn_init_callback_v
   {
     params: ['i64', 'i32', 'i32', 'i32'], results: [],
     fn: (_handle: bigint, _arg0: number, _outPtr: number, _statusPtr: number) => {
+      const _savedScratch = _rt.scratchSave();
       try {
         const _obj = _rt.getCallbackHandle(_handle) as any;
         const _lifted0 = (() => { const _rb = _rt._readRustBufferStruct(_arg0); return _rt._readUtf8(_rb.dataPtr, _rb.len); })();
@@ -28,6 +29,8 @@ _rt.registerCallbackVTable('Formatter', 'uniffi_ffi_callbacks_fn_init_callback_v
         _rt._writeCallStatusSuccess(_statusPtr);
       } catch (_e) {
         _rt._writeCallStatusPanic(_statusPtr, _e);
+      } finally {
+        _rt.scratchRestore(_savedScratch);
       }
     },
   },
@@ -35,7 +38,8 @@ _rt.registerCallbackVTable('Formatter', 'uniffi_ffi_callbacks_fn_init_callback_v
 
 /** Accepts a Formatter callback and uses it. */
 export class Processor {
-  private readonly _handle: bigint;
+  /** @internal */
+  readonly _handle: bigint;
   private _freed = false;
   private _assertLive(): void {
     if (this._freed) throw new Error('Processor object has been freed');
@@ -57,9 +61,10 @@ export class Processor {
   }
   process(input: string): string {
     this._assertLive();
+    const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_callbacks_fn_clone_processor', this._handle);
     const _rb_input = _rt.lowerString(input);
     const _argPtr = _rt.scratchAlloc(4 * 8);
-    _rt.writeHandleElement(_argPtr, this._handle);
+    _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_input);
     const _retPtr = _rt.scratchAlloc(7 * 8);
     _rt.call('uniffi_ffibuffer_ffi_callbacks_fn_method_processor_process', _argPtr, _retPtr);

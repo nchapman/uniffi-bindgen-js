@@ -11,3 +11,4 @@ name = "ffi_async"
 
 [dependencies]
 uniffi = { version = "0.31.0", features = ["scaffolding-ffi-buffer-fns", "wasm-unstable-single-threaded"] }
+thiserror = "2"

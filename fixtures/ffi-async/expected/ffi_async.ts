@@ -3,7 +3,127 @@ import { UniffiRuntime, UniFFIWriter, UniFFIReader } from './uniffi_runtime.js';
 
 const _rt = await UniffiRuntime.load(new URL('./ffi_async.wasm', import.meta.url), 'ffi_async');
 
+export class AsyncError extends Error {
+  override readonly name = 'AsyncError' as const;
+  constructor(public readonly tag: 'DivisionByZero' | 'InvalidInput') {
+    super(tag);
+  }
+  static DivisionByZero(): AsyncError { return new AsyncError('DivisionByZero'); }
+  static InvalidInput(): AsyncError { return new AsyncError('InvalidInput'); }
+}
+
+export class AsyncCounter {
+  /** @internal */
+  readonly _handle: bigint;
+  private _freed = false;
+  private _assertLive(): void {
+    if (this._freed) throw new Error('AsyncCounter object has been freed');
+  }
+  private constructor(handle: bigint) {
+    this._handle = handle;
+  }
+  /** @internal */
+  static _fromHandle(handle: bigint): AsyncCounter { return new AsyncCounter(handle); }
+  static async create(initial: bigint): Promise<AsyncCounter> {
+    const _argPtr = _rt.scratchAlloc(1 * 8);
+    _rt.writeU64Element(_argPtr, BigInt(initial));
+    const _retPtr = _rt.scratchAlloc(1 * 8);
+    _rt.call('uniffi_ffibuffer_ffi_async_fn_constructor_asynccounter_new', _argPtr, _retPtr);
+    const _futureHandle = _rt.readHandleElement(_retPtr);
+    try {
+      await _rt.pollToReady(_futureHandle, 'ffi_ffi_async_rust_future_poll_u64');
+      _rt.scratchReset();
+      const _statusPtr = _rt.scratchAlloc(32);
+      _rt._writeRustCallStatusStruct(_statusPtr);
+      const _result = (_rt.getExport('ffi_ffi_async_rust_future_complete_u64') as any)(_futureHandle, _statusPtr);
+      _rt.checkCallStatus(_statusPtr);
+      _rt.scratchReset();
+      return new AsyncCounter(_result);
+    } finally {
+      (_rt.getExport('ffi_ffi_async_rust_future_free_u64') as any)(_futureHandle);
+    }
+  }
+  async getValue(): Promise<bigint> {
+    this._assertLive();
+    const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_async_fn_clone_asynccounter', this._handle);
+    const _argPtr = _rt.scratchAlloc(1 * 8);
+    _rt.writeHandleElement(_argPtr, _clonedHandle);
+    const _retPtr = _rt.scratchAlloc(1 * 8);
+    _rt.call('uniffi_ffibuffer_ffi_async_fn_method_asynccounter_get_value', _argPtr, _retPtr);
+    const _futureHandle = _rt.readHandleElement(_retPtr);
+    try {
+      await _rt.pollToReady(_futureHandle, 'ffi_ffi_async_rust_future_poll_u64');
+      _rt.scratchReset();
+      const _statusPtr = _rt.scratchAlloc(32);
+      _rt._writeRustCallStatusStruct(_statusPtr);
+      const _result = (_rt.getExport('ffi_ffi_async_rust_future_complete_u64') as any)(_futureHandle, _statusPtr);
+      _rt.checkCallStatus(_statusPtr);
+      _rt.scratchReset();
+      return _result;
+    } finally {
+      (_rt.getExport('ffi_ffi_async_rust_future_free_u64') as any)(_futureHandle);
+    }
+  }
+  async increment(): Promise<void> {
+    this._assertLive();
+    const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_async_fn_clone_asynccounter', this._handle);
+    const _argPtr = _rt.scratchAlloc(1 * 8);
+    _rt.writeHandleElement(_argPtr, _clonedHandle);
+    const _retPtr = _rt.scratchAlloc(1 * 8);
+    _rt.call('uniffi_ffibuffer_ffi_async_fn_method_asynccounter_increment', _argPtr, _retPtr);
+    const _futureHandle = _rt.readHandleElement(_retPtr);
+    try {
+      await _rt.pollToReady(_futureHandle, 'ffi_ffi_async_rust_future_poll_void');
+      _rt.scratchReset();
+      const _statusPtr = _rt.scratchAlloc(32);
+      _rt._writeRustCallStatusStruct(_statusPtr);
+      (_rt.getExport('ffi_ffi_async_rust_future_complete_void') as any)(_futureHandle, _statusPtr);
+      _rt.checkCallStatus(_statusPtr);
+      _rt.scratchReset();
+    } finally {
+      (_rt.getExport('ffi_ffi_async_rust_future_free_void') as any)(_futureHandle);
+    }
+  }
+  /** @throws {AsyncError} */
+  async validate(): Promise<void> {
+    this._assertLive();
+    const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_async_fn_clone_asynccounter', this._handle);
+    const _argPtr = _rt.scratchAlloc(1 * 8);
+    _rt.writeHandleElement(_argPtr, _clonedHandle);
+    const _retPtr = _rt.scratchAlloc(1 * 8);
+    _rt.call('uniffi_ffibuffer_ffi_async_fn_method_asynccounter_validate', _argPtr, _retPtr);
+    const _futureHandle = _rt.readHandleElement(_retPtr);
+    try {
+      await _rt.pollToReady(_futureHandle, 'ffi_ffi_async_rust_future_poll_void');
+      _rt.scratchReset();
+      const _statusPtr = _rt.scratchAlloc(32);
+      _rt._writeRustCallStatusStruct(_statusPtr);
+      (_rt.getExport('ffi_ffi_async_rust_future_complete_void') as any)(_futureHandle, _statusPtr);
+      _rt.checkCallStatus(_statusPtr, (rb) => _liftErrorAsyncError(rb));
+      _rt.scratchReset();
+    } finally {
+      (_rt.getExport('ffi_ffi_async_rust_future_free_void') as any)(_futureHandle);
+    }
+  }
+  /** Releases the underlying WASM resource. Safe to call more than once. */
+  free(): void {
+    if (this._freed) return;
+    this._freed = true;
+    _rt.callFree('uniffi_ffi_async_fn_free_asynccounter', this._handle);
+  }
+  [Symbol.dispose](): void { this.free(); }
+}
+
 // --- Serialization helpers ---
+
+function _liftErrorAsyncError(rb: any): AsyncError {
+  return _rt.liftFromBuffer(rb, (r) => {
+    const ordinal = r.readI32();
+    if (ordinal === 1) return new AsyncError('DivisionByZero');
+    if (ordinal === 2) return new AsyncError('InvalidInput');
+    throw new Error(`Unknown AsyncError ordinal: ${ordinal}`);
+  });
+}
 
 export namespace FfiAsync {
   export async function asyncAdd(a: number, b: number): Promise<number> {
@@ -18,12 +138,55 @@ export namespace FfiAsync {
       _rt.scratchReset();
       const _statusPtr = _rt.scratchAlloc(32);
       _rt._writeRustCallStatusStruct(_statusPtr);
-      const _rawResult = (_rt.getExport('ffi_ffi_async_rust_future_complete_u32') as any)(_futureHandle, _statusPtr);
+      const _result = (_rt.getExport('ffi_ffi_async_rust_future_complete_u32') as any)(_futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr);
       _rt.scratchReset();
-      return _rawResult;
+      return _result;
     } finally {
       (_rt.getExport('ffi_ffi_async_rust_future_free_u32') as any)(_futureHandle);
+    }
+  }
+  /** @throws {AsyncError} */
+  export async function asyncDivide(a: number, b: number): Promise<string> {
+    const _argPtr = _rt.scratchAlloc(2 * 8);
+    _rt.writeF64Element(_argPtr, a);
+    _rt.writeF64Element(_argPtr + 8, b);
+    const _retPtr = _rt.scratchAlloc(1 * 8);
+    _rt.call('uniffi_ffibuffer_ffi_async_fn_func_async_divide', _argPtr, _retPtr);
+    const _futureHandle = _rt.readHandleElement(_retPtr);
+    try {
+      await _rt.pollToReady(_futureHandle, 'ffi_ffi_async_rust_future_poll_rust_buffer');
+      _rt.scratchReset();
+      const _rbRetPtr = _rt.scratchAlloc(24);
+      const _statusPtr = _rt.scratchAlloc(32);
+      _rt._writeRustCallStatusStruct(_statusPtr);
+      (_rt.getExport('ffi_ffi_async_rust_future_complete_rust_buffer') as any)(_rbRetPtr, _futureHandle, _statusPtr);
+      _rt.checkCallStatus(_statusPtr, (rb) => _liftErrorAsyncError(rb));
+      const _result = _rt.liftString(_rt._readRustBufferStruct(_rbRetPtr));
+      _rt.scratchReset();
+      return _result;
+    } finally {
+      (_rt.getExport('ffi_ffi_async_rust_future_free_rust_buffer') as any)(_futureHandle);
+    }
+  }
+  export async function asyncGetCounterValue(counter: AsyncCounter): Promise<bigint> {
+    const _clone_counter = _rt.cloneObjectHandle('uniffi_ffi_async_fn_clone_asynccounter', counter._handle);
+    const _argPtr = _rt.scratchAlloc(1 * 8);
+    _rt.writeHandleElement(_argPtr, _clone_counter);
+    const _retPtr = _rt.scratchAlloc(1 * 8);
+    _rt.call('uniffi_ffibuffer_ffi_async_fn_func_async_get_counter_value', _argPtr, _retPtr);
+    const _futureHandle = _rt.readHandleElement(_retPtr);
+    try {
+      await _rt.pollToReady(_futureHandle, 'ffi_ffi_async_rust_future_poll_u64');
+      _rt.scratchReset();
+      const _statusPtr = _rt.scratchAlloc(32);
+      _rt._writeRustCallStatusStruct(_statusPtr);
+      const _result = (_rt.getExport('ffi_ffi_async_rust_future_complete_u64') as any)(_futureHandle, _statusPtr);
+      _rt.checkCallStatus(_statusPtr);
+      _rt.scratchReset();
+      return _result;
+    } finally {
+      (_rt.getExport('ffi_ffi_async_rust_future_free_u64') as any)(_futureHandle);
     }
   }
   export async function asyncGreet(name: string): Promise<string> {

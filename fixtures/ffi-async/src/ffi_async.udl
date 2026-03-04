@@ -7,4 +7,30 @@ namespace ffi_async {
 
   [Async]
   void async_noop();
+
+  [Async, Throws=AsyncError]
+  string async_divide(f64 a, f64 b);
+
+  [Async]
+  u64 async_get_counter_value(AsyncCounter counter);
+};
+
+[Error]
+enum AsyncError {
+  "DivisionByZero",
+  "InvalidInput",
+};
+
+interface AsyncCounter {
+  [Async]
+  constructor(u64 initial);
+
+  [Async]
+  void increment();
+
+  [Async]
+  u64 get_value();
+
+  [Async, Throws=AsyncError]
+  void validate();
 };
