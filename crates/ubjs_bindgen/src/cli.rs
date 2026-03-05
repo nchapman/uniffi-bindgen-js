@@ -16,23 +16,16 @@ pub enum Command {
 
 #[derive(Debug, Clone, Parser)]
 pub struct GenerateArgs {
-    /// Source file: .wasm (FFI-direct), .udl, or .dylib/.so/.dll (library mode).
+    /// Source file: .wasm (primary), .udl, or .dylib/.so/.dll (library mode).
     ///
     /// When a .wasm file is provided, metadata is extracted directly from it
-    /// and FFI-direct TypeScript is generated automatically.
+    /// and the file is copied to the output directory.
+    /// UDL and library sources always generate FFI-direct TypeScript.
     pub source: PathBuf,
     #[arg(long)]
     pub out_dir: PathBuf,
     #[arg(long)]
     pub config: Option<PathBuf>,
-    /// Path to a compiled .wasm file (for UDL or library-mode sources).
-    /// Enables FFI-direct output; the file is copied to the output directory.
-    /// Not needed when source is already a .wasm file.
-    #[arg(long)]
-    pub wasm: Option<PathBuf>,
-    /// Deprecated: library mode is now auto-detected from the file extension.
-    #[arg(long, hide = true)]
-    pub library: bool,
     /// Generate bindings only for this crate (default: first found).
     #[arg(long, name = "crate")]
     pub crate_name: Option<String>,

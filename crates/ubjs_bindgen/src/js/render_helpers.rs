@@ -4,32 +4,8 @@
 
 use uniffi_bindgen::interface::{DefaultValue, Literal, Type};
 
-use super::naming::{camel_case, is_js_reserved, safe_js_identifier};
+use super::naming::{camel_case, safe_js_identifier};
 use super::types::ArgDef;
-
-/// Build a member access + call expression, using bracket notation for reserved words.
-///
-/// Returns `obj.name(args)` for normal names, or `obj["name"](args)` when
-/// `name` is a JavaScript reserved word (which cannot appear after `.`).
-pub(super) fn member_call(obj: &str, name: &str, args: &str) -> String {
-    if is_js_reserved(name) {
-        format!("{obj}[\"{name}\"]({args})")
-    } else {
-        format!("{obj}.{name}({args})")
-    }
-}
-
-/// Build a call to a top-level WASM export.
-///
-/// wasm-pack prefixes reserved-word module exports with `_` (e.g. `class` → `_class`),
-/// so we mirror that convention here. Normal names use `__bg.name(args)`.
-pub(super) fn wasm_call(name: &str, args: &str) -> String {
-    if is_js_reserved(name) {
-        format!("__bg._{name}({args})")
-    } else {
-        format!("__bg.{name}({args})")
-    }
-}
 
 /// Render an optional UDL docstring as a JSDoc block comment.
 ///
@@ -111,17 +87,8 @@ pub(super) fn render_jsdoc_with_throws(
 /// Render a function/method parameter as `name: Type`, `name: Type = default`,
 /// or `name?: Type` (when the default is unspecified).
 pub(super) fn render_param(arg: &ArgDef) -> String {
-    render_param_inner(arg, false)
-}
-
-/// Like [`render_param`] but for FFI-mode output.
-pub(super) fn render_param_ffi(arg: &ArgDef) -> String {
-    render_param_inner(arg, true)
-}
-
-fn render_param_inner(arg: &ArgDef, ffi_mode: bool) -> String {
     let ts_name = safe_js_identifier(&camel_case(&arg.name));
-    let ts_type = ts_type_str_inner(&arg.type_, ffi_mode);
+    let ts_type = ts_type_str(&arg.type_);
     match &arg.default {
         Some(DefaultValue::Literal(lit)) => {
             format!("{ts_name}: {ts_type} = {}", render_literal(lit))
@@ -184,19 +151,10 @@ pub(super) fn render_literal(lit: &Literal) -> String {
     }
 }
 
-pub(super) fn ts_type_str(t: &Type) -> String {
-    ts_type_str_inner(t, false)
-}
-
-/// Like [`ts_type_str`] but for FFI-mode output.
+/// Map a UniFFI type to its TypeScript representation.
 ///
-/// In FFI mode `Sequence<i64/u64>` is `bigint[]` (deserialized via `readSequence`).
-/// Legacy mode maps these to `BigInt64Array`/`BigUint64Array` to match wasm-bindgen.
-pub(super) fn ts_type_str_ffi(t: &Type) -> String {
-    ts_type_str_inner(t, true)
-}
-
-fn ts_type_str_inner(t: &Type, ffi_mode: bool) -> String {
+/// `Sequence<i64/u64>` maps to `bigint[]` (FFI-direct deserialization via `readSequence`).
+pub(super) fn ts_type_str(t: &Type) -> String {
     match t {
         Type::String => "string".to_string(),
         Type::Boolean => "boolean".to_string(),
@@ -205,28 +163,13 @@ fn ts_type_str_inner(t: &Type, ffi_mode: bool) -> String {
         Type::Int64 | Type::UInt64 => "bigint".to_string(),
         Type::Float32 | Type::Float64 => "number".to_string(),
         Type::Bytes => "Uint8Array".to_string(),
-        // Duration serialises via serde as { secs: number, nanos: number }.
-        // We emit `number` (seconds, float) as the idiomatic JS representation;
-        // the wasm fixture crate is responsible for converting to/from f64 seconds.
         Type::Duration => "number".to_string(),
-        // Timestamp serialises via serde as a duration-since-epoch.
-        // We emit `Date` as the idiomatic JS type; the wasm fixture crate is
-        // responsible for converting to/from a JS Date object.
         Type::Timestamp => "Date".to_string(),
         Type::Optional { inner_type } => {
-            format!("{} | null", ts_type_str_inner(inner_type, ffi_mode))
+            format!("{} | null", ts_type_str(inner_type))
         }
         Type::Sequence { inner_type } => {
-            // wasm-bindgen maps Box<[i64]> / Box<[u64]> to typed arrays, not plain arrays.
-            // In FFI mode, readSequence always returns T[], so skip this.
-            if !ffi_mode {
-                match inner_type.as_ref() {
-                    Type::Int64 => return "BigInt64Array".to_string(),
-                    Type::UInt64 => return "BigUint64Array".to_string(),
-                    _ => {}
-                }
-            }
-            let inner = ts_type_str_inner(inner_type, ffi_mode);
+            let inner = ts_type_str(inner_type);
             // Parenthesize compound inner types to avoid precedence issues
             // e.g. `(string | null)[]` not `string | null[]`
             if matches!(
@@ -243,8 +186,8 @@ fn ts_type_str_inner(t: &Type, ffi_mode: bool) -> String {
             value_type,
         } => format!(
             "Map<{}, {}>",
-            ts_type_str_inner(key_type, ffi_mode),
-            ts_type_str_inner(value_type, ffi_mode)
+            ts_type_str(key_type),
+            ts_type_str(value_type)
         ),
         Type::Enum { name, .. }
         | Type::Record { name, .. }
@@ -278,61 +221,5 @@ pub(super) fn ts_return_type(return_type: Option<&Type>, is_async: bool) -> Stri
         format!("Promise<{base}>")
     } else {
         base
-    }
-}
-
-/// Like [`ts_return_type`] but for FFI-mode output.
-pub(super) fn ts_return_type_ffi(return_type: Option<&Type>, is_async: bool) -> String {
-    let base = return_type
-        .map(ts_type_str_ffi)
-        .unwrap_or_else(|| "void".to_string());
-    if is_async {
-        format!("Promise<{base}>")
-    } else {
-        base
-    }
-}
-
-/// Render the body of a function/method call, handling throws and return.
-///
-/// `call_expr` is the (possibly lifted) call expression.
-/// `has_return` controls whether a `return` keyword is emitted.
-/// `throws` is the optional error type name (triggers try/catch wrapping).
-/// `preamble` is an optional statement emitted before the call (e.g. `"this._assertLive();"`)
-/// for object methods that guard against use-after-free.
-///
-/// Returns the content to place between `{` and `}` of the method declaration:
-/// - When no preamble and no throws: a single-line inline body with surrounding spaces
-///   (suitable for `{ return foo(); }` on one line).
-/// - Otherwise: a multi-line body starting with `\n` and ending with `\n  `
-///   (suitable for a `{\n  ...\n}` block).
-///
-/// Note: constructor rendering (`render_ctor`, `render_enum_constructors`) is intentionally
-/// out of scope — constructors wrap the inner call with `_fromInner(...)` which requires
-/// a different body shape.
-pub(super) fn render_call_body(
-    call_expr: &str,
-    has_return: bool,
-    throws: Option<&str>,
-    preamble: Option<&str>,
-) -> String {
-    let ret_kw = if has_return { "return " } else { "" };
-    match (throws, preamble) {
-        (Some(throws_name), Some(pre)) => {
-            let lift = format!("_lift{throws_name}");
-            format!(
-                "\n    {pre}\n    try {{ {ret_kw}{call_expr}; }} catch (e) {{ {ret_kw}{lift}(e); }}\n  "
-            )
-        }
-        (Some(throws_name), None) => {
-            let lift = format!("_lift{throws_name}");
-            format!("\n    try {{ {ret_kw}{call_expr}; }} catch (e) {{ {ret_kw}{lift}(e); }}\n  ")
-        }
-        (None, Some(pre)) => {
-            format!("\n    {pre}\n    {ret_kw}{call_expr};\n  ")
-        }
-        (None, None) => {
-            format!(" {ret_kw}{call_expr}; ")
-        }
     }
 }

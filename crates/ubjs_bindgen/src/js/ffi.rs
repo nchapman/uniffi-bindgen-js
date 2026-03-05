@@ -198,7 +198,7 @@ fn gen_top_level_lower(var: &str, t: &Type, namespace: &str) -> String {
         Type::String => format!("_rt.lowerString({var})"),
         Type::Custom { builtin, .. } => gen_top_level_lower(var, builtin, namespace),
         _ => {
-            let lower_body = gen_lower_expr(var, t, namespace);
+            let lower_body = gen_lower_expr(var, t, namespace, "w");
             format!("_rt.lowerIntoBuffer((w) => {{ {lower_body}; }})")
         }
     }
@@ -234,52 +234,52 @@ fn gen_top_level_lift(t: &Type, offset_expr: &str) -> String {
 ///   `w.writeString(name)` for strings
 ///   `w.writeI32(1); w.writeString(v.field1); ...` for enums
 ///   etc.
-fn gen_lower_expr(var: &str, t: &Type, namespace: &str) -> String {
+fn gen_lower_expr(var: &str, t: &Type, namespace: &str, w: &str) -> String {
     match t {
-        Type::String => format!("w.writeString({var})"),
-        Type::Bytes => format!("w.writeBytes({var})"),
-        Type::Boolean => format!("w.writeBool({var})"),
-        Type::Int8 => format!("w.writeI8({var})"),
-        Type::UInt8 => format!("w.writeU8({var})"),
-        Type::Int16 => format!("w.writeI16({var})"),
-        Type::UInt16 => format!("w.writeU16({var})"),
-        Type::Int32 => format!("w.writeI32({var})"),
-        Type::UInt32 => format!("w.writeU32({var})"),
-        Type::Int64 => format!("w.writeI64({var})"),
-        Type::UInt64 => format!("w.writeU64({var})"),
-        Type::Float32 => format!("w.writeF32({var})"),
-        Type::Float64 => format!("w.writeF64({var})"),
-        Type::Duration => format!("w.writeDuration({var})"),
-        Type::Timestamp => format!("w.writeTimestamp({var})"),
+        Type::String => format!("{w}.writeString({var})"),
+        Type::Bytes => format!("{w}.writeBytes({var})"),
+        Type::Boolean => format!("{w}.writeBool({var})"),
+        Type::Int8 => format!("{w}.writeI8({var})"),
+        Type::UInt8 => format!("{w}.writeU8({var})"),
+        Type::Int16 => format!("{w}.writeI16({var})"),
+        Type::UInt16 => format!("{w}.writeU16({var})"),
+        Type::Int32 => format!("{w}.writeI32({var})"),
+        Type::UInt32 => format!("{w}.writeU32({var})"),
+        Type::Int64 => format!("{w}.writeI64({var})"),
+        Type::UInt64 => format!("{w}.writeU64({var})"),
+        Type::Float32 => format!("{w}.writeF32({var})"),
+        Type::Float64 => format!("{w}.writeF64({var})"),
+        Type::Duration => format!("{w}.writeDuration({var})"),
+        Type::Timestamp => format!("{w}.writeTimestamp({var})"),
         Type::Optional { inner_type } => {
-            let inner_lower = gen_lower_expr("_v", inner_type, namespace);
-            format!("w.writeOptional({var}, (_w, _v) => {{ {inner_lower}; }})")
+            let inner_lower = gen_lower_expr("_v", inner_type, namespace, "_w");
+            format!("{w}.writeOptional({var}, (_w, _v) => {{ {inner_lower}; }})")
         }
         Type::Sequence { inner_type } => {
-            let inner_lower = gen_lower_expr("_v", inner_type, namespace);
-            format!("w.writeSequence({var}, (_w, _v) => {{ {inner_lower}; }})")
+            let inner_lower = gen_lower_expr("_v", inner_type, namespace, "_w");
+            format!("{w}.writeSequence({var}, (_w, _v) => {{ {inner_lower}; }})")
         }
         Type::Map {
             key_type,
             value_type,
         } => {
-            let key_lower = gen_lower_expr("_k", key_type, namespace);
-            let val_lower = gen_lower_expr("_v", value_type, namespace);
+            let key_lower = gen_lower_expr("_k", key_type, namespace, "_w");
+            let val_lower = gen_lower_expr("_v", value_type, namespace, "_w");
             format!(
-                "w.writeMap({var}, (_w, _k) => {{ {key_lower}; }}, (_w, _v) => {{ {val_lower}; }})"
+                "{w}.writeMap({var}, (_w, _k) => {{ {key_lower}; }}, (_w, _v) => {{ {val_lower}; }})"
             )
         }
         // Record, Enum, Custom, CallbackInterface — these need type-specific serialization
         // that will be generated as standalone helper functions. Use their name.
         Type::Record { name, .. } => {
-            format!("_lower{name}(w, {var})")
+            format!("_lower{name}({w}, {var})")
         }
         Type::Enum { name, .. } => {
-            format!("_lower{name}(w, {var})")
+            format!("_lower{name}({w}, {var})")
         }
         Type::Custom { builtin, .. } => {
             // Custom types: lower via the builtin type
-            gen_lower_expr(var, builtin, namespace)
+            gen_lower_expr(var, builtin, namespace, w)
         }
         Type::Object { name, .. } => {
             // Objects inside compound types (Optional<Obj>, Sequence<Obj>, etc.)
@@ -288,12 +288,12 @@ fn gen_lower_expr(var: &str, t: &Type, namespace: &str) -> String {
             // via Arc::from_raw, so without cloning, the JS-side object would be
             // left with a dangling/freed Rust allocation.
             let clone_fn = fn_clone(namespace, name);
-            format!("w.writeU64(_rt.cloneObjectHandle('{clone_fn}', {var}._handle))")
+            format!("{w}.writeU64(_rt.cloneObjectHandle('{clone_fn}', {var}._handle))")
         }
         Type::CallbackInterface { .. } => {
             // Callback interfaces are lowered as u64 handles via the handle map.
             // The VTable is already registered during module initialization.
-            format!("w.writeU64(_rt.insertCallbackHandle({var}))")
+            format!("{w}.writeU64(_rt.insertCallbackHandle({var}))")
         }
     }
 }
@@ -428,7 +428,7 @@ pub(super) fn gen_record_lower_fn(r: &RecordDef, namespace: &str) -> String {
     let mut out = format!("function _lower{name}(w: UniFFIWriter, value: {name}): void {{\n");
     for f in &r.fields {
         let ts_field = safe_js_identifier(&camel_case(&f.name));
-        let lower = gen_lower_expr(&format!("value.{ts_field}"), &f.type_, namespace);
+        let lower = gen_lower_expr(&format!("value.{ts_field}"), &f.type_, namespace, "w");
         // Every field must always be serialized — default values affect the TS
         // signature (making the param optional) but not the binary format.
         out.push_str(&format!("  {lower};\n"));
@@ -502,7 +502,7 @@ pub(super) fn gen_data_enum_lower_fn(e: &EnumDef, namespace: &str) -> String {
         out.push_str(&format!("    w.writeI32({});\n", i + 1));
         for f in &v.fields {
             let ts_field = safe_js_identifier(&camel_case(&f.name));
-            let lower = gen_lower_expr(&format!("value.{ts_field}"), &f.type_, namespace);
+            let lower = gen_lower_expr(&format!("value.{ts_field}"), &f.type_, namespace, "w");
             out.push_str(&format!("    {lower};\n"));
         }
         out.push_str("    return;\n  }\n");
@@ -618,6 +618,136 @@ pub(super) fn gen_rich_error_lift_fn(e: &ErrorDef) -> String {
             "    throw new Error(`Unknown {name} ordinal: ${{ordinal}}`);\n"
         ));
     }
+    out.push_str("  });\n");
+    out.push_str("}\n");
+    out
+}
+
+// ---------------------------------------------------------------------------
+// Error value-type lower/lift (for errors used as record/enum fields)
+// ---------------------------------------------------------------------------
+
+/// Generate a `_lowerFoo(w, value)` helper for a flat error used as a value type.
+///
+/// Flat errors are classes with a `.tag` property. The ordinal is determined by tag.
+pub(super) fn gen_flat_error_value_lower_fn(e: &ErrorDef, _namespace: &str) -> String {
+    let name = &e.name;
+    let mut out = format!("function _lower{name}(w: UniFFIWriter, value: {name}): void {{\n");
+    for (i, v) in e.variants.iter().enumerate() {
+        out.push_str(&format!(
+            "  if (value.tag === '{}') {{ w.writeI32({}); return; }}\n",
+            v.name,
+            i + 1
+        ));
+    }
+    out.push_str(&format!(
+        "  throw new Error(`Unknown {name} variant: ${{value.tag}}`);\n"
+    ));
+    out.push_str("}\n");
+    out
+}
+
+/// Generate a `_liftFoo(r)` helper for a flat error used as a value type.
+pub(super) fn gen_flat_error_value_lift_fn(e: &ErrorDef) -> String {
+    let name = &e.name;
+    let mut out = format!("function _lift{name}(r: UniFFIReader): {name} {{\n");
+    out.push_str("  const ordinal = r.readI32();\n");
+    for (i, v) in e.variants.iter().enumerate() {
+        out.push_str(&format!(
+            "  if (ordinal === {}) return new {name}('{}');\n",
+            i + 1,
+            v.name
+        ));
+    }
+    if e.is_non_exhaustive {
+        out.push_str(&format!(
+            "  return new {name}(`variant_${{ordinal}}` as any);\n"
+        ));
+    } else {
+        out.push_str(&format!(
+            "  throw new Error(`Unknown {name} ordinal: ${{ordinal}}`);\n"
+        ));
+    }
+    out.push_str("}\n");
+    out
+}
+
+/// Generate a `_lowerFoo(w, value)` helper for a rich error used as a value type.
+pub(super) fn gen_rich_error_value_lower_fn(e: &ErrorDef, namespace: &str) -> String {
+    let name = &e.name;
+    let mut out = format!("function _lower{name}(w: UniFFIWriter, value: {name}): void {{\n");
+    for (i, v) in e.variants.iter().enumerate() {
+        let tag = &v.name;
+        out.push_str(&format!("  if (value.variant.tag === '{tag}') {{\n"));
+        out.push_str(&format!("    w.writeI32({});\n", i + 1));
+        for f in &v.fields {
+            let ts_field = safe_js_identifier(&camel_case(&f.name));
+            let lower = gen_lower_expr(
+                &format!("value.variant.{ts_field}"),
+                &f.type_,
+                namespace,
+                "w",
+            );
+            out.push_str(&format!("    {lower};\n"));
+        }
+        out.push_str("    return;\n  }\n");
+    }
+    out.push_str(&format!(
+        "  throw new Error(`Unknown {name} variant: ${{(value.variant as any).tag}}`);\n"
+    ));
+    out.push_str("}\n");
+    out
+}
+
+/// Generate a `_liftFoo(r)` helper for a rich error used as a value type.
+pub(super) fn gen_rich_error_value_lift_fn(e: &ErrorDef) -> String {
+    let name = &e.name;
+    let variant_type = format!("{name}Variant");
+    let mut out = format!("function _lift{name}(r: UniFFIReader): {name} {{\n");
+    out.push_str("  const ordinal = r.readI32();\n");
+    for (i, v) in e.variants.iter().enumerate() {
+        let tag = &v.name;
+        out.push_str(&format!("  if (ordinal === {}) {{\n", i + 1));
+        if v.fields.is_empty() {
+            out.push_str(&format!("    return new {name}({{ tag: '{tag}' }});\n"));
+        } else {
+            let fields: Vec<String> = v
+                .fields
+                .iter()
+                .map(|f| {
+                    let ts_field = safe_js_identifier(&camel_case(&f.name));
+                    let lift = gen_lift_expr("r", &f.type_);
+                    format!("{ts_field}: {lift}")
+                })
+                .collect();
+            out.push_str(&format!(
+                "    return new {name}({{ tag: '{tag}', {} }});\n",
+                fields.join(", ")
+            ));
+        }
+        out.push_str("  }\n");
+    }
+    if e.is_non_exhaustive {
+        out.push_str(&format!(
+            "  return new {name}({{ tag: `variant_${{ordinal}}` }} as {variant_type});\n"
+        ));
+    } else {
+        out.push_str(&format!(
+            "  throw new Error(`Unknown {name} ordinal: ${{ordinal}}`);\n"
+        ));
+    }
+    out.push_str("}\n");
+    out
+}
+
+/// Generate `_liftErrorFoo(rb)` for an object-based error (is_error = true on ObjectDef).
+///
+/// Object errors store a handle (u64). The lift reads the handle from the RustBuffer
+/// and wraps it in the class.
+pub(super) fn gen_object_error_lift_fn(name: &str) -> String {
+    let mut out = format!("function _liftError{name}(rb: any): {name} {{\n");
+    out.push_str("  return _rt.liftFromBuffer(rb, (r) => {\n");
+    out.push_str(&format!("    return {name}._fromHandle(r.readU64());\n"));
     out.push_str("  });\n");
     out.push_str("}\n");
     out
@@ -1029,7 +1159,7 @@ fn gen_callback_ret_lower(result_var: &str, out_ptr: &str, t: &Type, namespace: 
             )
         }
         _ if is_callback_ptr_type(t) => {
-            let lower_body = gen_lower_expr(result_var, t, namespace);
+            let lower_body = gen_lower_expr(result_var, t, namespace, "w");
             format!(
                 "const _retRb = _rt.lowerIntoBuffer((w) => {{ {lower_body}; }}); _rt._writeRustBufferStruct({out_ptr}, _retRb);"
             )

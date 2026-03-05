@@ -12,21 +12,17 @@ pub(crate) mod ffi;
 mod naming;
 mod parsing;
 mod render_helpers;
-mod render_objects;
 mod render_types;
 pub mod runtime_ts;
-mod type_lifting;
 mod types;
 mod wasm_metadata;
 
 use external_types::collect_external_imports;
 use naming::pascal_case;
 use parsing::{namespace_from_source, parse_metadata};
-use render_helpers::{render_jsdoc, ts_type_str, ts_type_str_ffi, type_name};
-use render_objects::{render_function, render_object_class};
+use render_helpers::{render_jsdoc, ts_type_str, type_name};
 use render_types::{
-    render_callback_interface, render_enum_type, render_error_class, render_lift_fn,
-    render_object_error_lift_fn, render_record_interface,
+    render_callback_interface, render_enum_type, render_error_class, render_record_interface,
 };
 use types::*;
 
@@ -44,12 +40,11 @@ pub fn generate_bindings(args: &GenerateArgs) -> Result<()> {
     let source_ext = source_extension(&args.source);
     let is_wasm_source = source_ext == Some("wasm");
 
-    // When source IS a .wasm file, extract metadata directly from it
-    // and auto-enable FFI-direct output (no --wasm flag needed).
+    // When source IS a .wasm file, extract metadata directly from it.
     let metadata = if is_wasm_source {
         parsing::parse_wasm_source(&args.source, args.crate_name.as_deref())?
     } else {
-        let library_mode = args.library || source_is_native_library(&args.source);
+        let library_mode = source_is_native_library(&args.source);
         parse_metadata(&args.source, args.crate_name.as_deref(), library_mode)?
     };
     let namespace = if metadata.namespace.is_empty() {
@@ -66,264 +61,36 @@ pub fn generate_bindings(args: &GenerateArgs) -> Result<()> {
     fs::create_dir_all(&args.out_dir)
         .with_context(|| format!("failed to create output dir: {}", args.out_dir.display()))?;
 
-    // FFI-direct mode: when source IS a .wasm file, or when --wasm is provided.
-    // Otherwise, emit the legacy wasm-pack wrapper format.
-    let ffi_mode = is_wasm_source || args.wasm.is_some();
-    if ffi_mode {
-        let content = render_ts_ffi(&module_name, &namespace, &metadata, &cfg)?;
-        let out_file = args.out_dir.join(format!("{namespace}.ts"));
-        fs::write(&out_file, &content)
-            .with_context(|| format!("failed to write: {}", out_file.display()))?;
+    // Always generate FFI-direct output.
+    let content = render_ts(&module_name, &namespace, &metadata, &cfg)?;
+    let out_file = args.out_dir.join(format!("{namespace}.ts"));
+    fs::write(&out_file, &content)
+        .with_context(|| format!("failed to write: {}", out_file.display()))?;
 
-        // Emit the shared runtime
-        let runtime_file = args.out_dir.join("uniffi_runtime.ts");
-        fs::write(&runtime_file, runtime_ts::RUNTIME_TS)
-            .with_context(|| format!("failed to write: {}", runtime_file.display()))?;
+    // Emit the shared runtime
+    let runtime_file = args.out_dir.join("uniffi_runtime.ts");
+    fs::write(&runtime_file, runtime_ts::RUNTIME_TS)
+        .with_context(|| format!("failed to write: {}", runtime_file.display()))?;
 
-        // Copy .wasm file to output directory (skip if source == destination)
-        let wasm_source = if is_wasm_source {
-            Some(args.source.clone())
-        } else {
-            args.wasm.clone()
-        };
-        if let Some(wasm_path) = &wasm_source {
-            let wasm_filename = format!("{namespace}.wasm");
-            let dest = args.out_dir.join(&wasm_filename);
-            let same_file = wasm_path.canonicalize().ok() == dest.canonicalize().ok();
-            if !same_file {
-                fs::copy(wasm_path, &dest)
-                    .with_context(|| format!("failed to copy WASM: {}", wasm_path.display()))?;
-            }
+    // Copy .wasm file to output directory (skip if source == destination)
+    if is_wasm_source {
+        let wasm_filename = format!("{namespace}.wasm");
+        let dest = args.out_dir.join(&wasm_filename);
+        let same_file = args.source.canonicalize().ok() == dest.canonicalize().ok();
+        if !same_file {
+            fs::copy(&args.source, &dest)
+                .with_context(|| format!("failed to copy WASM: {}", args.source.display()))?;
         }
-    } else {
-        let content = render_ts(&module_name, &namespace, &metadata, &cfg)?;
-        let out_file = args.out_dir.join(format!("{namespace}.ts"));
-        fs::write(&out_file, &content)
-            .with_context(|| format!("failed to write: {}", out_file.display()))?;
     }
 
     Ok(())
 }
 
 // ---------------------------------------------------------------------------
-// TypeScript code generation orchestrator
+// FFI-direct TypeScript code generation
 // ---------------------------------------------------------------------------
 
 fn render_ts(
-    module_name: &str,
-    namespace: &str,
-    metadata: &BindingsMetadata,
-    cfg: &config::JsBindingsConfig,
-) -> Result<String> {
-    let mut out = String::new();
-
-    // Header
-    out.push_str("// Generated by uniffi-bindgen-js. DO NOT EDIT.\n");
-    out.push_str(&format!(
-        "import __init, * as __bg from './{namespace}_bg.js';\n"
-    ));
-
-    out.push_str("export { __init as init };\n");
-
-    // External type imports — one import statement per external package, types sorted for determinism.
-    let external_imports =
-        collect_external_imports(metadata, &cfg.external_packages, &metadata.local_crate)?;
-    for (import_path, type_names) in &external_imports {
-        let names: Vec<&str> = type_names.iter().map(String::as_str).collect();
-        out.push_str(&format!(
-            "import {{ {} }} from '{import_path}';\n",
-            names.join(", ")
-        ));
-    }
-
-    // Custom type aliases (top-level, before everything else)
-    for ct in &metadata.custom_types {
-        if !cfg.exclude.contains(&ct.name) {
-            let exported = cfg
-                .rename
-                .get(&ct.name)
-                .cloned()
-                .unwrap_or_else(|| ct.name.clone());
-            // If the custom type has a config with type_name, use that instead of the builtin.
-            let ts_type = cfg
-                .custom_types
-                .get(&ct.name)
-                .and_then(|c| c.type_name.as_deref())
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| ts_type_str(&ct.builtin));
-            out.push('\n');
-            out.push_str(&format!("export type {} = {};\n", exported, ts_type));
-        }
-    }
-
-    // Extra imports from custom type configs
-    let mut extra_imports: Vec<String> = Vec::new();
-    for ct in &metadata.custom_types {
-        if let Some(ct_cfg) = cfg.custom_types.get(&ct.name) {
-            if let Some(imports) = &ct_cfg.imports {
-                for imp in imports {
-                    if !extra_imports.contains(imp) {
-                        extra_imports.push(imp.clone());
-                    }
-                }
-            }
-        }
-    }
-    for imp in &extra_imports {
-        out.push_str(&format!("import {imp};\n"));
-    }
-
-    // Error classes (top-level, before namespace)
-    for e in &metadata.errors {
-        if !cfg.exclude.contains(&e.name) {
-            out.push('\n');
-            out.push_str(&render_error_class(e, cfg, &metadata.local_crate));
-        }
-    }
-
-    // Record interfaces (top-level)
-    for r in &metadata.records {
-        if !cfg.exclude.contains(&r.name) {
-            out.push('\n');
-            out.push_str(&render_record_interface(r, cfg, &metadata.local_crate));
-        }
-    }
-
-    // Enum types (top-level)
-    for e in &metadata.enums {
-        if !cfg.exclude.contains(&e.name) {
-            out.push('\n');
-            out.push_str(&render_enum_type(e, cfg, &metadata.local_crate));
-        }
-    }
-
-    // Callback interfaces (structural TypeScript interfaces)
-    for cb in &metadata.callback_interfaces {
-        if !cfg.exclude.contains(&cb.name) {
-            out.push('\n');
-            out.push_str(&render_callback_interface(cb, cfg));
-        }
-    }
-
-    // Object re-exports (top-level)
-    let visible_objects: Vec<&ObjectDef> = metadata
-        .objects
-        .iter()
-        .filter(|o| !cfg.exclude.contains(&o.name))
-        .collect();
-    if !visible_objects.is_empty() {
-        for o in &visible_objects {
-            out.push('\n');
-            out.push_str(&render_object_class(o, cfg, &metadata.local_crate));
-        }
-    }
-
-    // Error lift helpers (private, before namespace)
-    let all_throws: HashSet<String> = {
-        let mut names: HashSet<String> = HashSet::new();
-        for f in &metadata.functions {
-            if let Some(t) = &f.throws_type {
-                names.insert(type_name(t));
-            }
-        }
-        for o in &metadata.objects {
-            for c in &o.constructors {
-                if let Some(t) = &c.throws_type {
-                    names.insert(type_name(t));
-                }
-            }
-            for m in &o.methods {
-                if let Some(t) = &m.throws_type {
-                    names.insert(type_name(t));
-                }
-            }
-        }
-        for e in &metadata.enums {
-            for c in &e.constructors {
-                if let Some(t) = &c.throws_type {
-                    names.insert(type_name(t));
-                }
-            }
-            for m in &e.methods {
-                if let Some(t) = &m.throws_type {
-                    names.insert(type_name(t));
-                }
-            }
-        }
-        for e in &metadata.errors {
-            for c in &e.constructors {
-                if let Some(t) = &c.throws_type {
-                    names.insert(type_name(t));
-                }
-            }
-            for m in &e.methods {
-                if let Some(t) = &m.throws_type {
-                    names.insert(type_name(t));
-                }
-            }
-        }
-        for r in &metadata.records {
-            for c in &r.constructors {
-                if let Some(t) = &c.throws_type {
-                    names.insert(type_name(t));
-                }
-            }
-            for m in &r.methods {
-                if let Some(t) = &m.throws_type {
-                    names.insert(type_name(t));
-                }
-            }
-        }
-        names
-    };
-    // Collect unique error names that need lift helpers, looking them up in errors
-    // and error objects.
-    let mut rendered_lifts: Vec<String> = Vec::new();
-    for error in &metadata.errors {
-        if all_throws.contains(&error.name) {
-            let lift = render_lift_fn(error);
-            if !lift.is_empty() {
-                rendered_lifts.push(lift);
-            }
-        }
-    }
-    for obj in &metadata.objects {
-        if obj.is_error && all_throws.contains(&obj.name) {
-            rendered_lifts.push(render_object_error_lift_fn(&obj.name));
-        }
-    }
-    if !rendered_lifts.is_empty() {
-        for lift in rendered_lifts {
-            out.push('\n');
-            out.push_str(&lift);
-        }
-    }
-
-    // Namespace with top-level functions — omit entirely if there are none.
-    let visible_fns: Vec<&FnDef> = metadata
-        .functions
-        .iter()
-        .filter(|f| !cfg.exclude.contains(&f.name))
-        .collect();
-
-    if !visible_fns.is_empty() {
-        out.push('\n');
-        out.push_str(&render_jsdoc(metadata.namespace_docstring.as_deref(), ""));
-        out.push_str(&format!("export namespace {module_name} {{\n"));
-        for f in &visible_fns {
-            out.push_str(&render_function(f, cfg, &metadata.local_crate));
-        }
-        out.push_str("}\n");
-    }
-
-    Ok(out)
-}
-
-// ---------------------------------------------------------------------------
-// New FFI-direct TypeScript generation (--wasm mode)
-// ---------------------------------------------------------------------------
-
-fn render_ts_ffi(
     module_name: &str,
     namespace: &str,
     metadata: &BindingsMetadata,
@@ -367,7 +134,7 @@ fn render_ts_ffi(
                 .get(&ct.name)
                 .and_then(|c| c.type_name.as_deref())
                 .map(|s| s.to_string())
-                .unwrap_or_else(|| ts_type_str_ffi(&ct.builtin));
+                .unwrap_or_else(|| ts_type_str(&ct.builtin));
             out.push('\n');
             out.push_str(&format!("export type {} = {};\n", exported, ts_type));
         }
@@ -390,31 +157,31 @@ fn render_ts_ffi(
         out.push_str(&format!("import {imp};\n"));
     }
 
-    // Error classes (same shape as legacy — class definitions are independent of FFI calling)
+    // Error classes
     for e in &metadata.errors {
         if !cfg.exclude.contains(&e.name) {
             out.push('\n');
-            out.push_str(&render_error_class(e, cfg, &metadata.local_crate));
+            out.push_str(&render_error_class(e, cfg, namespace));
         }
     }
 
-    // Record interfaces (same shape as legacy)
+    // Record interfaces
     for r in &metadata.records {
         if !cfg.exclude.contains(&r.name) {
             out.push('\n');
-            out.push_str(&render_record_interface(r, cfg, &metadata.local_crate));
+            out.push_str(&render_record_interface(r, cfg, namespace));
         }
     }
 
-    // Enum types (same shape as legacy)
+    // Enum types
     for e in &metadata.enums {
         if !cfg.exclude.contains(&e.name) {
             out.push('\n');
-            out.push_str(&render_enum_type(e, cfg, &metadata.local_crate));
+            out.push_str(&render_enum_type(e, cfg, namespace));
         }
     }
 
-    // Callback interfaces (TypeScript interface declarations — same shape as legacy)
+    // Callback interfaces (TypeScript interface declarations)
     for cb in &metadata.callback_interfaces {
         if !cfg.exclude.contains(&cb.name) {
             out.push('\n');
@@ -430,7 +197,7 @@ fn render_ts_ffi(
         }
     }
 
-    // Object classes — NEW: handle-based with FFI calls
+    // Object classes — handle-based with FFI calls
     let visible_objects: Vec<&ObjectDef> = metadata
         .objects
         .iter()
@@ -438,18 +205,24 @@ fn render_ts_ffi(
         .collect();
     for o in &visible_objects {
         out.push('\n');
-        out.push_str(&render_object_class_ffi(o, namespace, cfg));
+        out.push_str(&render_object_class(o, namespace, cfg));
     }
 
     // Serialization helpers for compound types (records, enums, errors)
     out.push('\n');
     out.push_str("// --- Serialization helpers ---\n");
     for r in &metadata.records {
+        if cfg.exclude.contains(&r.name) {
+            continue;
+        }
         out.push('\n');
         out.push_str(&ffi::gen_record_lower_fn(r, namespace));
         out.push_str(&ffi::gen_record_lift_fn(r));
     }
     for e in &metadata.enums {
+        if cfg.exclude.contains(&e.name) {
+            continue;
+        }
         out.push('\n');
         if e.is_flat {
             out.push_str(&ffi::gen_flat_enum_lower_fn(e, namespace));
@@ -457,6 +230,36 @@ fn render_ts_ffi(
         } else {
             out.push_str(&ffi::gen_data_enum_lower_fn(e, namespace));
             out.push_str(&ffi::gen_data_enum_lift_fn(e));
+        }
+    }
+    // Error value-type serialization helpers. Only emitted when the error has
+    // constructors (which return the type via RustBuffer and need _liftFoo) or
+    // methods (which need _lowerFoo to serialize `this`). Errors without
+    // constructors/methods only need the _liftError variant for RustCallStatus.
+    for error in &metadata.errors {
+        if cfg.exclude.contains(&error.name) {
+            continue;
+        }
+        let has_ctors = !error.constructors.is_empty();
+        let has_methods = !error.methods.is_empty();
+        if !has_ctors && !has_methods {
+            continue;
+        }
+        out.push('\n');
+        if error.is_flat {
+            if has_methods {
+                out.push_str(&ffi::gen_flat_error_value_lower_fn(error, namespace));
+            }
+            if has_ctors {
+                out.push_str(&ffi::gen_flat_error_value_lift_fn(error));
+            }
+        } else {
+            if has_methods {
+                out.push_str(&ffi::gen_rich_error_value_lower_fn(error, namespace));
+            }
+            if has_ctors {
+                out.push_str(&ffi::gen_rich_error_value_lift_fn(error));
+            }
         }
     }
 
@@ -528,8 +331,15 @@ fn render_ts_ffi(
             }
         }
     }
+    // Object-based errors (is_error objects) need _liftError for RustCallStatus.
+    for o in &visible_objects {
+        if o.is_error && all_throws.contains(&o.name) {
+            out.push('\n');
+            out.push_str(&ffi::gen_object_error_lift_fn(&o.name));
+        }
+    }
 
-    // Namespace with top-level functions — NEW: FFI call bodies
+    // Namespace with top-level functions
     let visible_fns: Vec<&FnDef> = metadata
         .functions
         .iter()
@@ -541,7 +351,7 @@ fn render_ts_ffi(
         out.push_str(&render_jsdoc(metadata.namespace_docstring.as_deref(), ""));
         out.push_str(&format!("export namespace {module_name} {{\n"));
         for f in &visible_fns {
-            out.push_str(&render_function_ffi(f, namespace, cfg));
+            out.push_str(&render_function(f, namespace, cfg));
         }
         out.push_str("}\n");
     }
@@ -555,8 +365,8 @@ fn render_ts_ffi(
 
 use naming::{camel_case, safe_js_identifier};
 use render_helpers::{
-    duration_annotations, duration_return_annotation, render_jsdoc_with_throws, render_param_ffi,
-    ts_return_type_ffi,
+    duration_annotations, duration_return_annotation, render_jsdoc_with_throws, render_param,
+    ts_return_type,
 };
 
 /// Emit clone calls for Object-typed arguments and build the arg pairs
@@ -564,15 +374,6 @@ use render_helpers::{
 ///
 /// For each Object-typed arg, emits a clone line and replaces the arg name
 /// with the cloned handle variable (a raw bigint). Non-object args pass through.
-///
-/// Clone calls are emitted before any scratchAlloc so that `cloneObjectHandle`'s
-/// internal scratchSave/scratchRestore doesn't interfere with the caller's
-/// scratch frame. The resulting bigint values are JS locals, unaffected by
-/// subsequent scratch resets.
-///
-/// Note: Only handles direct `Type::Object` args. Objects nested inside
-/// `Optional<Object>`, `Sequence<Object>`, etc. are serialized via the
-/// `gen_lower_expr` path which clones handles via `_rt.cloneObjectHandle`.
 fn prepare_object_args(
     args: &[ArgDef],
     js_arg_names: &[String],
@@ -596,27 +397,77 @@ fn prepare_object_args(
     result
 }
 
-/// Apply Object return wrapping to generated FFI call body.
+/// Apply return wrapping to generated FFI call body.
 ///
-/// If the return type is an Object, replaces `return _result;` with
-/// `return {Name}._fromHandle(_result);` so the raw handle is wrapped.
+/// Replaces `return _result;` in the body emitted by `gen_ffi_call` /
+/// `gen_async_ffi_call` with a wrapped version:
+/// - Object returns: wrap with `_fromHandle()`
+/// - Custom returns with lift config: wrap with the lift expression
 ///
-/// Safety: Object types use the "u64" future suffix (handles are u64).
-/// They never go through the rust_buffer path, so "return _result;" appears
-/// exactly once and the replacement is unambiguous.
-fn apply_object_return_wrap(
+/// Panics in debug builds if the sentinel `return _result;` is not found.
+fn apply_return_wrap(
     body: &mut String,
     return_type: Option<&uniffi_bindgen::interface::Type>,
+    cfg: &config::JsBindingsConfig,
 ) {
-    if let Some(uniffi_bindgen::interface::Type::Object { name, .. }) = return_type {
-        *body = body.replace(
-            "return _result;",
-            &format!("return {name}._fromHandle(_result);"),
-        );
+    match return_type {
+        Some(uniffi_bindgen::interface::Type::Object { name, .. }) => {
+            debug_assert!(
+                body.contains("return _result;"),
+                "apply_return_wrap: expected 'return _result;' in body for Object '{name}'"
+            );
+            *body = body.replace(
+                "return _result;",
+                &format!("return {name}._fromHandle(_result);"),
+            );
+        }
+        Some(uniffi_bindgen::interface::Type::Custom { name, .. }) => {
+            if let Some(ct_cfg) = cfg.custom_types.get(name) {
+                let lifted = ct_cfg.lift_expr("_result");
+                if lifted != "_result" {
+                    debug_assert!(
+                        body.contains("return _result;"),
+                        "apply_return_wrap: expected 'return _result;' in body for Custom '{name}'"
+                    );
+                    *body = body.replace("return _result;", &format!("return {lifted};"));
+                }
+            }
+        }
+        _ => {}
     }
 }
 
-fn render_function_ffi(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfig) -> String {
+/// Lower custom-typed args before FFI calls.
+///
+/// For each Custom-typed arg with a `lower` config, emits `const _ct_{name} = lower(name);`
+/// and returns updated arg names with the lowered variable name.
+fn apply_custom_type_arg_lowering(
+    args: &[ArgDef],
+    js_arg_names: &[String],
+    cfg: &config::JsBindingsConfig,
+    indent: &str,
+    out: &mut String,
+) -> Vec<String> {
+    js_arg_names
+        .iter()
+        .zip(args.iter())
+        .map(|(name, a)| {
+            if let uniffi_bindgen::interface::Type::Custom { name: ct_name, .. } = &a.type_ {
+                if let Some(ct_cfg) = cfg.custom_types.get(ct_name) {
+                    let lowered = ct_cfg.lower_expr(name);
+                    if lowered != *name {
+                        let var = format!("_ct_{name}");
+                        out.push_str(&format!("{indent}const {var} = {lowered};\n"));
+                        return var;
+                    }
+                }
+            }
+            name.clone()
+        })
+        .collect()
+}
+
+fn render_function(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfig) -> String {
     let mut out = String::new();
 
     let exported = cfg
@@ -625,8 +476,8 @@ fn render_function_ffi(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfi
         .map(|s| safe_js_identifier(s))
         .unwrap_or_else(|| safe_js_identifier(&camel_case(&f.name)));
 
-    let params: Vec<String> = f.args.iter().map(render_param_ffi).collect();
-    let ts_ret = ts_return_type_ffi(f.return_type.as_ref(), f.is_async);
+    let params: Vec<String> = f.args.iter().map(render_param).collect();
+    let ts_ret = ts_return_type(f.return_type.as_ref(), f.is_async);
 
     let ffi_name = ffi::ffibuf_fn_func(namespace, &f.name);
 
@@ -656,6 +507,10 @@ fn render_function_ffi(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfi
         .map(|a| safe_js_identifier(&camel_case(&a.name)))
         .collect();
 
+    // Apply custom type lowering (transforms custom → builtin before serialization)
+    let js_arg_names =
+        apply_custom_type_arg_lowering(&f.args, &js_arg_names, cfg, "    ", &mut out);
+
     // Clone Object-typed args (FFI scaffolding consumes handles)
     let prepared = prepare_object_args(&f.args, &js_arg_names, namespace, "    ", &mut out);
     let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> = prepared
@@ -683,8 +538,8 @@ fn render_function_ffi(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfi
         )
     };
 
-    // Wrap Object returns in _fromHandle()
-    apply_object_return_wrap(&mut body, f.return_type.as_ref());
+    // Wrap Object/Custom returns
+    apply_return_wrap(&mut body, f.return_type.as_ref(), cfg);
 
     out.push_str(&body);
     out.push_str("\n  }\n");
@@ -696,11 +551,7 @@ fn render_function_ffi(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfi
 // FFI-direct object class rendering
 // ---------------------------------------------------------------------------
 
-fn render_object_class_ffi(
-    o: &ObjectDef,
-    namespace: &str,
-    cfg: &config::JsBindingsConfig,
-) -> String {
+fn render_object_class(o: &ObjectDef, namespace: &str, cfg: &config::JsBindingsConfig) -> String {
     let mut out = String::new();
     let name = &o.name;
 
@@ -743,7 +594,7 @@ fn render_object_class_ffi(
             o.constructors.iter().filter(|c| c.name != "new").collect();
 
         if let Some(ctor) = primary_ctor {
-            out.push_str(&render_ctor_ffi(ctor, name, namespace, "create", cfg));
+            out.push_str(&render_ctor(ctor, name, namespace, "create", cfg));
         }
 
         for ctor in named_ctors {
@@ -752,7 +603,7 @@ fn render_object_class_ffi(
                 .get(&format!("{}.{}", name, ctor.name))
                 .map(|s| safe_js_identifier(s))
                 .unwrap_or_else(|| safe_js_identifier(&camel_case(&ctor.name)));
-            out.push_str(&render_ctor_ffi(ctor, name, namespace, &exported, cfg));
+            out.push_str(&render_ctor(ctor, name, namespace, &exported, cfg));
         }
     }
 
@@ -766,8 +617,11 @@ fn render_object_class_ffi(
             .get(&format!("{}.{}", name, m.name))
             .map(|s| safe_js_identifier(s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
-        out.push_str(&render_method_ffi(m, name, namespace, &exported, cfg));
+        out.push_str(&render_method(m, name, namespace, &exported, cfg));
     }
+
+    // Synthesised trait methods (instance methods on the class)
+    out.push_str(&render_object_trait_methods(o, namespace));
 
     // free()
     out.push_str("  /** Releases the underlying WASM resource. Safe to call more than once. */\n");
@@ -785,7 +639,161 @@ fn render_object_class_ffi(
     out
 }
 
-fn render_ctor_ffi(
+/// Render synthesised trait methods (Display, Debug, Eq, Hash, Ord)
+/// as instance methods on an object class using FFI calls.
+fn render_object_trait_methods(o: &ObjectDef, namespace: &str) -> String {
+    let mut out = String::new();
+    let name = &o.name;
+
+    if let Some(method_name) = &o.traits.display {
+        out.push_str(&render_object_trait_method(
+            "toString",
+            method_name,
+            name,
+            namespace,
+            &uniffi_bindgen::interface::Type::String,
+            false, // has_other
+        ));
+    }
+
+    if let Some(method_name) = &o.traits.debug {
+        out.push_str(&render_object_trait_method(
+            "toDebugString",
+            method_name,
+            name,
+            namespace,
+            &uniffi_bindgen::interface::Type::String,
+            false,
+        ));
+    }
+
+    if let Some(method_name) = &o.traits.eq {
+        let ffi_name = ffi::ffibuf_fn_method(namespace, name, method_name);
+        let handle_type = uniffi_bindgen::interface::Type::Object {
+            name: name.to_string(),
+            module_path: String::new(),
+            imp: uniffi_bindgen::interface::ObjectImpl::Struct,
+        };
+        let clone_fn = ffi::fn_clone(namespace, name);
+
+        out.push_str(&format!("  equals(other: {name}): boolean {{\n"));
+        out.push_str("    this._assertLive();\n");
+        out.push_str(&format!(
+            "    const _clonedSelf = _rt.cloneObjectHandle('{clone_fn}', this._handle);\n"
+        ));
+        out.push_str(&format!(
+            "    const _clonedOther = _rt.cloneObjectHandle('{clone_fn}', other._handle);\n"
+        ));
+
+        let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> = vec![
+            ("_clonedSelf", &handle_type),
+            ("_clonedOther", &handle_type),
+        ];
+
+        let body = ffi::gen_ffi_call(
+            &ffi_name,
+            namespace,
+            &arg_pairs,
+            Some(&uniffi_bindgen::interface::Type::Boolean),
+            None,
+            "    ",
+        );
+        out.push_str(&body);
+        out.push_str("\n  }\n");
+    }
+
+    if let Some(method_name) = &o.traits.hash {
+        out.push_str(&render_object_trait_method(
+            "hashCode",
+            method_name,
+            name,
+            namespace,
+            &uniffi_bindgen::interface::Type::UInt64,
+            false,
+        ));
+    }
+
+    if let Some(method_name) = &o.traits.ord {
+        let ffi_name = ffi::ffibuf_fn_method(namespace, name, method_name);
+        let handle_type = uniffi_bindgen::interface::Type::Object {
+            name: name.to_string(),
+            module_path: String::new(),
+            imp: uniffi_bindgen::interface::ObjectImpl::Struct,
+        };
+        let clone_fn = ffi::fn_clone(namespace, name);
+
+        out.push_str(&format!("  compareTo(other: {name}): number {{\n"));
+        out.push_str("    this._assertLive();\n");
+        out.push_str(&format!(
+            "    const _clonedSelf = _rt.cloneObjectHandle('{clone_fn}', this._handle);\n"
+        ));
+        out.push_str(&format!(
+            "    const _clonedOther = _rt.cloneObjectHandle('{clone_fn}', other._handle);\n"
+        ));
+
+        let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> = vec![
+            ("_clonedSelf", &handle_type),
+            ("_clonedOther", &handle_type),
+        ];
+
+        let body = ffi::gen_ffi_call(
+            &ffi_name,
+            namespace,
+            &arg_pairs,
+            Some(&uniffi_bindgen::interface::Type::Int8),
+            None,
+            "    ",
+        );
+        out.push_str(&body);
+        out.push_str("\n  }\n");
+    }
+
+    out
+}
+
+/// Render a single-self-arg object trait method (Display, Debug, Hash).
+fn render_object_trait_method(
+    exported: &str,
+    ffi_method_name: &str,
+    class_name: &str,
+    namespace: &str,
+    return_type: &uniffi_bindgen::interface::Type,
+    _has_other: bool,
+) -> String {
+    let mut out = String::new();
+    let ts_ret = ts_type_str(return_type);
+    let ffi_name = ffi::ffibuf_fn_method(namespace, class_name, ffi_method_name);
+    let clone_fn = ffi::fn_clone(namespace, class_name);
+
+    let handle_type = uniffi_bindgen::interface::Type::Object {
+        name: class_name.to_string(),
+        module_path: String::new(),
+        imp: uniffi_bindgen::interface::ObjectImpl::Struct,
+    };
+
+    out.push_str(&format!("  {exported}(): {ts_ret} {{\n"));
+    out.push_str("    this._assertLive();\n");
+    out.push_str(&format!(
+        "    const _clonedHandle = _rt.cloneObjectHandle('{clone_fn}', this._handle);\n"
+    ));
+
+    let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> =
+        vec![("_clonedHandle", &handle_type)];
+
+    let body = ffi::gen_ffi_call(
+        &ffi_name,
+        namespace,
+        &arg_pairs,
+        Some(return_type),
+        None,
+        "    ",
+    );
+    out.push_str(&body);
+    out.push_str("\n  }\n");
+    out
+}
+
+fn render_ctor(
     ctor: &CtorDef,
     class_name: &str,
     namespace: &str,
@@ -794,7 +802,7 @@ fn render_ctor_ffi(
 ) -> String {
     let mut out = String::new();
 
-    let params: Vec<String> = ctor.args.iter().map(render_param_ffi).collect();
+    let params: Vec<String> = ctor.args.iter().map(render_param).collect();
     let async_kw = if ctor.is_async { "async " } else { "" };
     let ret_type = if ctor.is_async {
         format!("Promise<{class_name}>")
@@ -865,17 +873,17 @@ fn render_ctor_ffi(
     out
 }
 
-fn render_method_ffi(
+fn render_method(
     m: &MethodDef,
     class_name: &str,
     namespace: &str,
     exported: &str,
-    _cfg: &config::JsBindingsConfig,
+    cfg: &config::JsBindingsConfig,
 ) -> String {
     let mut out = String::new();
 
-    let params: Vec<String> = m.args.iter().map(render_param_ffi).collect();
-    let ts_ret = ts_return_type_ffi(m.return_type.as_ref(), m.is_async);
+    let params: Vec<String> = m.args.iter().map(render_param).collect();
+    let ts_ret = ts_return_type(m.return_type.as_ref(), m.is_async);
     let async_kw = if m.is_async { "async " } else { "" };
 
     let throws_name = m.throws_type.as_ref().map(type_name);
@@ -916,6 +924,10 @@ fn render_method_ffi(
         .map(|a| safe_js_identifier(&camel_case(&a.name)))
         .collect();
 
+    // Apply custom type lowering
+    let js_arg_names =
+        apply_custom_type_arg_lowering(&m.args, &js_arg_names, cfg, "    ", &mut out);
+
     // Clone Object-typed user args (FFI scaffolding consumes handles)
     let prepared = prepare_object_args(&m.args, &js_arg_names, namespace, "    ", &mut out);
 
@@ -945,8 +957,8 @@ fn render_method_ffi(
         )
     };
 
-    // Wrap Object returns in _fromHandle()
-    apply_object_return_wrap(&mut body, m.return_type.as_ref());
+    // Wrap Object/Custom returns
+    apply_return_wrap(&mut body, m.return_type.as_ref(), cfg);
 
     out.push_str(&body);
     out.push_str("\n  }\n");
@@ -959,19 +971,10 @@ fn render_method_ffi(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use uniffi_bindgen::interface::{DefaultValue, Literal, Type};
 
-    use super::config;
-    use super::external_types::collect_external_imports;
     use super::naming::*;
     use super::render_helpers::*;
-    use super::render_objects::render_object_class;
-    use super::render_types::*;
-    use super::type_lifting::*;
-    use super::types::LOCAL_CRATE_SENTINEL;
-    use super::types::*;
 
     #[test]
     fn camel_case_handles_underscores() {
@@ -1003,15 +1006,6 @@ mod tests {
     fn pascal_case_handles_common_cases() {
         assert_eq!(pascal_case("simple_bindings"), "SimpleBindings");
         assert_eq!(pascal_case("simple-bindings"), "SimpleBindings");
-    }
-
-    #[test]
-    fn snake_case_handles_pascal() {
-        assert_eq!(snake_case("Counter"), "counter");
-        assert_eq!(snake_case("MyCounter"), "my_counter");
-        assert_eq!(snake_case("MyHTTPClient"), "my_http_client");
-        assert_eq!(snake_case("URLError"), "url_error");
-        assert_eq!(snake_case("ABC"), "abc");
     }
 
     #[test]
@@ -1059,7 +1053,6 @@ mod tests {
 
     #[test]
     fn render_jsdoc_long_single_line_uses_block_format() {
-        // 76+ chars on the line itself should spill into block format to stay under 80
         let doc = "This is a very long docstring that exceeds the eighty character threshold.";
         let result = render_jsdoc(Some(doc), "");
         assert!(
@@ -1081,7 +1074,6 @@ mod tests {
     #[test]
     fn render_literal_string() {
         assert_eq!(render_literal(&Literal::String("hello".into())), "'hello'");
-        // Escapes single quotes and backslashes
         assert_eq!(
             render_literal(&Literal::String("it's a \\path".into())),
             "'it\\'s a \\\\path'"
@@ -1090,7 +1082,6 @@ mod tests {
 
     #[test]
     fn render_literal_uint() {
-        // Small uint → plain number
         assert_eq!(
             render_literal(&Literal::UInt(
                 42,
@@ -1099,7 +1090,6 @@ mod tests {
             )),
             "42"
         );
-        // u64 → bigint suffix
         assert_eq!(
             render_literal(&Literal::UInt(
                 100,
@@ -1108,7 +1098,6 @@ mod tests {
             )),
             "100n"
         );
-        // i64 → bigint suffix
         assert_eq!(
             render_literal(&Literal::UInt(
                 7,
@@ -1186,7 +1175,7 @@ mod tests {
 
     #[test]
     fn render_param_no_default() {
-        let arg = ArgDef {
+        let arg = super::types::ArgDef {
             name: "user_name".into(),
             type_: Type::String,
             default: None,
@@ -1196,7 +1185,7 @@ mod tests {
 
     #[test]
     fn render_param_literal_default() {
-        let arg = ArgDef {
+        let arg = super::types::ArgDef {
             name: "count".into(),
             type_: Type::Int32,
             default: Some(DefaultValue::Literal(Literal::UInt(
@@ -1210,1122 +1199,56 @@ mod tests {
 
     #[test]
     fn render_param_unspecified_default() {
-        let arg = ArgDef {
-            name: "label".into(),
-            type_: Type::String,
+        let arg = super::types::ArgDef {
+            name: "count".into(),
+            type_: Type::Int32,
             default: Some(DefaultValue::Default),
         };
-        assert_eq!(render_param(&arg), "label?: string");
+        assert_eq!(render_param(&arg), "count?: number");
     }
 
     // -----------------------------------------------------------------------
-    // ts_return_type tests
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn ts_return_type_sync_void() {
-        assert_eq!(ts_return_type(None, false), "void");
-    }
-
-    #[test]
-    fn ts_return_type_async_void() {
-        assert_eq!(ts_return_type(None, true), "Promise<void>");
-    }
-
-    #[test]
-    fn ts_return_type_sync_string() {
-        assert_eq!(ts_return_type(Some(&Type::String), false), "string");
-    }
-
-    #[test]
-    fn ts_return_type_async_string() {
-        assert_eq!(ts_return_type(Some(&Type::String), true), "Promise<string>");
-    }
-
-    // -----------------------------------------------------------------------
-    // render_call_body tests
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn render_call_body_no_throws_no_preamble_with_return() {
-        assert_eq!(
-            render_call_body("foo()", true, None, None),
-            " return foo(); "
-        );
-    }
-
-    #[test]
-    fn render_call_body_no_throws_no_preamble_no_return() {
-        assert_eq!(render_call_body("foo()", false, None, None), " foo(); ");
-    }
-
-    #[test]
-    fn render_call_body_no_throws_with_preamble_with_return() {
-        let body = render_call_body("foo()", true, None, Some("this._assertLive();"));
-        assert_eq!(body, "\n    this._assertLive();\n    return foo();\n  ");
-    }
-
-    #[test]
-    fn render_call_body_no_throws_with_preamble_no_return() {
-        let body = render_call_body("foo()", false, None, Some("this._assertLive();"));
-        assert_eq!(body, "\n    this._assertLive();\n    foo();\n  ");
-    }
-
-    #[test]
-    fn render_call_body_throws_no_preamble_with_return() {
-        let body = render_call_body("foo()", true, Some("MyError"), None);
-        assert_eq!(
-            body,
-            "\n    try { return foo(); } catch (e) { return _liftMyError(e); }\n  "
-        );
-    }
-
-    #[test]
-    fn render_call_body_throws_no_preamble_no_return() {
-        let body = render_call_body("foo()", false, Some("MyError"), None);
-        assert_eq!(
-            body,
-            "\n    try { foo(); } catch (e) { _liftMyError(e); }\n  "
-        );
-    }
-
-    #[test]
-    fn render_call_body_throws_with_preamble_with_return() {
-        let body = render_call_body("foo()", true, Some("MyError"), Some("this._assertLive();"));
-        assert_eq!(
-            body,
-            "\n    this._assertLive();\n    try { return foo(); } catch (e) { return _liftMyError(e); }\n  "
-        );
-    }
-
-    #[test]
-    fn render_call_body_throws_with_preamble_no_return() {
-        let body = render_call_body("foo()", false, Some("MyError"), Some("this._assertLive();"));
-        assert_eq!(
-            body,
-            "\n    this._assertLive();\n    try { foo(); } catch (e) { _liftMyError(e); }\n  "
-        );
-    }
-
-    // -----------------------------------------------------------------------
-    // lift_return tests for Optional<Object> and Sequence<Object>
-    // -----------------------------------------------------------------------
-
-    const LC: &str = LOCAL_CRATE_SENTINEL;
-
-    #[test]
-    fn lift_return_optional_object_sync() {
-        let result = lift_return(
-            "__bg.find_item()",
-            Some(&Type::Optional {
-                inner_type: Box::new(Type::Object {
-                    name: "Item".into(),
-                    module_path: "crate_name::mod".into(),
-                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-                }),
-            }),
-            false,
-            LC,
-        );
-        assert_eq!(
-            result.preamble.as_deref(),
-            Some("const __v = __bg.find_item();")
-        );
-        assert_eq!(result.expr, "__v == null ? null : Item._fromInner(__v)");
-    }
-
-    #[test]
-    fn lift_return_optional_object_async() {
-        let result = lift_return(
-            "__bg.find_item()",
-            Some(&Type::Optional {
-                inner_type: Box::new(Type::Object {
-                    name: "Item".into(),
-                    module_path: "crate_name::mod".into(),
-                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-                }),
-            }),
-            true,
-            LC,
-        );
-        assert_eq!(
-            result.preamble.as_deref(),
-            Some("const __v = await __bg.find_item();")
-        );
-        assert_eq!(result.expr, "__v == null ? null : Item._fromInner(__v)");
-    }
-
-    #[test]
-    fn lift_return_sequence_object_sync() {
-        let result = lift_return(
-            "__bg.list_items()",
-            Some(&Type::Sequence {
-                inner_type: Box::new(Type::Object {
-                    name: "Item".into(),
-                    module_path: "crate_name::mod".into(),
-                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-                }),
-            }),
-            false,
-            LC,
-        );
-        assert!(result.preamble.is_none());
-        assert_eq!(
-            result.expr,
-            "(__bg.list_items()).map((__v) => Item._fromInner(__v))"
-        );
-    }
-
-    #[test]
-    fn lift_return_sequence_object_async() {
-        let result = lift_return(
-            "__bg.list_items()",
-            Some(&Type::Sequence {
-                inner_type: Box::new(Type::Object {
-                    name: "Item".into(),
-                    module_path: "crate_name::mod".into(),
-                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-                }),
-            }),
-            true,
-            LC,
-        );
-        assert!(result.preamble.is_none());
-        assert_eq!(
-            result.expr,
-            "(await __bg.list_items()).map((__v) => Item._fromInner(__v))"
-        );
-    }
-
-    #[test]
-    fn lift_return_external_object_not_lifted() {
-        let result = lift_return(
-            "__bg.get_ext()",
-            Some(&Type::Object {
-                name: "ExtObj".into(),
-                module_path: "other_crate::mod".into(),
-                imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-            }),
-            false,
-            LC,
-        );
-        assert!(result.preamble.is_none());
-        assert_eq!(result.expr, "__bg.get_ext()");
-    }
-
-    // -----------------------------------------------------------------------
-    // lift_return: Map<K, Object> and nested types
-    // -----------------------------------------------------------------------
-
-    fn local_object(name: &str) -> Type {
-        Type::Object {
-            name: name.into(),
-            module_path: "crate_name::mod".into(),
-            imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-        }
-    }
-
-    #[test]
-    fn lift_return_map_string_object_sync() {
-        let result = lift_return(
-            "__bg.get_map()",
-            Some(&Type::Map {
-                key_type: Box::new(Type::String),
-                value_type: Box::new(local_object("Item")),
-            }),
-            false,
-            LC,
-        );
-        assert!(result.preamble.is_none());
-        assert_eq!(
-            result.expr,
-            "new Map([...__bg.get_map()].map(([__k, __v]) => [__k, Item._fromInner(__v)]))"
-        );
-    }
-
-    #[test]
-    fn lift_return_map_string_object_async() {
-        let result = lift_return(
-            "__bg.get_map()",
-            Some(&Type::Map {
-                key_type: Box::new(Type::String),
-                value_type: Box::new(local_object("Item")),
-            }),
-            true,
-            LC,
-        );
-        assert!(result.preamble.is_none());
-        assert_eq!(
-            result.expr,
-            "new Map([...await __bg.get_map()].map(([__k, __v]) => [__k, Item._fromInner(__v)]))"
-        );
-    }
-
-    #[test]
-    fn lift_return_optional_sequence_object() {
-        let result = lift_return(
-            "__bg.maybe_list()",
-            Some(&Type::Optional {
-                inner_type: Box::new(Type::Sequence {
-                    inner_type: Box::new(local_object("Item")),
-                }),
-            }),
-            false,
-            LC,
-        );
-        assert_eq!(
-            result.preamble.as_deref(),
-            Some("const __v = __bg.maybe_list();")
-        );
-        assert_eq!(
-            result.expr,
-            "__v == null ? null : (__v).map((__v) => Item._fromInner(__v))"
-        );
-    }
-
-    #[test]
-    fn lift_return_sequence_optional_object() {
-        let result = lift_return(
-            "__bg.list_maybe()",
-            Some(&Type::Sequence {
-                inner_type: Box::new(Type::Optional {
-                    inner_type: Box::new(local_object("Item")),
-                }),
-            }),
-            false,
-            LC,
-        );
-        assert!(result.preamble.is_none());
-        assert_eq!(
-            result.expr,
-            "(__bg.list_maybe()).map((__v) => ((__v) => __v == null ? null : Item._fromInner(__v))(__v))"
-        );
-    }
-
-    #[test]
-    fn lift_return_no_lifting_for_plain_types() {
-        assert_eq!(
-            lift_return("__bg.foo()", Some(&Type::String), false, LC).expr,
-            "__bg.foo()"
-        );
-        assert_eq!(
-            lift_return(
-                "__bg.foo()",
-                Some(&Type::Map {
-                    key_type: Box::new(Type::String),
-                    value_type: Box::new(Type::Int32),
-                }),
-                false,
-                LC
-            )
-            .expr,
-            "__bg.foo()"
-        );
-    }
-
-    #[test]
-    fn lift_return_optional_primitive_sync_coalesces_null() {
-        let result = lift_return(
-            "__bg.get_name()",
-            Some(&Type::Optional {
-                inner_type: Box::new(Type::String),
-            }),
-            false,
-            LC,
-        );
-        assert!(result.preamble.is_none());
-        assert_eq!(result.expr, "__bg.get_name() ?? null");
-    }
-
-    #[test]
-    fn lift_return_optional_primitive_async_coalesces_null() {
-        let result = lift_return(
-            "__bg.get_name()",
-            Some(&Type::Optional {
-                inner_type: Box::new(Type::String),
-            }),
-            true,
-            LC,
-        );
-        assert!(result.preamble.is_none());
-        assert_eq!(result.expr, "(await __bg.get_name()) ?? null");
-    }
-
-    #[test]
-    fn needs_object_lifting_detects_nested() {
-        assert!(needs_object_lifting(&local_object("Foo"), LC));
-        assert!(needs_object_lifting(
-            &Type::Optional {
-                inner_type: Box::new(local_object("Foo"))
-            },
-            LC
-        ));
-        assert!(needs_object_lifting(
-            &Type::Sequence {
-                inner_type: Box::new(local_object("Foo"))
-            },
-            LC
-        ));
-        assert!(needs_object_lifting(
-            &Type::Map {
-                key_type: Box::new(Type::String),
-                value_type: Box::new(local_object("Foo")),
-            },
-            LC
-        ));
-        assert!(!needs_object_lifting(&Type::String, LC));
-        assert!(!needs_object_lifting(
-            &Type::Map {
-                key_type: Box::new(Type::String),
-                value_type: Box::new(Type::Int32),
-            },
-            LC
-        ));
-    }
-
-    // -----------------------------------------------------------------------
-    // render_enum_methods_on_class tests
-    // -----------------------------------------------------------------------
-
-    fn make_method(name: &str, return_type: Option<Type>, is_async: bool) -> MethodDef {
-        MethodDef {
-            name: name.into(),
-            args: vec![],
-            return_type,
-            throws_type: None,
-            is_async,
-            docstring: None,
-        }
-    }
-
-    #[test]
-    fn render_enum_methods_on_class_instance_method() {
-        let methods = vec![make_method("describe", Some(Type::String), false)];
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_methods_on_class(&methods, "StatusCode", &cfg, LC);
-        assert!(
-            result.contains("describe(): string { return __bg.status_code_describe(this); }"),
-            "got: {result}"
-        );
-    }
-
-    #[test]
-    fn render_enum_methods_on_class_async_method() {
-        let methods = vec![make_method("process", None, true)];
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_methods_on_class(&methods, "Task", &cfg, LC);
-        assert!(
-            result.contains("async process(): Promise<void>"),
-            "got: {result}"
-        );
-    }
-
-    // -----------------------------------------------------------------------
-    // render_enum_type companion namespace tests
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn render_enum_type_with_methods_has_companion_namespace() {
-        let e = EnumDef {
-            name: "Shape".into(),
-            variants: vec![VariantDef {
-                name: "Circle".into(),
-                fields: vec![],
-                docstring: None,
-                discr: None,
-            }],
-            is_flat: true,
-            is_non_exhaustive: false,
-            docstring: None,
-            methods: vec![make_method("area", Some(Type::Float64), false)],
-            constructors: vec![],
-            traits: SynthesisedTraits::default(),
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_type(&e, &cfg, LC);
-        assert!(
-            result.contains("export type Shape = 'Circle';"),
-            "got: {result}"
-        );
-        assert!(result.contains("export namespace Shape {"), "got: {result}");
-        assert!(
-            result.contains(
-                "export function area(value: Shape): number { return __bg.shape_area(value); }"
-            ),
-            "got: {result}"
-        );
-    }
-
-    #[test]
-    fn render_enum_type_without_methods_no_namespace() {
-        let e = EnumDef {
-            name: "Dir".into(),
-            variants: vec![VariantDef {
-                name: "Up".into(),
-                fields: vec![],
-                docstring: None,
-                discr: None,
-            }],
-            is_flat: true,
-            is_non_exhaustive: false,
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-            traits: SynthesisedTraits::default(),
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_type(&e, &cfg, LC);
-        assert!(!result.contains("namespace"), "got: {result}");
-    }
-
-    // -----------------------------------------------------------------------
-    // pascal_case edge case
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn pascal_case_empty_returns_fallback() {
-        assert_eq!(pascal_case(""), "UniffiBindings");
-    }
-
-    // -----------------------------------------------------------------------
-    // ts_type_str: Sequence<Optional<T>> parenthesization
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn sequence_of_optional_parenthesized() {
-        let t = Type::Sequence {
-            inner_type: Box::new(Type::Optional {
-                inner_type: Box::new(Type::String),
-            }),
-        };
-        assert_eq!(ts_type_str(&t), "(string | null)[]");
-    }
-
-    #[test]
-    fn sequence_of_plain_not_parenthesized() {
-        let t = Type::Sequence {
-            inner_type: Box::new(Type::String),
-        };
-        assert_eq!(ts_type_str(&t), "string[]");
-    }
-
-    // -----------------------------------------------------------------------
-    // Generator error-path tests
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn missing_external_package_errors_for_object() {
-        let metadata = BindingsMetadata {
-            functions: vec![FnDef {
-                name: "get_ext".into(),
-                args: vec![],
-                return_type: Some(Type::Object {
-                    name: "ExtObj".into(),
-                    module_path: "other_crate::mod".into(),
-                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-                }),
-                throws_type: None,
-                is_async: false,
-                docstring: None,
-            }],
-            ..Default::default()
-        };
-        let empty_packages = HashMap::new();
-        let result = collect_external_imports(&metadata, &empty_packages, LC);
-        assert!(result.is_err());
-        let msg = result.unwrap_err().to_string();
-        assert!(
-            msg.contains("external_packages"),
-            "error should mention external_packages, got: {msg}"
-        );
-        assert!(
-            msg.contains("other_crate"),
-            "error should mention the crate name, got: {msg}"
-        );
-    }
-
-    #[test]
-    fn missing_external_package_errors_for_custom_type() {
-        let metadata = BindingsMetadata {
-            custom_types: vec![CustomTypeDef {
-                name: "RemoteUrl".into(),
-                builtin: Type::String,
-                module_path: "remote_crate::types".into(),
-            }],
-            ..Default::default()
-        };
-        let empty_packages = HashMap::new();
-        let result = collect_external_imports(&metadata, &empty_packages, LC);
-        assert!(result.is_err());
-        let msg = result.unwrap_err().to_string();
-        assert!(
-            msg.contains("remote_crate"),
-            "error should mention the crate name, got: {msg}"
-        );
-    }
-
-    #[test]
-    fn external_package_with_config_succeeds() {
-        let metadata = BindingsMetadata {
-            functions: vec![FnDef {
-                name: "get_ext".into(),
-                args: vec![],
-                return_type: Some(Type::Object {
-                    name: "ExtObj".into(),
-                    module_path: "other_crate::mod".into(),
-                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-                }),
-                throws_type: None,
-                is_async: false,
-                docstring: None,
-            }],
-            ..Default::default()
-        };
-        let mut packages = HashMap::new();
-        packages.insert("other_crate".into(), "./other.js".into());
-        let result = collect_external_imports(&metadata, &packages, LC);
-        assert!(result.is_ok());
-        let imports = result.unwrap();
-        assert!(imports.contains_key("./other.js"));
-        assert!(imports["./other.js"].contains("ExtObj"));
-    }
-
-    // -----------------------------------------------------------------------
-    // [NonExhaustive] enum/error tests
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn non_exhaustive_flat_enum_appends_string_catchall() {
-        let e = EnumDef {
-            name: "Status".into(),
-            variants: vec![
-                VariantDef {
-                    name: "Active".into(),
-                    fields: vec![],
-                    docstring: None,
-                    discr: None,
-                },
-                VariantDef {
-                    name: "Inactive".into(),
-                    fields: vec![],
-                    docstring: None,
-                    discr: None,
-                },
-            ],
-            is_flat: true,
-            is_non_exhaustive: true,
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-            traits: SynthesisedTraits::default(),
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_type(&e, &cfg, LC);
-        assert!(
-            result.contains("export type Status = 'Active' | 'Inactive' | (string & {});"),
-            "got: {result}"
-        );
-    }
-
-    #[test]
-    fn non_exhaustive_data_enum_appends_tag_string_catchall() {
-        let e = EnumDef {
-            name: "Shape".into(),
-            variants: vec![VariantDef {
-                name: "Circle".into(),
-                fields: vec![FieldDef {
-                    name: "radius".into(),
-                    type_: Type::Float64,
-                    docstring: None,
-                    default: None,
-                }],
-                docstring: None,
-                discr: None,
-            }],
-            is_flat: false,
-            is_non_exhaustive: true,
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-            traits: SynthesisedTraits::default(),
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_type(&e, &cfg, LC);
-        assert!(
-            result.contains("| { tag: 'Circle', radius: number }"),
-            "got: {result}"
-        );
-        assert!(
-            result.contains("| { tag: string & {}; [key: string]: unknown };"),
-            "got: {result}"
-        );
-    }
-
-    #[test]
-    fn non_exhaustive_flat_error_appends_string_tag() {
-        let e = ErrorDef {
-            name: "AppError".into(),
-            variants: vec![VariantDef {
-                name: "NotFound".into(),
-                fields: vec![],
-                docstring: None,
-                discr: None,
-            }],
-            is_flat: true,
-            is_non_exhaustive: true,
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_error_class(&e, &cfg, LC);
-        assert!(
-            result.contains("tag: 'NotFound' | (string & {})"),
-            "got: {result}"
-        );
-    }
-
-    #[test]
-    fn non_exhaustive_rich_error_appends_catchall_variant() {
-        let e = ErrorDef {
-            name: "NetError".into(),
-            variants: vec![VariantDef {
-                name: "Timeout".into(),
-                fields: vec![FieldDef {
-                    name: "elapsed_ms".into(),
-                    type_: Type::UInt32,
-                    docstring: None,
-                    default: None,
-                }],
-                docstring: None,
-                discr: None,
-            }],
-            is_flat: false,
-            is_non_exhaustive: true,
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_error_class(&e, &cfg, LC);
-        assert!(
-            result.contains("| { tag: string & {}; [key: string]: unknown };"),
-            "got: {result}"
-        );
-    }
-
-    #[test]
-    fn non_exhaustive_flat_error_lift_has_fallback() {
-        let e = ErrorDef {
-            name: "AppError".into(),
-            variants: vec![VariantDef {
-                name: "NotFound".into(),
-                fields: vec![],
-                docstring: None,
-                discr: None,
-            }],
-            is_flat: true,
-            is_non_exhaustive: true,
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-        };
-        let result = render_lift_fn(&e);
-        assert!(
-            result.contains("if (typeof tag === 'string') throw new AppError(tag);"),
-            "got: {result}"
-        );
-    }
-
-    #[test]
-    fn non_exhaustive_rich_error_lift_has_fallback() {
-        let e = ErrorDef {
-            name: "NetError".into(),
-            variants: vec![VariantDef {
-                name: "Timeout".into(),
-                fields: vec![],
-                docstring: None,
-                discr: None,
-            }],
-            is_flat: false,
-            is_non_exhaustive: true,
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-        };
-        let result = render_lift_fn(&e);
-        assert!(
-            result.contains(
-                "if (typeof tag === 'string') throw new NetError(raw as NetErrorVariant);"
-            ),
-            "got: {result}"
-        );
-    }
-
-    #[test]
-    fn local_types_not_treated_as_external() {
-        let metadata = BindingsMetadata {
-            functions: vec![FnDef {
-                name: "get_local".into(),
-                args: vec![],
-                return_type: Some(Type::Object {
-                    name: "LocalObj".into(),
-                    module_path: "crate_name::mod".into(),
-                    imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-                }),
-                throws_type: None,
-                is_async: false,
-                docstring: None,
-            }],
-            ..Default::default()
-        };
-        let empty_packages = HashMap::new();
-        let result = collect_external_imports(&metadata, &empty_packages, LC);
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_empty());
-    }
-
-    // -----------------------------------------------------------------------
-    // Enum constructor tests
-    // -----------------------------------------------------------------------
-
-    fn make_ctor(name: &str, args: Vec<ArgDef>) -> CtorDef {
-        CtorDef {
-            name: name.into(),
-            args,
-            throws_type: None,
-            is_async: false,
-            docstring: None,
-        }
-    }
-
-    #[test]
-    fn enum_constructors_rendered_in_companion_namespace() {
-        let e = EnumDef {
-            name: "Color".into(),
-            variants: vec![VariantDef {
-                name: "Red".into(),
-                fields: vec![],
-                docstring: None,
-                discr: None,
-            }],
-            is_flat: true,
-            is_non_exhaustive: false,
-            docstring: None,
-            methods: vec![],
-            constructors: vec![make_ctor(
-                "from_hex",
-                vec![ArgDef {
-                    name: "hex".into(),
-                    type_: Type::String,
-                    default: None,
-                }],
-            )],
-            traits: SynthesisedTraits::default(),
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_type(&e, &cfg, LC);
-        assert!(result.contains("export namespace Color {"), "got: {result}");
-        assert!(
-            result.contains(
-                "export function fromHex(hex: string): Color { return __bg.color_from_hex(hex); }"
-            ),
-            "got: {result}"
-        );
-    }
-
-    #[test]
-    fn flat_enum_with_discriminants_emits_values_object() {
-        let e = EnumDef {
-            name: "Priority".into(),
-            variants: vec![
-                VariantDef {
-                    name: "Low".into(),
-                    fields: vec![],
-                    docstring: None,
-                    discr: Some(Literal::UInt(
-                        1,
-                        uniffi_bindgen::interface::Radix::Decimal,
-                        Type::UInt8,
-                    )),
-                },
-                VariantDef {
-                    name: "Medium".into(),
-                    fields: vec![],
-                    docstring: None,
-                    discr: Some(Literal::UInt(
-                        5,
-                        uniffi_bindgen::interface::Radix::Decimal,
-                        Type::UInt8,
-                    )),
-                },
-                VariantDef {
-                    name: "High".into(),
-                    fields: vec![],
-                    docstring: None,
-                    discr: Some(Literal::UInt(
-                        10,
-                        uniffi_bindgen::interface::Radix::Decimal,
-                        Type::UInt8,
-                    )),
-                },
-            ],
-            is_flat: true,
-            is_non_exhaustive: false,
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-            traits: SynthesisedTraits::default(),
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_type(&e, &cfg, LC);
-        assert!(
-            result.contains("export const PriorityValues = {"),
-            "expected Values object, got:\n{result}"
-        );
-        assert!(
-            result.contains("Low: 1,"),
-            "expected Low: 1, got:\n{result}"
-        );
-        assert!(
-            result.contains("Medium: 5,"),
-            "expected Medium: 5, got:\n{result}"
-        );
-        assert!(
-            result.contains("High: 10,"),
-            "expected High: 10, got:\n{result}"
-        );
-        assert!(
-            result.contains("} as const;"),
-            "expected as const, got:\n{result}"
-        );
-    }
-
-    #[test]
-    fn flat_enum_without_discriminants_omits_values_object() {
-        let e = EnumDef {
-            name: "Color".into(),
-            variants: vec![
-                VariantDef {
-                    name: "Red".into(),
-                    fields: vec![],
-                    docstring: None,
-                    discr: None,
-                },
-                VariantDef {
-                    name: "Green".into(),
-                    fields: vec![],
-                    docstring: None,
-                    discr: None,
-                },
-            ],
-            is_flat: true,
-            is_non_exhaustive: false,
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-            traits: SynthesisedTraits::default(),
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_type(&e, &cfg, LC);
-        assert!(
-            !result.contains("Values"),
-            "should not have Values object, got:\n{result}"
-        );
-    }
-
-    #[test]
-    fn error_constructors_rendered_as_static_methods() {
-        let e = ErrorDef {
-            name: "AppError".into(),
-            variants: vec![VariantDef {
-                name: "Generic".into(),
-                fields: vec![],
-                docstring: None,
-                discr: None,
-            }],
-            is_flat: true,
-            is_non_exhaustive: false,
-            docstring: None,
-            methods: vec![],
-            constructors: vec![make_ctor(
-                "from_code",
-                vec![ArgDef {
-                    name: "code".into(),
-                    type_: Type::Int32,
-                    default: None,
-                }],
-            )],
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_error_class(&e, &cfg, LC);
-        assert!(
-            result.contains("static fromCode(code: number): AppError { return __bg.app_error_from_code(code); }"),
-            "got: {result}"
-        );
-    }
-
-    #[test]
-    fn enum_with_constructors_and_methods_has_both() {
-        let e = EnumDef {
-            name: "Shape".into(),
-            variants: vec![VariantDef {
-                name: "Circle".into(),
-                fields: vec![],
-                docstring: None,
-                discr: None,
-            }],
-            is_flat: true,
-            is_non_exhaustive: false,
-            docstring: None,
-            methods: vec![make_method("area", Some(Type::Float64), false)],
-            constructors: vec![make_ctor(
-                "parse",
-                vec![ArgDef {
-                    name: "s".into(),
-                    type_: Type::String,
-                    default: None,
-                }],
-            )],
-            traits: SynthesisedTraits::default(),
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_type(&e, &cfg, LC);
-        assert!(result.contains("export namespace Shape {"), "got: {result}");
-        assert!(result.contains("export function parse("), "got: {result}");
-        assert!(result.contains("export function area("), "got: {result}");
-    }
-
-    // -----------------------------------------------------------------------
-    // naming.rs tests
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn camel_case_handles_kebab() {
-        assert_eq!(camel_case("my-func"), "myFunc");
-        assert_eq!(camel_case("get-all-items"), "getAllItems");
-    }
-
-    #[test]
-    fn camel_case_preserves_already_camel() {
-        assert_eq!(camel_case("myFunc"), "myFunc");
-    }
-
-    #[test]
-    fn camel_case_handles_empty() {
-        assert_eq!(camel_case(""), "");
-    }
-
-    #[test]
-    fn camel_case_handles_single_char() {
-        assert_eq!(camel_case("a"), "a");
-    }
-
-    #[test]
-    fn pascal_case_handles_empty_input() {
-        assert_eq!(pascal_case(""), "UniffiBindings");
-        assert_eq!(pascal_case("_"), "UniffiBindings");
-    }
-
-    #[test]
-    fn pascal_case_handles_single_word() {
-        assert_eq!(pascal_case("hello"), "Hello");
-    }
-
-    #[test]
-    fn snake_case_handles_simple() {
-        assert_eq!(snake_case("hello"), "hello");
-        assert_eq!(snake_case("Hello"), "hello");
-    }
-
-    #[test]
-    fn snake_case_handles_consecutive_uppercase() {
-        assert_eq!(snake_case("XMLParser"), "xml_parser");
-        assert_eq!(snake_case("getHTTPResponse"), "get_http_response");
-    }
-
-    #[test]
-    fn snake_case_handles_single_char() {
-        assert_eq!(snake_case("A"), "a");
-        assert_eq!(snake_case("a"), "a");
-    }
-
-    #[test]
-    fn is_js_reserved_covers_all_keywords() {
-        // Spot-check a few from each category
-        assert!(is_js_reserved("break"));
-        assert!(is_js_reserved("const"));
-        assert!(is_js_reserved("function"));
-        assert!(is_js_reserved("import"));
-        assert!(is_js_reserved("new"));
-        assert!(is_js_reserved("this"));
-        assert!(is_js_reserved("typeof"));
-        assert!(is_js_reserved("async"));
-        assert!(is_js_reserved("implements"));
-        assert!(is_js_reserved("type"));
-        // Not reserved
-        assert!(!is_js_reserved("foo"));
-        assert!(!is_js_reserved("bar"));
-        assert!(!is_js_reserved("Object"));
-    }
-
-    // -----------------------------------------------------------------------
-    // render_helpers.rs tests
+    // ts_type_str tests
     // -----------------------------------------------------------------------
 
     #[test]
     fn ts_type_str_primitives() {
         assert_eq!(ts_type_str(&Type::String), "string");
         assert_eq!(ts_type_str(&Type::Boolean), "boolean");
-        assert_eq!(ts_type_str(&Type::Int8), "number");
-        assert_eq!(ts_type_str(&Type::Int16), "number");
         assert_eq!(ts_type_str(&Type::Int32), "number");
-        assert_eq!(ts_type_str(&Type::UInt8), "number");
-        assert_eq!(ts_type_str(&Type::UInt16), "number");
-        assert_eq!(ts_type_str(&Type::UInt32), "number");
-        assert_eq!(ts_type_str(&Type::Int64), "bigint");
-        assert_eq!(ts_type_str(&Type::UInt64), "bigint");
-        assert_eq!(ts_type_str(&Type::Float32), "number");
         assert_eq!(ts_type_str(&Type::Float64), "number");
-        assert_eq!(ts_type_str(&Type::Bytes), "Uint8Array");
-        assert_eq!(ts_type_str(&Type::Duration), "number");
-        assert_eq!(ts_type_str(&Type::Timestamp), "Date");
+        assert_eq!(ts_type_str(&Type::Int64), "bigint");
     }
 
     #[test]
     fn ts_type_str_optional() {
-        let t = Type::Optional {
-            inner_type: Box::new(Type::String),
-        };
-        assert_eq!(ts_type_str(&t), "string | null");
+        assert_eq!(
+            ts_type_str(&Type::Optional {
+                inner_type: Box::new(Type::String)
+            }),
+            "string | null"
+        );
     }
 
     #[test]
     fn ts_type_str_sequence() {
-        let t = Type::Sequence {
-            inner_type: Box::new(Type::Int32),
-        };
-        assert_eq!(ts_type_str(&t), "number[]");
-    }
-
-    #[test]
-    fn ts_type_str_sequence_bigint() {
         assert_eq!(
             ts_type_str(&Type::Sequence {
-                inner_type: Box::new(Type::Int64)
+                inner_type: Box::new(Type::String)
             }),
-            "BigInt64Array"
+            "string[]"
         );
+        // FFI mode: Sequence<u64> → bigint[], not BigUint64Array
         assert_eq!(
             ts_type_str(&Type::Sequence {
                 inner_type: Box::new(Type::UInt64)
             }),
-            "BigUint64Array"
+            "bigint[]"
         );
     }
 
     #[test]
-    fn ts_type_str_sequence_optional_parenthesized() {
+    fn ts_type_str_sequence_parenthesizes_optional_inner() {
         let t = Type::Sequence {
             inner_type: Box::new(Type::Optional {
                 inner_type: Box::new(Type::String),
@@ -2344,326 +1267,91 @@ mod tests {
     }
 
     #[test]
-    fn render_literal_string_escaping() {
+    fn ts_type_str_named_types() {
         assert_eq!(
-            render_literal(&Literal::String("it's".to_string())),
-            "'it\\'s'"
+            ts_type_str(&Type::Enum {
+                name: "MyEnum".into(),
+                module_path: "crate".into()
+            }),
+            "MyEnum"
         );
         assert_eq!(
-            render_literal(&Literal::String("a\\b".to_string())),
-            "'a\\\\b'"
-        );
-    }
-
-    #[test]
-    fn render_literal_uint_bigint_suffix() {
-        assert_eq!(
-            render_literal(&Literal::UInt(
-                42,
-                uniffi_bindgen::interface::Radix::Decimal,
-                Type::Int32
-            )),
-            "42"
-        );
-        assert_eq!(
-            render_literal(&Literal::UInt(
-                42,
-                uniffi_bindgen::interface::Radix::Decimal,
-                Type::Int64
-            )),
-            "42n"
-        );
-        assert_eq!(
-            render_literal(&Literal::UInt(
-                42,
-                uniffi_bindgen::interface::Radix::Decimal,
-                Type::UInt64
-            )),
-            "42n"
+            ts_type_str(&Type::Record {
+                name: "Point".into(),
+                module_path: "crate".into()
+            }),
+            "Point"
         );
     }
 
-    #[test]
-    fn render_literal_empty_collections() {
-        assert_eq!(render_literal(&Literal::EmptySequence), "[]");
-        assert_eq!(render_literal(&Literal::EmptyMap), "new Map()");
-        assert_eq!(render_literal(&Literal::None), "null");
-    }
+    // -----------------------------------------------------------------------
+    // ts_return_type tests
+    // -----------------------------------------------------------------------
 
     #[test]
-    fn render_literal_enum_variant() {
-        assert_eq!(
-            render_literal(&Literal::Enum("Red".into(), Type::Boolean)),
-            "'Red'"
-        );
-    }
-
-    #[test]
-    fn ts_return_type_void_sync() {
+    fn ts_return_type_sync() {
+        assert_eq!(ts_return_type(Some(&Type::String), false), "string");
         assert_eq!(ts_return_type(None, false), "void");
     }
 
     #[test]
-    fn ts_return_type_void_async() {
+    fn ts_return_type_async() {
+        assert_eq!(ts_return_type(Some(&Type::String), true), "Promise<string>");
         assert_eq!(ts_return_type(None, true), "Promise<void>");
     }
 
-    #[test]
-    fn ts_return_type_string_async() {
-        assert_eq!(ts_return_type(Some(&Type::String), true), "Promise<string>");
-    }
-
-    #[test]
-    fn render_param_with_literal_default() {
-        let arg = ArgDef {
-            name: "count".into(),
-            type_: Type::Int32,
-            default: Some(DefaultValue::Literal(Literal::UInt(
-                0,
-                uniffi_bindgen::interface::Radix::Decimal,
-                Type::Int32,
-            ))),
-        };
-        assert_eq!(render_param(&arg), "count: number = 0");
-    }
-
-    #[test]
-    fn render_param_with_unspecified_default() {
-        let arg = ArgDef {
-            name: "value".into(),
-            type_: Type::String,
-            default: Some(DefaultValue::Default),
-        };
-        assert_eq!(render_param(&arg), "value?: string");
-    }
-
-    #[test]
-    fn render_call_body_simple() {
-        assert_eq!(
-            render_call_body("foo()", true, None, None),
-            " return foo(); "
-        );
-    }
-
-    #[test]
-    fn render_call_body_void() {
-        assert_eq!(render_call_body("foo()", false, None, None), " foo(); ");
-    }
-
-    #[test]
-    fn render_call_body_with_throws() {
-        let result = render_call_body("foo()", true, Some("MyError"), None);
-        assert!(result.contains("try { return foo();"));
-        assert!(result.contains("_liftMyError(e);"));
-    }
-
-    #[test]
-    fn render_call_body_with_preamble() {
-        let result = render_call_body("foo()", true, None, Some("this._assertLive();"));
-        assert!(result.contains("this._assertLive();"));
-        assert!(result.contains("return foo();"));
-    }
-
-    #[test]
-    fn render_jsdoc_escapes_closing_comment() {
-        let result = render_jsdoc(Some("close */ here"), "");
-        assert!(result.contains("close *\\/ here"), "got: {result}");
-        // The escaped version should appear (not the raw `*/` mid-content)
-        assert!(!result.contains("close */ here"), "got: {result}");
-    }
-
-    #[test]
-    fn wasm_call_normal() {
-        assert_eq!(
-            super::render_helpers::wasm_call("greet", "name"),
-            "__bg.greet(name)"
-        );
-    }
-
-    #[test]
-    fn wasm_call_reserved() {
-        assert_eq!(
-            super::render_helpers::wasm_call("class", ""),
-            "__bg._class()"
-        );
-    }
-
-    #[test]
-    fn member_call_normal() {
-        assert_eq!(
-            super::render_helpers::member_call("this._inner", "greet", "name"),
-            "this._inner.greet(name)"
-        );
-    }
-
-    #[test]
-    fn member_call_reserved() {
-        assert_eq!(
-            super::render_helpers::member_call("this._inner", "delete", ""),
-            "this._inner[\"delete\"]()"
-        );
-    }
-
     // -----------------------------------------------------------------------
-    // type_lifting.rs tests
+    // External imports tests
     // -----------------------------------------------------------------------
 
     #[test]
-    fn is_local_module_matches_local() {
-        assert!(is_local_module("crate_name::types", "crate_name"));
-    }
+    fn external_imports_deterministic_order() {
+        use super::types::*;
+        use std::collections::HashMap;
 
-    #[test]
-    fn is_local_module_rejects_external() {
-        assert!(!is_local_module("other_crate::types", "crate_name"));
-    }
-
-    #[test]
-    fn needs_object_lifting_for_local_object() {
-        let t = Type::Object {
-            name: "Foo".into(),
-            module_path: "crate_name::types".into(),
-            imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-        };
-        assert!(needs_object_lifting(&t, "crate_name"));
-    }
-
-    #[test]
-    fn needs_object_lifting_false_for_external() {
-        let t = Type::Object {
-            name: "Foo".into(),
-            module_path: "other::types".into(),
-            imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-        };
-        assert!(!needs_object_lifting(&t, "crate_name"));
-    }
-
-    #[test]
-    fn needs_object_lifting_false_for_primitives() {
-        assert!(!needs_object_lifting(&Type::String, "crate_name"));
-        assert!(!needs_object_lifting(&Type::Int32, "crate_name"));
-    }
-
-    #[test]
-    fn needs_object_lifting_nested_optional() {
-        let t = Type::Optional {
-            inner_type: Box::new(Type::Object {
-                name: "Foo".into(),
-                module_path: "crate_name::types".into(),
-                imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-            }),
-        };
-        assert!(needs_object_lifting(&t, "crate_name"));
-    }
-
-    #[test]
-    fn lift_expr_local_object() {
-        let t = Type::Object {
-            name: "Counter".into(),
-            module_path: "crate_name::types".into(),
-            imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-        };
-        assert_eq!(
-            lift_expr("raw", &t, "crate_name"),
-            "Counter._fromInner(raw)"
-        );
-    }
-
-    #[test]
-    fn lift_expr_optional_object() {
-        let t = Type::Optional {
-            inner_type: Box::new(Type::Object {
-                name: "Counter".into(),
-                module_path: "crate_name::types".into(),
-                imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-            }),
-        };
-        let result = lift_expr("raw", &t, "crate_name");
-        assert!(result.contains("__v == null ? null : Counter._fromInner(__v)"));
-    }
-
-    #[test]
-    fn lift_expr_sequence_object() {
-        let t = Type::Sequence {
-            inner_type: Box::new(Type::Object {
-                name: "Counter".into(),
-                module_path: "crate_name::types".into(),
-                imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-            }),
-        };
-        let result = lift_expr("raw", &t, "crate_name");
-        assert!(result.contains(".map((__v) => Counter._fromInner(__v))"));
-    }
-
-    #[test]
-    fn lift_expr_map_value_object() {
-        let t = Type::Map {
-            key_type: Box::new(Type::String),
-            value_type: Box::new(Type::Object {
-                name: "Counter".into(),
-                module_path: "crate_name::types".into(),
-                imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-            }),
-        };
-        let result = lift_expr("raw", &t, "crate_name");
-        assert!(result.contains("new Map([...raw].map("));
-    }
-
-    #[test]
-    fn lift_expr_identity_for_primitive() {
-        assert_eq!(lift_expr("raw", &Type::String, "crate_name"), "raw");
-    }
-
-    #[test]
-    fn lift_return_optional_coalesces_null() {
-        let t = Type::Optional {
-            inner_type: Box::new(Type::String),
-        };
-        let result = lift_return("__bg.foo()", Some(&t), false, "crate_name");
-        assert_eq!(result.expr, "__bg.foo() ?? null");
-    }
-
-    #[test]
-    fn lift_return_optional_async_parenthesized() {
-        let t = Type::Optional {
-            inner_type: Box::new(Type::String),
-        };
-        let result = lift_return("__bg.foo()", Some(&t), true, "crate_name");
-        assert_eq!(result.expr, "(await __bg.foo()) ?? null");
-    }
-
-    #[test]
-    fn lift_return_no_lift_needed() {
-        let result = lift_return("__bg.foo()", Some(&Type::String), false, "crate_name");
-        assert_eq!(result.expr, "__bg.foo()");
-    }
-
-    // -----------------------------------------------------------------------
-    // external_types.rs tests
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn external_types_empty_metadata() {
-        let metadata = BindingsMetadata::default();
-        let ext = HashMap::new();
-        let result = collect_external_imports(&metadata, &ext, LC).unwrap();
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn external_types_collects_from_function_args() {
         let metadata = BindingsMetadata {
+            enums: vec![
+                EnumDef {
+                    name: "ZetaEnum".into(),
+                    variants: vec![],
+                    is_flat: true,
+                    is_non_exhaustive: false,
+                    docstring: None,
+                    methods: vec![],
+                    constructors: vec![],
+                    traits: SynthesisedTraits::default(),
+                },
+                EnumDef {
+                    name: "AlphaEnum".into(),
+                    variants: vec![],
+                    is_flat: true,
+                    is_non_exhaustive: false,
+                    docstring: None,
+                    methods: vec![],
+                    constructors: vec![],
+                    traits: SynthesisedTraits::default(),
+                },
+            ],
             functions: vec![FnDef {
-                name: "greet".into(),
-                args: vec![ArgDef {
-                    name: "item".into(),
-                    type_: Type::Object {
-                        name: "Widget".into(),
-                        module_path: "ext_crate::types".into(),
-                        imp: uniffi_bindgen::interface::ObjectImpl::Struct,
+                name: "use_ext".into(),
+                args: vec![
+                    super::types::ArgDef {
+                        name: "z".into(),
+                        type_: Type::Enum {
+                            name: "ZetaEnum".into(),
+                            module_path: "ext_crate::sub".into(),
+                        },
+                        default: None,
                     },
-                    default: None,
-                }],
+                    super::types::ArgDef {
+                        name: "a".into(),
+                        type_: Type::Enum {
+                            name: "AlphaEnum".into(),
+                            module_path: "ext_crate::sub".into(),
+                        },
+                        default: None,
+                    },
+                ],
                 return_type: None,
                 throws_type: None,
                 is_async: false,
@@ -2671,280 +1359,27 @@ mod tests {
             }],
             ..Default::default()
         };
-        let mut ext = HashMap::new();
-        ext.insert("ext_crate".to_string(), "./ext.js".to_string());
-        let result = collect_external_imports(&metadata, &ext, LC).unwrap();
-        assert!(result.contains_key("./ext.js"));
-        assert!(result["./ext.js"].contains("Widget"));
-    }
-
-    #[test]
-    fn external_types_deduplicates() {
-        let ext_obj = Type::Object {
-            name: "Widget".into(),
-            module_path: "ext_crate::types".into(),
-            imp: uniffi_bindgen::interface::ObjectImpl::Struct,
-        };
-        let metadata = BindingsMetadata {
-            functions: vec![
-                FnDef {
-                    name: "f1".into(),
-                    args: vec![ArgDef {
-                        name: "a".into(),
-                        type_: ext_obj.clone(),
-                        default: None,
-                    }],
-                    return_type: Some(ext_obj.clone()),
-                    throws_type: None,
-                    is_async: false,
-                    docstring: None,
-                },
-                FnDef {
-                    name: "f2".into(),
-                    args: vec![ArgDef {
-                        name: "b".into(),
-                        type_: ext_obj,
-                        default: None,
-                    }],
-                    return_type: None,
-                    throws_type: None,
-                    is_async: false,
-                    docstring: None,
-                },
-            ],
+        let mut ext_pkg = HashMap::new();
+        ext_pkg.insert(
+            "ext_crate".to_string(),
+            "./ext_crate_bindings.js".to_string(),
+        );
+        let cfg = super::config::JsBindingsConfig {
+            external_packages: ext_pkg,
             ..Default::default()
         };
-        let mut ext = HashMap::new();
-        ext.insert("ext_crate".to_string(), "./ext.js".to_string());
-        let result = collect_external_imports(&metadata, &ext, LC).unwrap();
-        // Widget should appear exactly once
-        assert_eq!(result["./ext.js"].len(), 1);
-    }
 
-    // -----------------------------------------------------------------------
-    // render_types.rs trait method tests
-    // -----------------------------------------------------------------------
+        let imports = super::external_types::collect_external_imports(
+            &metadata,
+            &cfg.external_packages,
+            &metadata.local_crate,
+        )
+        .unwrap();
 
-    #[test]
-    fn record_with_traits_has_companion_namespace() {
-        let r = RecordDef {
-            name: "Point".into(),
-            fields: vec![FieldDef {
-                name: "x".into(),
-                type_: Type::Float64,
-                docstring: None,
-                default: None,
-            }],
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-            traits: SynthesisedTraits {
-                display: Some("uniffi_trait_display".into()),
-                eq: Some("uniffi_trait_eq_eq".into()),
-                ..Default::default()
-            },
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_record_interface(&r, &cfg, LC);
-        assert!(result.contains("export namespace Point {"), "got: {result}");
-        assert!(
-            result.contains("export function toString(value: Point): string"),
-            "got: {result}"
-        );
-        assert!(
-            result.contains("export function equals(value: Point, other: Point): boolean"),
-            "got: {result}"
-        );
-        // No hash method since hash is None
-        assert!(!result.contains("hashCode"), "got: {result}");
-    }
-
-    #[test]
-    fn enum_with_traits_has_companion_namespace() {
-        let e = EnumDef {
-            name: "Color".into(),
-            variants: vec![VariantDef {
-                name: "Red".into(),
-                fields: vec![],
-                docstring: None,
-                discr: None,
-            }],
-            is_flat: true,
-            is_non_exhaustive: false,
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-            traits: SynthesisedTraits {
-                display: Some("uniffi_trait_display".into()),
-                hash: Some("uniffi_trait_hash".into()),
-                ..Default::default()
-            },
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_type(&e, &cfg, LC);
-        assert!(result.contains("export namespace Color {"), "got: {result}");
-        assert!(
-            result.contains("export function toString(value: Color): string"),
-            "got: {result}"
-        );
-        assert!(
-            result.contains("export function hashCode(value: Color): bigint"),
-            "got: {result}"
-        );
-        assert!(!result.contains("equals"), "got: {result}");
-    }
-
-    #[test]
-    fn record_without_traits_no_namespace() {
-        let r = RecordDef {
-            name: "Point".into(),
-            fields: vec![FieldDef {
-                name: "x".into(),
-                type_: Type::Float64,
-                docstring: None,
-                default: None,
-            }],
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-            traits: SynthesisedTraits::default(),
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_record_interface(&r, &cfg, LC);
-        assert!(!result.contains("namespace"), "got: {result}");
-    }
-
-    #[test]
-    fn record_with_debug_and_ord_traits() {
-        let r = RecordDef {
-            name: "Point".into(),
-            fields: vec![FieldDef {
-                name: "x".into(),
-                type_: Type::Float64,
-                docstring: None,
-                default: None,
-            }],
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-            traits: SynthesisedTraits {
-                debug: Some("uniffi_trait_debug".into()),
-                ord: Some("uniffi_trait_ord_cmp".into()),
-                ..Default::default()
-            },
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_record_interface(&r, &cfg, LC);
-        assert!(result.contains("export namespace Point {"), "got: {result}");
-        assert!(
-            result.contains("export function toDebugString(value: Point): string"),
-            "got: {result}"
-        );
-        assert!(
-            result.contains("export function compareTo(value: Point, other: Point): number"),
-            "got: {result}"
-        );
-        // No display/eq/hash since they are None
-        assert!(!result.contains("toString"), "got: {result}");
-        assert!(!result.contains("equals"), "got: {result}");
-        assert!(!result.contains("hashCode"), "got: {result}");
-    }
-
-    #[test]
-    fn enum_with_debug_and_ord_traits() {
-        let e = EnumDef {
-            name: "Color".into(),
-            variants: vec![VariantDef {
-                name: "Red".into(),
-                fields: vec![],
-                docstring: None,
-                discr: None,
-            }],
-            is_flat: true,
-            is_non_exhaustive: false,
-            docstring: None,
-            methods: vec![],
-            constructors: vec![],
-            traits: SynthesisedTraits {
-                debug: Some("uniffi_trait_debug".into()),
-                ord: Some("uniffi_trait_ord_cmp".into()),
-                ..Default::default()
-            },
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_enum_type(&e, &cfg, LC);
-        assert!(result.contains("export namespace Color {"), "got: {result}");
-        assert!(
-            result.contains("export function toDebugString(value: Color): string"),
-            "got: {result}"
-        );
-        assert!(
-            result.contains("export function compareTo(value: Color, other: Color): number"),
-            "got: {result}"
-        );
-        assert!(!result.contains("toString"), "got: {result}");
-        assert!(!result.contains("equals"), "got: {result}");
-        assert!(!result.contains("hashCode"), "got: {result}");
-    }
-
-    #[test]
-    fn object_with_all_traits() {
-        let o = ObjectDef {
-            name: "Widget".into(),
-            constructors: vec![],
-            methods: vec![],
-            docstring: None,
-            is_error: false,
-            is_trait: false,
-            traits: SynthesisedTraits {
-                display: Some("uniffi_trait_display".into()),
-                debug: Some("uniffi_trait_debug".into()),
-                eq: Some("uniffi_trait_eq_eq".into()),
-                hash: Some("uniffi_trait_hash".into()),
-                ord: Some("uniffi_trait_ord_cmp".into()),
-            },
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_object_class(&o, &cfg, LC);
-        assert!(
-            result.contains("toString(): string { this._assertLive(); return __bg.widget_uniffi_trait_display(this._inner); }"),
-            "got: {result}"
-        );
-        assert!(
-            result.contains("toDebugString(): string { this._assertLive(); return __bg.widget_uniffi_trait_debug(this._inner); }"),
-            "got: {result}"
-        );
-        assert!(
-            result.contains("equals(other: Widget): boolean { this._assertLive(); return __bg.widget_uniffi_trait_eq_eq(this._inner, other._inner); }"),
-            "got: {result}"
-        );
-        assert!(
-            result.contains("hashCode(): bigint { this._assertLive(); return __bg.widget_uniffi_trait_hash(this._inner); }"),
-            "got: {result}"
-        );
-        assert!(
-            result.contains("compareTo(other: Widget): number { this._assertLive(); return __bg.widget_uniffi_trait_ord_cmp(this._inner, other._inner); }"),
-            "got: {result}"
-        );
-    }
-
-    #[test]
-    fn object_without_traits_has_no_trait_methods() {
-        let o = ObjectDef {
-            name: "Widget".into(),
-            constructors: vec![],
-            methods: vec![],
-            docstring: None,
-            is_error: false,
-            is_trait: false,
-            traits: SynthesisedTraits::default(),
-        };
-        let cfg = config::JsBindingsConfig::default();
-        let result = render_object_class(&o, &cfg, LC);
-        assert!(!result.contains("toString()"), "got: {result}");
-        assert!(!result.contains("toDebugString"), "got: {result}");
-        assert!(!result.contains("equals"), "got: {result}");
-        assert!(!result.contains("hashCode"), "got: {result}");
-        assert!(!result.contains("compareTo"), "got: {result}");
+        assert_eq!(imports.len(), 1);
+        let (path, names) = imports.iter().next().unwrap();
+        assert_eq!(path, "./ext_crate_bindings.js");
+        let names_vec: Vec<&String> = names.iter().collect();
+        assert_eq!(names_vec, vec!["AlphaEnum", "ZetaEnum"]);
     }
 }

@@ -101,21 +101,3 @@ pub(super) fn pascal_case(input: &str) -> String {
         out
     }
 }
-
-pub(super) fn snake_case(input: &str) -> String {
-    let mut out = String::new();
-    let chars: Vec<char> = input.chars().collect();
-    for (i, &ch) in chars.iter().enumerate() {
-        if ch.is_ascii_uppercase() && i > 0 {
-            let prev_upper = chars[i - 1].is_ascii_uppercase();
-            let next_lower = chars.get(i + 1).is_some_and(|c| c.is_ascii_lowercase());
-            // Insert underscore before: a lone uppercase after lowercase, OR
-            // the last letter of an acronym run when the next char is lowercase.
-            if !prev_upper || next_lower {
-                out.push('_');
-            }
-        }
-        out.push(ch.to_ascii_lowercase());
-    }
-    out
-}

@@ -151,7 +151,7 @@ export class Rect {
 
 export namespace FfiTraits {
   export function describeAll(shapes: Drawable[]): string {
-    const _rb_shapes = _rt.lowerIntoBuffer((w) => { w.writeSequence(shapes, (_w, _v) => { w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_traits_fn_clone_drawable', _v._handle)); }); });
+    const _rb_shapes = _rt.lowerIntoBuffer((w) => { w.writeSequence(shapes, (_w, _v) => { _w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_traits_fn_clone_drawable', _v._handle)); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_shapes);
     const _retPtr = _rt.scratchAlloc(7 * 8);
@@ -171,7 +171,7 @@ export namespace FfiTraits {
     return _result;
   }
   export function totalArea(shapes: Drawable[]): number {
-    const _rb_shapes = _rt.lowerIntoBuffer((w) => { w.writeSequence(shapes, (_w, _v) => { w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_traits_fn_clone_drawable', _v._handle)); }); });
+    const _rb_shapes = _rt.lowerIntoBuffer((w) => { w.writeSequence(shapes, (_w, _v) => { _w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_traits_fn_clone_drawable', _v._handle)); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_shapes);
     const _retPtr = _rt.scratchAlloc(5 * 8);

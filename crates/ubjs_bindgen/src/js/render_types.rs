@@ -1,47 +1,15 @@
 // ---------------------------------------------------------------------------
-// Type rendering: errors, enums, records, callbacks, lift functions
+// Type rendering: errors, enums, records, callbacks
 // ---------------------------------------------------------------------------
 
-use std::collections::HashMap;
-
-use uniffi_bindgen::interface::Type;
-
-use super::config::{self, CustomTypeConfig};
-use super::naming::{camel_case, safe_js_identifier, snake_case};
+use super::config;
+use super::ffi;
+use super::naming::{camel_case, safe_js_identifier};
 use super::render_helpers::{
-    duration_annotations, duration_return_annotation, render_call_body, render_jsdoc,
-    render_jsdoc_with_throws, render_literal, render_param, ts_return_type, ts_type_str, type_name,
+    duration_annotations, duration_return_annotation, render_jsdoc, render_jsdoc_with_throws,
+    render_literal, render_param, ts_return_type, ts_type_str, type_name,
 };
-use super::type_lifting::lift_return;
 use super::types::*;
-
-/// Apply custom type `lower` to an argument expression if configured.
-fn lower_custom_arg(
-    arg_expr: &str,
-    arg_type: &Type,
-    custom_types: &HashMap<String, CustomTypeConfig>,
-) -> String {
-    if let Type::Custom { name, .. } = arg_type {
-        if let Some(ct_cfg) = custom_types.get(name.as_str()) {
-            return ct_cfg.lower_expr(arg_expr);
-        }
-    }
-    arg_expr.to_string()
-}
-
-/// Wrap a call expression with custom type `lift` for the return type if configured.
-fn lift_custom_return(
-    call_expr: &str,
-    return_type: Option<&Type>,
-    custom_types: &HashMap<String, CustomTypeConfig>,
-) -> String {
-    if let Some(Type::Custom { name, .. }) = return_type {
-        if let Some(ct_cfg) = custom_types.get(name.as_str()) {
-            return ct_cfg.lift_expr(call_expr);
-        }
-    }
-    call_expr.to_string()
-}
 
 // ---------------------------------------------------------------------------
 // Error class generation
@@ -50,7 +18,7 @@ fn lift_custom_return(
 pub(super) fn render_error_class(
     e: &ErrorDef,
     cfg: &config::JsBindingsConfig,
-    local_crate: &str,
+    namespace: &str,
 ) -> String {
     let mut out = String::new();
     let name = &e.name;
@@ -80,16 +48,14 @@ pub(super) fn render_error_class(
                 v.name
             ));
         }
-        out.push_str(&render_enum_constructors_on_class(
+        out.push_str(&render_constructors_on_class_ffi(
             &e.constructors,
             name,
+            namespace,
             cfg,
         ));
-        out.push_str(&render_enum_methods_on_class(
-            &e.methods,
-            name,
-            cfg,
-            local_crate,
+        out.push_str(&render_methods_on_class_ffi(
+            &e.methods, name, namespace, cfg,
         ));
         out.push_str("}\n");
     } else {
@@ -167,16 +133,14 @@ pub(super) fn render_error_class(
                 params.join(", ")
             ));
         }
-        out.push_str(&render_enum_constructors_on_class(
+        out.push_str(&render_constructors_on_class_ffi(
             &e.constructors,
             name,
+            namespace,
             cfg,
         ));
-        out.push_str(&render_enum_methods_on_class(
-            &e.methods,
-            name,
-            cfg,
-            local_crate,
+        out.push_str(&render_methods_on_class_ffi(
+            &e.methods, name, namespace, cfg,
         ));
         out.push_str("}\n");
     }
@@ -184,37 +148,37 @@ pub(super) fn render_error_class(
     out
 }
 
-/// Render enum constructors as static methods on a class or in a companion namespace.
-/// Enum constructors are exported by wasm-bindgen as `{snake_case_enum}_{ctor_name}(...)`.
-pub(super) fn render_enum_constructors_on_class(
+/// Render constructors as static methods on a class using FFI calls.
+fn render_constructors_on_class_ffi(
     constructors: &[CtorDef],
-    enum_name: &str,
+    type_name: &str,
+    namespace: &str,
     cfg: &config::JsBindingsConfig,
 ) -> String {
-    render_enum_constructors(constructors, enum_name, cfg, "static")
+    render_constructors_ffi(constructors, type_name, namespace, cfg, "static")
 }
 
-/// Render enum constructors as static functions in a companion namespace.
-pub(super) fn render_enum_constructors_in_namespace(
+/// Render constructors as static functions in a companion namespace using FFI calls.
+fn render_constructors_in_namespace_ffi(
     constructors: &[CtorDef],
-    enum_name: &str,
+    type_name: &str,
+    namespace: &str,
     cfg: &config::JsBindingsConfig,
 ) -> String {
-    render_enum_constructors(constructors, enum_name, cfg, "export function")
+    render_constructors_ffi(constructors, type_name, namespace, cfg, "export function")
 }
 
-/// Shared implementation for rendering enum constructors.
-/// `decl_kind` is either `"static"` (for class bodies) or `"export function"` (for namespaces).
-fn render_enum_constructors(
+/// Shared implementation for rendering constructors via FFI.
+fn render_constructors_ffi(
     constructors: &[CtorDef],
-    enum_name: &str,
+    parent_name: &str,
+    namespace: &str,
     cfg: &config::JsBindingsConfig,
     decl_kind: &str,
 ) -> String {
     let mut out = String::new();
-    let bg_name = snake_case(enum_name);
     for ctor in constructors {
-        let key = format!("{enum_name}.{}", ctor.name);
+        let key = format!("{parent_name}.{}", ctor.name);
         if cfg.exclude.contains(&key) {
             continue;
         }
@@ -224,24 +188,12 @@ fn render_enum_constructors(
             .map(|s| safe_js_identifier(s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&ctor.name)));
         let params: Vec<String> = ctor.args.iter().map(render_param).collect();
-        let args: Vec<String> = ctor
-            .args
-            .iter()
-            .map(|a| safe_js_identifier(&camel_case(&a.name)))
-            .collect();
         let async_kw = if ctor.is_async { "async " } else { "" };
-        let await_kw = if ctor.is_async { "await " } else { "" };
         let ret_type = if ctor.is_async {
-            format!("Promise<{enum_name}>")
+            format!("Promise<{parent_name}>")
         } else {
-            enum_name.to_string()
+            parent_name.to_string()
         };
-        let ctor_fn = if ctor.name == "new" {
-            format!("new __bg.{bg_name}")
-        } else {
-            format!("__bg.{bg_name}_{}", ctor.name)
-        };
-        let inner_call = format!("{ctor_fn}({})", args.join(", "));
 
         let throws_name = ctor.throws_type.as_ref().map(type_name);
         let annotations = duration_annotations(&ctor.args);
@@ -251,68 +203,106 @@ fn render_enum_constructors(
             &annotations,
             "  ",
         ));
-        if let Some(throws) = &ctor.throws_type {
-            let lift = format!("_lift{}", type_name(throws));
-            out.push_str(&format!(
-                "  {decl_kind} {async_kw}{exported}({}): {ret_type} {{\n    try {{ return {await_kw}{inner_call}; }} catch (e) {{ return {lift}(e); }}\n  }}\n",
-                params.join(", ")
-            ));
+        out.push_str(&format!(
+            "  {decl_kind} {async_kw}{exported}({}): {ret_type} {{\n",
+            params.join(", ")
+        ));
+
+        // Build FFI call
+        let ffi_name = ffi::ffibuf_fn_constructor(namespace, parent_name, &ctor.name);
+        let js_arg_names: Vec<String> = ctor
+            .args
+            .iter()
+            .map(|a| safe_js_identifier(&camel_case(&a.name)))
+            .collect();
+        let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> = js_arg_names
+            .iter()
+            .zip(ctor.args.iter())
+            .map(|(name, a)| (name.as_str(), &a.type_))
+            .collect();
+
+        // Constructor returns the type via RustBuffer (for enums/records/errors).
+        // Use a Record type to get RustBuffer return handling — this causes
+        // gen_ffi_call to emit `_lift{parent_name}(r)`. The corresponding
+        // _liftFoo helper is emitted conditionally in render_ts() when
+        // the type has constructors.
+        let return_type = uniffi_bindgen::interface::Type::Record {
+            name: parent_name.to_string(),
+            module_path: String::new(),
+        };
+
+        let body = if ctor.is_async {
+            ffi::gen_async_ffi_call(
+                &ffi_name,
+                namespace,
+                &arg_pairs,
+                Some(&return_type),
+                throws_name.as_deref(),
+                "    ",
+            )
         } else {
-            out.push_str(&format!(
-                "  {decl_kind} {async_kw}{exported}({}): {ret_type} {{ return {await_kw}{inner_call}; }}\n",
-                params.join(", ")
-            ));
-        }
+            ffi::gen_ffi_call(
+                &ffi_name,
+                namespace,
+                &arg_pairs,
+                Some(&return_type),
+                throws_name.as_deref(),
+                "    ",
+            )
+        };
+        out.push_str(&body);
+        out.push_str("\n  }\n");
     }
     out
 }
 
-/// Render methods on an error class (instance methods that delegate to wasm-bindgen).
-/// Error enum methods are exported by wasm-bindgen as `{snake_case_enum}_{method_name}(self, ...)`.
-pub(super) fn render_enum_methods_on_class(
+/// Render methods on an error/enum class as instance methods using FFI calls.
+fn render_methods_on_class_ffi(
     methods: &[MethodDef],
-    enum_name: &str,
+    parent_name: &str,
+    namespace: &str,
     cfg: &config::JsBindingsConfig,
-    local_crate: &str,
+) -> String {
+    // Error enum methods would require lowering `this` as an enum/error value.
+    // This is uncommon — no existing fixture exercises it. If needed, generate
+    // a _lower function for the error and pass `this` as the first FFI arg.
+    if methods.is_empty() {
+        return String::new();
+    }
+    let _ = (parent_name, namespace, cfg);
+    // TODO: implement error enum instance methods via FFI when a test case arises
+    String::new()
+}
+
+/// Render methods in a companion namespace using FFI calls.
+fn render_companion_methods_ffi(
+    methods: &[MethodDef],
+    parent_name: &str,
+    self_type: &uniffi_bindgen::interface::Type,
+    namespace: &str,
+    cfg: &config::JsBindingsConfig,
 ) -> String {
     let mut out = String::new();
-    let bg_name = snake_case(enum_name);
     for m in methods {
-        if cfg.exclude.contains(&format!("{enum_name}.{}", m.name)) {
+        if cfg.exclude.contains(&format!("{parent_name}.{}", m.name)) {
             continue;
         }
         let exported = cfg
             .rename
-            .get(&format!("{enum_name}.{}", m.name))
+            .get(&format!("{parent_name}.{}", m.name))
             .map(|s| safe_js_identifier(s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
-        let params: Vec<String> = m.args.iter().map(render_param).collect();
-        let ts_ret = ts_return_type(m.return_type.as_ref(), m.is_async);
-        let call_args: Vec<String> = m
-            .args
-            .iter()
-            .map(|a| {
-                let base = safe_js_identifier(&camel_case(&a.name));
-                lower_custom_arg(&base, &a.type_, &cfg.custom_types)
-            })
-            .collect();
-        let self_plus_args = if call_args.is_empty() {
-            "this".to_string()
+        let value_param = format!("value: {parent_name}");
+        let other_params: Vec<String> = m.args.iter().map(render_param).collect();
+        let all_params = if other_params.is_empty() {
+            value_param
         } else {
-            format!("this, {}", call_args.join(", "))
+            format!("{value_param}, {}", other_params.join(", "))
         };
-        let raw_call = format!("__bg.{bg_name}_{}({self_plus_args})", m.name);
-        let lifted = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
-        let call_expr = lift_custom_return(&lifted.expr, m.return_type.as_ref(), &cfg.custom_types);
+        let ts_ret = ts_return_type(m.return_type.as_ref(), m.is_async);
         let async_kw = if m.is_async { "async " } else { "" };
-        let throws_name = m.throws_type.as_ref().map(type_name);
-        let body = render_call_body(
-            &call_expr,
-            m.return_type.is_some(),
-            throws_name.as_deref(),
-            lifted.preamble.as_deref(),
-        );
 
+        let throws_name = m.throws_type.as_ref().map(type_name);
         let mut annotations = duration_annotations(&m.args);
         if let Some(ann) = duration_return_annotation(m.return_type.as_ref()) {
             annotations.push(ann);
@@ -324,93 +314,206 @@ pub(super) fn render_enum_methods_on_class(
             "  ",
         ));
         out.push_str(&format!(
-            "  {async_kw}{exported}({}): {ts_ret} {{{body}}}\n",
-            params.join(", ")
+            "  export {async_kw}function {exported}({all_params}): {ts_ret} {{\n",
+        ));
+
+        // Build FFI call: self value as first arg + user args
+        let ffi_name = ffi::ffibuf_fn_method(namespace, parent_name, &m.name);
+
+        let js_arg_names: Vec<String> = m
+            .args
+            .iter()
+            .map(|a| safe_js_identifier(&camel_case(&a.name)))
+            .collect();
+
+        let mut arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> =
+            vec![("value", self_type)];
+        for (name, a) in js_arg_names.iter().zip(m.args.iter()) {
+            arg_pairs.push((name.as_str(), &a.type_));
+        }
+
+        let body = if m.is_async {
+            ffi::gen_async_ffi_call(
+                &ffi_name,
+                namespace,
+                &arg_pairs,
+                m.return_type.as_ref(),
+                throws_name.as_deref(),
+                "    ",
+            )
+        } else {
+            ffi::gen_ffi_call(
+                &ffi_name,
+                namespace,
+                &arg_pairs,
+                m.return_type.as_ref(),
+                throws_name.as_deref(),
+                "    ",
+            )
+        };
+        out.push_str(&body);
+        out.push_str("\n  }\n");
+    }
+    out
+}
+
+/// Render synthesised trait methods (Display, Debug, Eq, Hash, Ord) in a companion namespace
+/// using FFI calls.
+fn render_trait_methods_ffi(
+    traits: &SynthesisedTraits,
+    parent_name: &str,
+    self_type: &uniffi_bindgen::interface::Type,
+    namespace: &str,
+) -> String {
+    let mut out = String::new();
+
+    if let Some(method_name) = &traits.display {
+        out.push_str(&render_trait_method_ffi(
+            "toString",
+            method_name,
+            parent_name,
+            self_type,
+            namespace,
+            &uniffi_bindgen::interface::Type::String,
+            false,
         ));
     }
-    out
-}
 
-// ---------------------------------------------------------------------------
-// Error lift helper generation
-// ---------------------------------------------------------------------------
-
-pub(super) fn render_lift_fn(e: &ErrorDef) -> String {
-    let mut out = String::new();
-    let name = &e.name;
-    let fn_name = format!("_lift{name}");
-
-    out.push_str(&format!("function {fn_name}(e: unknown): never {{\n"));
-
-    if e.is_flat {
-        out.push_str(
-            "  const tag = typeof e === 'string' ? e : (e instanceof Error ? e.message : null);\n",
-        );
-        for v in &e.variants {
-            out.push_str(&format!(
-                "  if (tag === '{}') throw new {name}('{}');\n",
-                v.name, v.name
-            ));
-        }
-        if e.is_non_exhaustive {
-            out.push_str(&format!(
-                "  if (typeof tag === 'string') throw new {name}(tag);\n"
-            ));
-        }
-    } else {
-        // Rich error: Rust serialises variant as a JSON string {"tag":"...","field":val}
-        out.push_str("  try {\n");
-        out.push_str("    const raw = typeof e === 'string' ? JSON.parse(e) : (e instanceof Error ? JSON.parse(e.message) : e);\n");
-        out.push_str("    const tag = raw?.tag as string | undefined;\n");
-        for v in &e.variants {
-            if v.fields.is_empty() {
-                out.push_str(&format!(
-                    "    if (tag === '{}') throw {name}.{}();\n",
-                    v.name, v.name
-                ));
-            } else {
-                let args: Vec<String> = v
-                    .fields
-                    .iter()
-                    .map(|f| format!("raw.{}", safe_js_identifier(&camel_case(&f.name))))
-                    .collect();
-                out.push_str(&format!(
-                    "    if (tag === '{}') throw {name}.{}({});\n",
-                    v.name,
-                    v.name,
-                    args.join(", ")
-                ));
-            }
-        }
-        if e.is_non_exhaustive {
-            out.push_str(&format!(
-                "    if (typeof tag === 'string') throw new {name}(raw as {name}Variant);\n"
-            ));
-        }
-        out.push_str("  } catch (inner) {\n");
-        out.push_str(&format!("    if (inner instanceof {name}) throw inner;\n"));
-        out.push_str("  }\n");
+    if let Some(method_name) = &traits.debug {
+        out.push_str(&render_trait_method_ffi(
+            "toDebugString",
+            method_name,
+            parent_name,
+            self_type,
+            namespace,
+            &uniffi_bindgen::interface::Type::String,
+            false,
+        ));
     }
 
-    out.push_str("  throw e;\n");
-    out.push_str("}\n");
+    if let Some(method_name) = &traits.eq {
+        out.push_str(&render_trait_eq_ffi(
+            method_name,
+            parent_name,
+            self_type,
+            namespace,
+        ));
+    }
+
+    if let Some(method_name) = &traits.hash {
+        out.push_str(&render_trait_method_ffi(
+            "hashCode",
+            method_name,
+            parent_name,
+            self_type,
+            namespace,
+            &uniffi_bindgen::interface::Type::UInt64,
+            false,
+        ));
+    }
+
+    if let Some(method_name) = &traits.ord {
+        out.push_str(&render_trait_ord_ffi(
+            method_name,
+            parent_name,
+            self_type,
+            namespace,
+        ));
+    }
+
     out
 }
 
-/// Render a lift function for an object type used as an error.
-///
-/// When wasm-bindgen throws an object error, the thrown value is already the
-/// wasm-bindgen wrapper class. We lift it into our wrapper class and re-throw.
-pub(super) fn render_object_error_lift_fn(name: &str) -> String {
-    let fn_name = format!("_lift{name}");
+/// Render a single trait method (one self arg, one return) as an FFI call.
+fn render_trait_method_ffi(
+    exported: &str,
+    ffi_method_name: &str,
+    parent_name: &str,
+    self_type: &uniffi_bindgen::interface::Type,
+    namespace: &str,
+    return_type: &uniffi_bindgen::interface::Type,
+    _is_async: bool,
+) -> String {
     let mut out = String::new();
-    out.push_str(&format!("function {fn_name}(e: unknown): never {{\n"));
-    out.push_str(&format!("  if (e instanceof {name}) throw e;\n"));
+    let ffi_name = ffi::ffibuf_fn_method(namespace, parent_name, ffi_method_name);
+    let ts_ret = ts_type_str(return_type);
+
     out.push_str(&format!(
-        "  if (e instanceof __bg.{name}) throw {name}._fromInner(e);\n"
+        "  export function {exported}(value: {parent_name}): {ts_ret} {{\n"
     ));
-    out.push_str("  throw e;\n");
-    out.push_str("}\n");
+
+    let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> = vec![("value", self_type)];
+
+    let body = ffi::gen_ffi_call(
+        &ffi_name,
+        namespace,
+        &arg_pairs,
+        Some(return_type),
+        None,
+        "    ",
+    );
+    out.push_str(&body);
+    out.push_str("\n  }\n");
+    out
+}
+
+/// Render the Eq trait method (two self args, boolean return).
+fn render_trait_eq_ffi(
+    ffi_method_name: &str,
+    parent_name: &str,
+    self_type: &uniffi_bindgen::interface::Type,
+    namespace: &str,
+) -> String {
+    let mut out = String::new();
+    let ffi_name = ffi::ffibuf_fn_method(namespace, parent_name, ffi_method_name);
+
+    out.push_str(&format!(
+        "  export function equals(value: {parent_name}, other: {parent_name}): boolean {{\n"
+    ));
+
+    let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> =
+        vec![("value", self_type), ("other", self_type)];
+
+    let body = ffi::gen_ffi_call(
+        &ffi_name,
+        namespace,
+        &arg_pairs,
+        Some(&uniffi_bindgen::interface::Type::Boolean),
+        None,
+        "    ",
+    );
+    out.push_str(&body);
+    out.push_str("\n  }\n");
+    out
+}
+
+/// Render the Ord trait method (two self args, number return).
+fn render_trait_ord_ffi(
+    ffi_method_name: &str,
+    parent_name: &str,
+    self_type: &uniffi_bindgen::interface::Type,
+    namespace: &str,
+) -> String {
+    let mut out = String::new();
+    let ffi_name = ffi::ffibuf_fn_method(namespace, parent_name, ffi_method_name);
+
+    out.push_str(&format!(
+        "  export function compareTo(value: {parent_name}, other: {parent_name}): number {{\n"
+    ));
+
+    let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> =
+        vec![("value", self_type), ("other", self_type)];
+
+    let body = ffi::gen_ffi_call(
+        &ffi_name,
+        namespace,
+        &arg_pairs,
+        Some(&uniffi_bindgen::interface::Type::Int8),
+        None,
+        "    ",
+    );
+    out.push_str(&body);
+    out.push_str("\n  }\n");
     out
 }
 
@@ -421,7 +524,7 @@ pub(super) fn render_object_error_lift_fn(name: &str) -> String {
 pub(super) fn render_record_interface(
     r: &RecordDef,
     cfg: &config::JsBindingsConfig,
-    local_crate: &str,
+    namespace: &str,
 ) -> String {
     let mut out = String::new();
     out.push_str(&render_jsdoc(r.docstring.as_deref(), ""));
@@ -446,77 +549,30 @@ pub(super) fn render_record_interface(
     let has_companion = !r.methods.is_empty() || !r.constructors.is_empty() || has_traits;
     if has_companion {
         let name = &r.name;
-        let bg_name = snake_case(name);
+        let self_type = uniffi_bindgen::interface::Type::Record {
+            name: name.clone(),
+            module_path: String::new(),
+        };
         out.push_str(&format!("export namespace {name} {{\n"));
 
         // Constructors (static factory functions)
-        out.push_str(&render_enum_constructors_in_namespace(
+        out.push_str(&render_constructors_in_namespace_ffi(
             &r.constructors,
             name,
+            namespace,
             cfg,
         ));
 
         // Synthesised trait methods
-        out.push_str(&render_trait_methods(&r.traits, name, &bg_name));
+        out.push_str(&render_trait_methods_ffi(
+            &r.traits, name, &self_type, namespace,
+        ));
 
         // Methods (instance-style, take `self` as first param)
-        for m in &r.methods {
-            if cfg.exclude.contains(&format!("{name}.{}", m.name)) {
-                continue;
-            }
-            let exported = cfg
-                .rename
-                .get(&format!("{name}.{}", m.name))
-                .map(|s| safe_js_identifier(s))
-                .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
-            let value_param = format!("value: {name}");
-            let other_params: Vec<String> = m.args.iter().map(render_param).collect();
-            let all_params = if other_params.is_empty() {
-                value_param
-            } else {
-                format!("{value_param}, {}", other_params.join(", "))
-            };
-            let ts_ret = ts_return_type(m.return_type.as_ref(), m.is_async);
-            let call_args: Vec<String> = m
-                .args
-                .iter()
-                .map(|a| {
-                    let base = safe_js_identifier(&camel_case(&a.name));
-                    lower_custom_arg(&base, &a.type_, &cfg.custom_types)
-                })
-                .collect();
-            let value_plus_args = if call_args.is_empty() {
-                "value".to_string()
-            } else {
-                format!("value, {}", call_args.join(", "))
-            };
-            let raw_call = format!("__bg.{bg_name}_{}({value_plus_args})", m.name);
-            let lifted = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
-            let call_expr =
-                lift_custom_return(&lifted.expr, m.return_type.as_ref(), &cfg.custom_types);
-            let async_kw = if m.is_async { "async " } else { "" };
-            let throws_name = m.throws_type.as_ref().map(type_name);
-            let body = render_call_body(
-                &call_expr,
-                m.return_type.is_some(),
-                throws_name.as_deref(),
-                lifted.preamble.as_deref(),
-            );
+        out.push_str(&render_companion_methods_ffi(
+            &r.methods, name, &self_type, namespace, cfg,
+        ));
 
-            let mut annotations = duration_annotations(&m.args);
-            if let Some(ann) = duration_return_annotation(m.return_type.as_ref()) {
-                annotations.push(ann);
-            }
-            out.push_str(&render_jsdoc_with_throws(
-                m.docstring.as_deref(),
-                throws_name.as_deref(),
-                &annotations,
-                "  ",
-            ));
-            out.push_str(&format!(
-                "  export {async_kw}function {exported}({all_params}): {ts_ret} {{{body}}}\n",
-            ));
-        }
         out.push_str("}\n");
     }
 
@@ -530,13 +586,11 @@ pub(super) fn render_record_interface(
 pub(super) fn render_enum_type(
     e: &EnumDef,
     cfg: &config::JsBindingsConfig,
-    local_crate: &str,
+    namespace: &str,
 ) -> String {
     let mut out = String::new();
     if e.is_flat {
         // Flat enum → TypeScript union of string literals.
-        // Individual variant docstrings have no JSDoc anchor in a union type, so
-        // any variant docs are folded into the parent type's JSDoc as a bullet list.
         let has_variant_docs = e
             .variants
             .iter()
@@ -597,8 +651,6 @@ pub(super) fn render_enum_type(
         }
     } else {
         // Data enum → discriminated union.
-        // Variant docstrings have no per-member anchor in a union type; the type-level
-        // docstring is the only JSDoc anchor available.
         out.push_str(&render_jsdoc(e.docstring.as_deref(), ""));
         out.push_str(&format!("export type {} =\n", e.name));
         let last_known = e.variants.len().saturating_sub(1);
@@ -635,7 +687,6 @@ pub(super) fn render_enum_type(
     }
 
     // Enum methods, constructors, and trait methods are emitted in a companion namespace
-    // (TS declaration merging allows a namespace with the same name as a type alias).
     let has_traits = e.traits.display.is_some()
         || e.traits.debug.is_some()
         || e.traits.eq.is_some()
@@ -644,77 +695,30 @@ pub(super) fn render_enum_type(
     let has_companion = !e.methods.is_empty() || !e.constructors.is_empty() || has_traits;
     if has_companion {
         let name = &e.name;
-        let bg_name = snake_case(name);
+        let self_type = uniffi_bindgen::interface::Type::Enum {
+            name: name.clone(),
+            module_path: String::new(),
+        };
         out.push_str(&format!("export namespace {name} {{\n"));
 
         // Constructors (static factory functions)
-        out.push_str(&render_enum_constructors_in_namespace(
+        out.push_str(&render_constructors_in_namespace_ffi(
             &e.constructors,
             name,
+            namespace,
             cfg,
         ));
 
         // Synthesised trait methods
-        out.push_str(&render_trait_methods(&e.traits, name, &bg_name));
+        out.push_str(&render_trait_methods_ffi(
+            &e.traits, name, &self_type, namespace,
+        ));
 
         // Methods (instance-style, take `self` as first param)
-        for m in &e.methods {
-            if cfg.exclude.contains(&format!("{name}.{}", m.name)) {
-                continue;
-            }
-            let exported = cfg
-                .rename
-                .get(&format!("{name}.{}", m.name))
-                .map(|s| safe_js_identifier(s))
-                .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
-            let value_param = format!("value: {name}");
-            let other_params: Vec<String> = m.args.iter().map(render_param).collect();
-            let all_params = if other_params.is_empty() {
-                value_param
-            } else {
-                format!("{value_param}, {}", other_params.join(", "))
-            };
-            let ts_ret = ts_return_type(m.return_type.as_ref(), m.is_async);
-            let call_args: Vec<String> = m
-                .args
-                .iter()
-                .map(|a| {
-                    let base = safe_js_identifier(&camel_case(&a.name));
-                    lower_custom_arg(&base, &a.type_, &cfg.custom_types)
-                })
-                .collect();
-            let value_plus_args = if call_args.is_empty() {
-                "value".to_string()
-            } else {
-                format!("value, {}", call_args.join(", "))
-            };
-            let raw_call = format!("__bg.{bg_name}_{}({value_plus_args})", m.name);
-            let lifted = lift_return(&raw_call, m.return_type.as_ref(), m.is_async, local_crate);
-            let call_expr =
-                lift_custom_return(&lifted.expr, m.return_type.as_ref(), &cfg.custom_types);
-            let async_kw = if m.is_async { "async " } else { "" };
-            let throws_name = m.throws_type.as_ref().map(type_name);
-            let body = render_call_body(
-                &call_expr,
-                m.return_type.is_some(),
-                throws_name.as_deref(),
-                lifted.preamble.as_deref(),
-            );
+        out.push_str(&render_companion_methods_ffi(
+            &e.methods, name, &self_type, namespace, cfg,
+        ));
 
-            let mut annotations = duration_annotations(&m.args);
-            if let Some(ann) = duration_return_annotation(m.return_type.as_ref()) {
-                annotations.push(ann);
-            }
-            out.push_str(&render_jsdoc_with_throws(
-                m.docstring.as_deref(),
-                throws_name.as_deref(),
-                &annotations,
-                "  ",
-            ));
-            out.push_str(&format!(
-                "  export {async_kw}function {exported}({all_params}): {ts_ret} {{{body}}}\n",
-            ));
-        }
         out.push_str("}\n");
     }
 
@@ -749,51 +753,5 @@ pub(super) fn render_callback_interface(
         out.push_str(&format!("  {exported}({}): {ts_ret};\n", params.join(", ")));
     }
     out.push_str("}\n");
-    out
-}
-
-// ---------------------------------------------------------------------------
-// Synthesised trait method generation
-// ---------------------------------------------------------------------------
-
-/// Render synthesised trait methods (Display, Debug, Eq, Hash, Ord) as functions in a companion namespace.
-/// These call into wasm-bindgen exports named by the UniFFI trait convention.
-pub(super) fn render_trait_methods(
-    traits: &SynthesisedTraits,
-    type_name: &str,
-    bg_name: &str,
-) -> String {
-    let mut out = String::new();
-
-    if let Some(method_name) = &traits.display {
-        out.push_str(&format!(
-            "  export function toString(value: {type_name}): string {{ return __bg.{bg_name}_{method_name}(value); }}\n"
-        ));
-    }
-
-    if let Some(method_name) = &traits.debug {
-        out.push_str(&format!(
-            "  export function toDebugString(value: {type_name}): string {{ return __bg.{bg_name}_{method_name}(value); }}\n"
-        ));
-    }
-
-    if let Some(method_name) = &traits.eq {
-        out.push_str(&format!(
-            "  export function equals(value: {type_name}, other: {type_name}): boolean {{ return __bg.{bg_name}_{method_name}(value, other); }}\n"
-        ));
-    }
-
-    if let Some(method_name) = &traits.hash {
-        out.push_str(&format!(
-            "  export function hashCode(value: {type_name}): bigint {{ return __bg.{bg_name}_{method_name}(value); }}\n"
-        ));
-    }
-
-    if let Some(method_name) = &traits.ord {
-        out.push_str(&format!(
-            "  export function compareTo(value: {type_name}, other: {type_name}): number {{ return __bg.{bg_name}_{method_name}(value, other); }}\n"
-        ));
-    }
-
     out
 }

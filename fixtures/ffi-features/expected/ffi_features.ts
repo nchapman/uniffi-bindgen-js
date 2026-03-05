@@ -87,7 +87,7 @@ export class Widget {
   format(prefix: string | null = null): string {
     this._assertLive();
     const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_features_fn_clone_widget', this._handle);
-    const _rb_prefix = _rt.lowerIntoBuffer((w) => { w.writeOptional(prefix, (_w, _v) => { w.writeString(_v); }); });
+    const _rb_prefix = _rt.lowerIntoBuffer((w) => { w.writeOptional(prefix, (_w, _v) => { _w.writeString(_v); }); });
     const _argPtr = _rt.scratchAlloc(4 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_prefix);
@@ -139,7 +139,7 @@ function _lowerConfig(w: UniFFIWriter, value: Config): void {
   w.writeString(value.host);
   w.writeU32(value.port);
   w.writeBool(value.verbose);
-  w.writeOptional(value.label, (_w, _v) => { w.writeString(_v); });
+  w.writeOptional(value.label, (_w, _v) => { _w.writeString(_v); });
 }
 function _liftConfig(r: UniFFIReader): Config {
   return {
@@ -191,7 +191,7 @@ function _liftErrorBuildError(rb: any): BuildError {
 export namespace FfiFeatures {
   /** Add with optional second operand (defaults to zero). */
   export function addMaybe(a: number, b: number | null = null): number {
-    const _rb_b = _rt.lowerIntoBuffer((w) => { w.writeOptional(b, (_w, _v) => { w.writeU32(_v); }); });
+    const _rb_b = _rt.lowerIntoBuffer((w) => { w.writeOptional(b, (_w, _v) => { _w.writeU32(_v); }); });
     const _argPtr = _rt.scratchAlloc(4 * 8);
     _rt.writeU32Element(_argPtr, a);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_b);
@@ -237,7 +237,7 @@ export namespace FfiFeatures {
   }
   /** Greet by name, defaults to "world". */
   export function greet(name: string | null = null): string {
-    const _rb_name = _rt.lowerIntoBuffer((w) => { w.writeOptional(name, (_w, _v) => { w.writeString(_v); }); });
+    const _rb_name = _rt.lowerIntoBuffer((w) => { w.writeOptional(name, (_w, _v) => { _w.writeString(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_name);
     const _retPtr = _rt.scratchAlloc(7 * 8);

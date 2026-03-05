@@ -175,7 +175,7 @@ export namespace FfiCompound {
     return _result;
   }
   export function identityMapPoint(v: Map<string, Point>): Map<string, Point> {
-    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeMap(v, (_w, _k) => { w.writeString(_k); }, (_w, _v) => { _lowerPoint(w, _v); }); });
+    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeMap(v, (_w, _k) => { _w.writeString(_k); }, (_w, _v) => { _lowerPoint(_w, _v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
@@ -186,7 +186,7 @@ export namespace FfiCompound {
     return _result;
   }
   export function identityMapStringI32(v: Map<string, number>): Map<string, number> {
-    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeMap(v, (_w, _k) => { w.writeString(_k); }, (_w, _v) => { w.writeI32(_v); }); });
+    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeMap(v, (_w, _k) => { _w.writeString(_k); }, (_w, _v) => { _w.writeI32(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
@@ -197,7 +197,7 @@ export namespace FfiCompound {
     return _result;
   }
   export function identityOptionalI32(v: number | null): number | null {
-    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeOptional(v, (_w, _v) => { w.writeI32(_v); }); });
+    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeOptional(v, (_w, _v) => { _w.writeI32(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
@@ -208,7 +208,7 @@ export namespace FfiCompound {
     return _result;
   }
   export function identityOptionalPoint(v: Point | null): Point | null {
-    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeOptional(v, (_w, _v) => { _lowerPoint(w, _v); }); });
+    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeOptional(v, (_w, _v) => { _lowerPoint(_w, _v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
@@ -219,7 +219,7 @@ export namespace FfiCompound {
     return _result;
   }
   export function identityOptionalString(v: string | null): string | null {
-    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeOptional(v, (_w, _v) => { w.writeString(_v); }); });
+    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeOptional(v, (_w, _v) => { _w.writeString(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
@@ -230,7 +230,7 @@ export namespace FfiCompound {
     return _result;
   }
   export function identitySeqI32(v: number[]): number[] {
-    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeSequence(v, (_w, _v) => { w.writeI32(_v); }); });
+    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeSequence(v, (_w, _v) => { _w.writeI32(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
@@ -241,7 +241,7 @@ export namespace FfiCompound {
     return _result;
   }
   export function identitySeqPoint(v: Point[]): Point[] {
-    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeSequence(v, (_w, _v) => { _lowerPoint(w, _v); }); });
+    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeSequence(v, (_w, _v) => { _lowerPoint(_w, _v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
@@ -252,7 +252,7 @@ export namespace FfiCompound {
     return _result;
   }
   export function identitySeqString(v: string[]): string[] {
-    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeSequence(v, (_w, _v) => { w.writeString(_v); }); });
+    const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeSequence(v, (_w, _v) => { _w.writeString(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);

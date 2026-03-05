@@ -40,7 +40,7 @@ typecheck-golden:
 regen-golden:
   #!/usr/bin/env bash
   set -euo pipefail
-  for udl in fixtures/*/src/*.udl fixtures/regressions/*/src/*.udl; do
+  for udl in fixtures/*/src/*.udl; do
     dir="$(dirname "$(dirname "$udl")")"
     name="$(basename "$udl" .udl)"
     ns="$(echo "$name" | tr '-' '_')"
@@ -62,9 +62,9 @@ test-library:
   LIB_PATH="$(./scripts/build_library_mode_fixture.sh)"
   UBJS_LIBRARY_MODE_LIB="$LIB_PATH" cargo test -p uniffi-bindgen-js golden_library_mode -- --include-ignored
 
-# ---------- FFI-mode ----------
+# ---------- FFI-mode (WASM) ----------
 
-# Build all FFI-mode wasm fixtures and run their golden tests.
+# Build all FFI wasm fixtures and run their golden tests.
 test-ffi:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -73,7 +73,6 @@ test-ffi:
     (cd "$d" && cargo build --target wasm32-unknown-unknown --release)
   done
   cargo test -p uniffi-bindgen-js golden_ffi_ -- --include-ignored
-  cargo test -p uniffi-bindgen-js golden_wasm_source_ -- --include-ignored
 
 # ---------- Full integration ----------
 

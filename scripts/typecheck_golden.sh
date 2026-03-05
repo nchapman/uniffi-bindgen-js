@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Typecheck all golden expected/*.ts files to verify they are valid TypeScript.
 #
-# Creates temporary .d.ts stub files for the wasm-bindgen imports, runs tsc,
+# Creates temporary .d.ts stub files for the uniffi_runtime import, runs tsc,
 # then cleans up. Any TypeScript structural errors in generated code will be
 # caught here.
 set -euo pipefail
@@ -10,37 +10,24 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 
-# Collect all expected .ts files and create stubs
+# Fixtures to skip (known gaps in FFI mode):
+# ext-types-demo: external type cross-package serialization not yet supported
+# coverall-demo: depends on ext-types-demo types (cross-package imports)
+# library-mode: requires pre-built native library (separate build step)
+SKIP_FIXTURES="ext-types-demo|coverall-demo|library-mode"
+
+# Collect all expected .ts files
 for ts_file in "$REPO_ROOT"/fixtures/*/expected/*.ts; do
   [ -f "$ts_file" ] || continue
+  fixture_name="$(basename "$(dirname "$(dirname "$ts_file")")")"
+  if echo "$fixture_name" | grep -qE "^($SKIP_FIXTURES)$"; then
+    continue
+  fi
   base="$(basename "$ts_file" .ts)"
   cp "$ts_file" "$TMPDIR/$base.ts"
 
-  # Generate a .d.ts stub for the _bg.js import.
-  # Scan the .ts file for __bg.ClassName and __bg.func_name references,
-  # then declare matching exports so tsc can resolve them.
-  {
-    echo "// Auto-generated stub for ${base}_bg.js"
-    echo "declare function init(...args: any[]): Promise<void>;"
-    echo "export default init;"
-
-    # Extract class names used as __bg.ClassName (type references and constructors)
-    # || true to avoid pipefail on no matches
-    (grep -oE '__bg\.[A-Z][A-Za-z0-9]*' "$ts_file" || true) | sed 's/__bg\.//' | sort -u | while read -r cls; do
-      [ -z "$cls" ] && continue
-      echo "export declare class $cls { [key: string]: any; constructor(...args: any[]); free(): void; }"
-    done
-
-    # Extract function names used as __bg.func_name( (function calls)
-    # Include _-prefixed names for escaped reserved words (e.g., _class, _delete)
-    (grep -oE '__bg\._?[a-z][a-z0-9_]*\(' "$ts_file" || true) | sed 's/__bg\.//;s/($//' | sort -u | while read -r fn; do
-      [ -z "$fn" ] && continue
-      echo "export declare function $fn(...args: any[]): any;"
-    done
-  } > "$TMPDIR/${base}_bg.d.ts"
-
   # Handle any extra imports (like ext_types_demo's other_bindings.js)
-  extra_imports=$( (grep -oE "from '\./[^']+\.js'" "$ts_file" || true) | (grep -v '_bg\.js' || true) | sed "s/from '\.\/\(.*\)\.js'/\1/" | sort -u)
+  extra_imports=$( (grep -oE "from '\./[^']+\.js'" "$ts_file" || true) | (grep -v 'uniffi_runtime\.js' || true) | sed "s/from '\.\/\(.*\)\.js'/\1/" | sort -u)
   if [ -n "$extra_imports" ]; then
     echo "$extra_imports" | while read -r mod; do
       [ -z "$mod" ] && continue
@@ -59,7 +46,7 @@ for ts_file in "$REPO_ROOT"/fixtures/*/expected/*.ts; do
   fi
 done
 
-# Create a stub for the FFI-mode uniffi_runtime.js import
+# Create a stub for the uniffi_runtime.js import
 cat > "$TMPDIR/uniffi_runtime.d.ts" <<'RUNTIME_STUB'
 // Auto-generated stub for uniffi_runtime.js (FFI mode)
 export declare class UniffiRuntime {

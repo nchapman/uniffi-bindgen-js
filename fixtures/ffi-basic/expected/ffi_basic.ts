@@ -105,7 +105,7 @@ export namespace FfiBasic {
     return _result;
   }
   export function getCounterValues(counters: Counter[]): bigint[] {
-    const _rb_counters = _rt.lowerIntoBuffer((w) => { w.writeSequence(counters, (_w, _v) => { w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', _v._handle)); }); });
+    const _rb_counters = _rt.lowerIntoBuffer((w) => { w.writeSequence(counters, (_w, _v) => { _w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', _v._handle)); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_counters);
     const _retPtr = _rt.scratchAlloc(7 * 8);
@@ -116,7 +116,7 @@ export namespace FfiBasic {
     return _result;
   }
   export function getOptionalCounterValue(counter: Counter | null): bigint | null {
-    const _rb_counter = _rt.lowerIntoBuffer((w) => { w.writeOptional(counter, (_w, _v) => { w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', _v._handle)); }); });
+    const _rb_counter = _rt.lowerIntoBuffer((w) => { w.writeOptional(counter, (_w, _v) => { _w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', _v._handle)); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_counter);
     const _retPtr = _rt.scratchAlloc(7 * 8);

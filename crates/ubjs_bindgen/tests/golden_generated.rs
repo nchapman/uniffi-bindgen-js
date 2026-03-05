@@ -3,60 +3,19 @@ use std::path::PathBuf;
 
 use uniffi_bindgen_js::cli::GenerateArgs;
 
-/// Run a golden test in library mode: generate bindings from a compiled cdylib
-/// and compare against the expected output.
-fn run_golden_library(
-    lib_path: &str, // OS path from UBJS_LIBRARY_MODE_LIB env var
-    crate_name: Option<&str>,
-    ts_file: &str,
-    expected_path: &str,
-) {
-    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let expected = repo.join(expected_path);
-    let out_dir = repo.join(format!(
-        "target/test-generated-js/library-mode/{}",
-        ts_file.replace('.', "_")
-    ));
-
-    let _ = fs::remove_dir_all(&out_dir);
-
-    uniffi_bindgen_js::js::generate_bindings(&GenerateArgs {
-        source: PathBuf::from(lib_path),
-        out_dir: out_dir.clone(),
-        config: None,
-        wasm: None,
-        library: true,
-        crate_name: crate_name.map(ToOwned::to_owned),
-    })
-    .expect("library-mode generation should succeed");
-
-    let generated = fs::read_to_string(out_dir.join(ts_file)).expect("generated file");
-
-    if std::env::var("UPDATE_GOLDEN").is_ok() {
-        fs::create_dir_all(expected.parent().unwrap()).expect("create expected dir");
-        fs::write(&expected, &generated).expect("update golden file");
-        return;
-    }
-
-    let expected = fs::read_to_string(&expected).expect("expected file");
-    assert_eq!(generated, expected);
-}
-
+/// Run a golden test: generate bindings from a UDL file and compare against expected output.
 fn run_golden(fixture_name: &str, udl_file: &str, ts_file: &str) {
     run_golden_impl(fixture_name, udl_file, ts_file, ts_file, None);
 }
 
-/// Like `run_golden` but passes an explicit config path instead of relying on
-/// automatic `uniffi.toml` discovery.  Use this for fixtures whose whole point
-/// is to exercise config behaviour so the test is self-documenting.
+/// Like `run_golden` but passes an explicit config path.
 fn run_golden_with_config(fixture_name: &str, udl_file: &str, ts_file: &str, config_file: &str) {
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let config = repo.join(format!("fixtures/{fixture_name}/src/{config_file}"));
     run_golden_impl(fixture_name, udl_file, ts_file, ts_file, Some(config));
 }
 
-/// Like `run_golden_with_config` but the generated file name (from the UDL namespace)
-/// differs from the expected golden file name.
+/// Like `run_golden_with_config` but the generated file name differs from the expected golden file.
 fn run_golden_with_config_mapped(
     fixture_name: &str,
     udl_file: &str,
@@ -85,8 +44,6 @@ fn run_golden_impl(
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let fixture = repo.join(format!("fixtures/{fixture_name}/src/{udl_file}"));
     let expected = repo.join(format!("fixtures/{fixture_name}/expected/{expected_ts}"));
-    // Use a subdir keyed by expected filename to avoid collisions when multiple
-    // golden tests share the same fixture but use different configs.
     let out_dir = repo.join(format!(
         "target/test-generated-js/{fixture_name}/{}",
         expected_ts.replace('.', "_")
@@ -98,8 +55,6 @@ fn run_golden_impl(
         source: fixture,
         out_dir: out_dir.clone(),
         config,
-        wasm: None,
-        library: false,
         crate_name: None,
     })
     .expect("generation should succeed");
@@ -241,140 +196,27 @@ fn golden_non_exhaustive_demo_fixture() {
 }
 
 // ---------------------------------------------------------------------------
-// FFI-mode golden tests (--wasm)
+// FFI-mode golden tests (UDL + compiled WASM)
 // ---------------------------------------------------------------------------
 
-/// Run a golden test in FFI mode: generate bindings with --wasm flag.
-/// Requires a pre-compiled .wasm file in the fixture's wasm/ directory.
-fn run_golden_ffi(fixture_name: &str, udl_file: &str, ts_file: &str, wasm_file: &str) {
-    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let fixture = repo.join(format!("fixtures/{fixture_name}/src/{udl_file}"));
-    let wasm = repo.join(format!(
-        "fixtures/{fixture_name}/wasm/target/wasm32-unknown-unknown/release/{wasm_file}"
-    ));
-    let expected = repo.join(format!("fixtures/{fixture_name}/expected/{ts_file}"));
-    let out_dir = repo.join(format!(
-        "target/test-generated-js/{fixture_name}/ffi_{}",
-        ts_file.replace('.', "_")
-    ));
-
-    let _ = fs::remove_dir_all(&out_dir);
-
-    uniffi_bindgen_js::js::generate_bindings(&GenerateArgs {
-        source: fixture,
-        out_dir: out_dir.clone(),
-        config: None,
-        wasm: Some(wasm),
-        library: false,
-        crate_name: None,
-    })
-    .expect("FFI-mode generation should succeed");
-
-    let generated = fs::read_to_string(out_dir.join(ts_file)).expect("generated file");
-
-    if std::env::var("UPDATE_GOLDEN").is_ok() {
-        fs::create_dir_all(expected.parent().unwrap()).expect("create expected dir");
-        fs::write(&expected, &generated).expect("update golden file");
-        return;
-    }
-
-    let expected = fs::read_to_string(expected).expect("expected file");
-    assert_eq!(generated, expected);
+/// Run a golden test with a pre-compiled .wasm file as source.
+fn run_golden_wasm(fixture_name: &str, ts_file: &str, wasm_file: &str) {
+    run_golden_wasm_impl(fixture_name, ts_file, wasm_file, None)
 }
 
-/// FFI-mode golden test. Requires wasm compiled via:
-/// `cd fixtures/ffi-basic/wasm && cargo build --target wasm32-unknown-unknown --release`
-#[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
-fn golden_ffi_basic_fixture() {
-    run_golden_ffi(
-        "ffi-basic",
-        "ffi_basic.udl",
-        "ffi_basic.ts",
-        "ffi_basic.wasm",
-    );
-}
-
-#[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
-fn golden_ffi_compound_fixture() {
-    run_golden_ffi(
-        "ffi-compound",
-        "ffi_compound.udl",
-        "ffi_compound.ts",
-        "ffi_compound.wasm",
-    );
-}
-
-#[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
-fn golden_ffi_errors_fixture() {
-    run_golden_ffi(
-        "ffi-errors",
-        "ffi_errors.udl",
-        "ffi_errors.ts",
-        "ffi_errors.wasm",
-    );
-}
-
-#[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
-fn golden_ffi_callbacks_fixture() {
-    run_golden_ffi(
-        "ffi-callbacks",
-        "ffi_callbacks.udl",
-        "ffi_callbacks.ts",
-        "ffi_callbacks.wasm",
-    );
-}
-
-#[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
-fn golden_ffi_async_fixture() {
-    run_golden_ffi(
-        "ffi-async",
-        "ffi_async.udl",
-        "ffi_async.ts",
-        "ffi_async.wasm",
-    );
-}
-
-#[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
-fn golden_ffi_traits_fixture() {
-    run_golden_ffi(
-        "ffi-traits",
-        "ffi_traits.udl",
-        "ffi_traits.ts",
-        "ffi_traits.wasm",
-    );
-}
-
-#[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
-fn golden_ffi_features_fixture() {
-    run_golden_ffi(
-        "ffi-features",
-        "ffi_features.udl",
-        "ffi_features.ts",
-        "ffi_features.wasm",
-    );
-}
-
-// ---------------------------------------------------------------------------
-// WASM-as-source golden tests (.wasm file as sole input)
-// ---------------------------------------------------------------------------
-
-/// Run a golden test with a .wasm file as the sole source (no UDL, no --wasm flag).
-/// Metadata is extracted directly from the WASM binary.
-fn run_golden_wasm_source(fixture_name: &str, ts_file: &str, wasm_file: &str) {
+fn run_golden_wasm_impl(
+    fixture_name: &str,
+    ts_file: &str,
+    wasm_file: &str,
+    config: Option<PathBuf>,
+) {
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let wasm = repo.join(format!(
         "fixtures/{fixture_name}/wasm/target/wasm32-unknown-unknown/release/{wasm_file}"
     ));
     let expected = repo.join(format!("fixtures/{fixture_name}/expected/{ts_file}"));
     let out_dir = repo.join(format!(
-        "target/test-generated-js/{fixture_name}/wasm_source_{}",
+        "target/test-generated-js/{fixture_name}/wasm_{}",
         ts_file.replace('.', "_")
     ));
 
@@ -383,12 +225,10 @@ fn run_golden_wasm_source(fixture_name: &str, ts_file: &str, wasm_file: &str) {
     uniffi_bindgen_js::js::generate_bindings(&GenerateArgs {
         source: wasm,
         out_dir: out_dir.clone(),
-        config: None,
-        wasm: None,
-        library: false,
+        config,
         crate_name: None,
     })
-    .expect("WASM-as-source generation should succeed");
+    .expect("WASM-source generation should succeed");
 
     let generated = fs::read_to_string(out_dir.join(ts_file)).expect("generated file");
 
@@ -402,23 +242,46 @@ fn run_golden_wasm_source(fixture_name: &str, ts_file: &str, wasm_file: &str) {
     assert_eq!(generated, expected);
 }
 
-/// WASM-as-source: verifies that passing a .wasm file as the sole input produces
-/// output identical to the UDL + --wasm path (same expected file).
-/// If these diverge, it means the two metadata extraction paths have drifted.
-///
-/// Note: only ffi-basic and ffi-compound produce byte-identical output from both paths.
-/// Other fixtures have minor differences (method ordering, flat error shape, docstrings)
-/// due to upstream `ComponentInterface::add_metadata` vs `from_webidl` semantics.
 #[test]
 #[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
-fn golden_wasm_source_ffi_basic() {
-    run_golden_wasm_source("ffi-basic", "ffi_basic.ts", "ffi_basic.wasm");
+fn golden_ffi_basic_fixture() {
+    run_golden_wasm("ffi-basic", "ffi_basic.ts", "ffi_basic.wasm");
 }
 
 #[test]
 #[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
-fn golden_wasm_source_ffi_compound() {
-    run_golden_wasm_source("ffi-compound", "ffi_compound.ts", "ffi_compound.wasm");
+fn golden_ffi_compound_fixture() {
+    run_golden_wasm("ffi-compound", "ffi_compound.ts", "ffi_compound.wasm");
+}
+
+#[test]
+#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
+fn golden_ffi_errors_fixture() {
+    run_golden_wasm("ffi-errors", "ffi_errors.ts", "ffi_errors.wasm");
+}
+
+#[test]
+#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
+fn golden_ffi_callbacks_fixture() {
+    run_golden_wasm("ffi-callbacks", "ffi_callbacks.ts", "ffi_callbacks.wasm");
+}
+
+#[test]
+#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
+fn golden_ffi_async_fixture() {
+    run_golden_wasm("ffi-async", "ffi_async.ts", "ffi_async.wasm");
+}
+
+#[test]
+#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
+fn golden_ffi_traits_fixture() {
+    run_golden_wasm("ffi-traits", "ffi_traits.ts", "ffi_traits.wasm");
+}
+
+#[test]
+#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
+fn golden_ffi_features_fixture() {
+    run_golden_wasm("ffi-features", "ffi_features.ts", "ffi_features.wasm");
 }
 
 /// Library-mode golden test. Requires a compiled cdylib from
@@ -428,10 +291,29 @@ fn golden_wasm_source_ffi_compound() {
 fn golden_library_mode_fixture() {
     let lib_path = std::env::var("UBJS_LIBRARY_MODE_LIB")
         .expect("UBJS_LIBRARY_MODE_LIB must be set when running this test");
-    run_golden_library(
-        &lib_path,
-        None,
-        "library_mode.ts",
-        "fixtures/library-mode/expected/library_mode.ts",
-    );
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let expected_path = "fixtures/library-mode/expected/library_mode.ts";
+    let expected = repo.join(expected_path);
+    let out_dir = repo.join("target/test-generated-js/library-mode/library_mode_ts");
+
+    let _ = fs::remove_dir_all(&out_dir);
+
+    uniffi_bindgen_js::js::generate_bindings(&GenerateArgs {
+        source: PathBuf::from(lib_path),
+        out_dir: out_dir.clone(),
+        config: None,
+        crate_name: None,
+    })
+    .expect("library-mode generation should succeed");
+
+    let generated = fs::read_to_string(out_dir.join("library_mode.ts")).expect("generated file");
+
+    if std::env::var("UPDATE_GOLDEN").is_ok() {
+        fs::create_dir_all(expected.parent().unwrap()).expect("create expected dir");
+        fs::write(&expected, &generated).expect("update golden file");
+        return;
+    }
+
+    let expected = fs::read_to_string(&expected).expect("expected file");
+    assert_eq!(generated, expected);
 }
