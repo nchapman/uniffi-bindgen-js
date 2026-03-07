@@ -729,32 +729,40 @@ export class UniffiRuntime {
 
   /**
    * Create a RustBuffer from bytes (copies data into Rust-owned memory).
-   * Uses ffi_{ns}_rustbuffer_from_bytes C ABI export.
+   *
+   * Uses ffi_{ns}_rustbuffer_alloc to get Rust-owned memory, then copies
+   * data directly into it. This avoids putting data on the scratch allocator,
+   * which has a fixed 64KB budget.
    */
   rustBufferFromBytes(data: Uint8Array): RustBufferDescriptor {
-    // Write data bytes to scratch
-    const dataPtr = this.scratchAlloc(data.length);
-    new Uint8Array(this._memory.buffer, dataPtr, data.length).set(data);
+    if (data.length === 0) {
+      return { capacity: 0, len: 0, dataPtr: 0 };
+    }
 
-    // Create ForeignBytes struct
-    const fbPtr = this.scratchAlloc(FOREIGN_BYTES_STRUCT_SIZE);
-    this._writeForeignBytesStruct(fbPtr, data.length, dataPtr);
-
-    // Allocate space for return RustBuffer and call status
+    // Use scratch only for the small struct args (retBuf + status = 56 bytes)
+    const saved = this.scratchSave();
     const retBufPtr = this.scratchAlloc(RUST_BUFFER_STRUCT_SIZE);
     const statusPtr = this.scratchAlloc(RUST_CALL_STATUS_STRUCT_SIZE);
     this._writeRustCallStatusStruct(statusPtr);
 
-    // Call: (retptr, foreign_bytes_ptr, status_ptr) -> void
-    const fn_ = this._exports[`ffi_${this._namespace}_rustbuffer_from_bytes`];
-    if (!fn_) {
-      throw new Error(`WASM export not found: ffi_${this._namespace}_rustbuffer_from_bytes`);
+    // Allocate Rust-owned buffer of the right size
+    const allocFn = this._exports[`ffi_${this._namespace}_rustbuffer_alloc`];
+    if (!allocFn) {
+      throw new Error(`WASM export not found: ffi_${this._namespace}_rustbuffer_alloc`);
     }
-    (fn_ as (a: number, b: number, c: number) => void)(retBufPtr, fbPtr, statusPtr);
+    (allocFn as (a: number, b: bigint, c: number) => void)(retBufPtr, BigInt(data.length), statusPtr);
     this._cachedDv = null; // C ABI call may grow memory
     this._checkRustCallStatusStruct(statusPtr);
 
-    return this._readRustBufferStruct(retBufPtr);
+    const rb = this._readRustBufferStruct(retBufPtr);
+    this.scratchRestore(saved);
+
+    // Copy data directly into the Rust-owned buffer
+    new Uint8Array(this._memory.buffer, rb.dataPtr, data.length).set(data);
+    // alloc sets capacity but len=0; update len to reflect actual data
+    rb.len = data.length;
+
+    return rb;
   }
 
   /**
