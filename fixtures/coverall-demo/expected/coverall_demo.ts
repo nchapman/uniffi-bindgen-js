@@ -12,7 +12,10 @@ export type ComplexErrorVariant =
 export class ComplexError extends Error {
   override readonly name = 'ComplexError' as const;
   constructor(public readonly variant: ComplexErrorVariant) {
-    super(variant.tag);
+    const { tag, ...fields } = variant;
+    const fmt = (v: unknown) => typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+    const msg = Object.entries(fields).map(([k, v]) => `${k}=${fmt(v)}`).join(', ');
+    super(msg ? `${tag}: ${msg}` : tag, { cause: variant });
   }
   static OsError(code: number, extendedCode: number): ComplexError { return new ComplexError({ tag: 'OsError', code, extendedCode }); }
   static PermissionDenied(reason: string): ComplexError { return new ComplexError({ tag: 'PermissionDenied', reason }); }

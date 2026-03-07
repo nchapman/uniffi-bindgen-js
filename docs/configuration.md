@@ -4,7 +4,7 @@
 
 ## Supported Keys
 
-- `module_name`: overrides generated TypeScript namespace name (default: PascalCase of UDL filename).
+- `module_name`: overrides generated TypeScript namespace name (default: PascalCase of the crate/UDL namespace). **Recommended** when your crate name includes a suffix like `_uniffi` or `_ffi` — without this, a crate named `html2markdown_uniffi` produces a namespace called `Html2markdownUniffi` instead of the cleaner `Html2Markdown`.
 - `rename`: map of UDL API identifiers to TypeScript public API names.
 - `exclude`: list of UDL API identifiers to omit from generated TypeScript public API surface.
 - `external_packages`: map of external UniFFI crate names to JS import paths used for generated external-type references.

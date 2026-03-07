@@ -10,7 +10,10 @@ export type MathErrorVariant =
 export class MathError extends Error {
   override readonly name = 'MathError' as const;
   constructor(public readonly variant: MathErrorVariant) {
-    super(variant.tag);
+    const { tag, ...fields } = variant;
+    const fmt = (v: unknown) => typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+    const msg = Object.entries(fields).map(([k, v]) => `${k}=${fmt(v)}`).join(', ');
+    super(msg ? `${tag}: ${msg}` : tag, { cause: variant });
   }
   static DivisionByZero(): MathError { return new MathError({ tag: 'DivisionByZero' }); }
   static Overflow(): MathError { return new MathError({ tag: 'Overflow' }); }
@@ -24,7 +27,10 @@ export type NetworkErrorVariant =
 export class NetworkError extends Error {
   override readonly name = 'NetworkError' as const;
   constructor(public readonly variant: NetworkErrorVariant) {
-    super(variant.tag);
+    const { tag, ...fields } = variant;
+    const fmt = (v: unknown) => typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+    const msg = Object.entries(fields).map(([k, v]) => `${k}=${fmt(v)}`).join(', ');
+    super(msg ? `${tag}: ${msg}` : tag, { cause: variant });
   }
   static NotFound(url: string): NetworkError { return new NetworkError({ tag: 'NotFound', url }); }
   static Timeout(afterMs: number): NetworkError { return new NetworkError({ tag: 'Timeout', afterMs }); }
@@ -39,7 +45,10 @@ export type ParseErrorVariant =
 export class ParseError extends Error {
   override readonly name = 'ParseError' as const;
   constructor(public readonly variant: ParseErrorVariant) {
-    super(variant.tag);
+    const { tag, ...fields } = variant;
+    const fmt = (v: unknown) => typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+    const msg = Object.entries(fields).map(([k, v]) => `${k}=${fmt(v)}`).join(', ');
+    super(msg ? `${tag}: ${msg}` : tag, { cause: variant });
   }
   static InvalidInput(): ParseError { return new ParseError({ tag: 'InvalidInput' }); }
   static MissingSection(): ParseError { return new ParseError({ tag: 'MissingSection' }); }

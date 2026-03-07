@@ -52,6 +52,9 @@ cargo build --target wasm32-unknown-unknown --release
 
 ```bash
 uniffi-bindgen-js generate target/wasm32-unknown-unknown/release/math.wasm --out-dir pkg/
+
+# With configuration (custom namespace, rename/exclude, etc.):
+uniffi-bindgen-js generate target/wasm32-unknown-unknown/release/math.wasm --out-dir pkg/ --config uniffi.toml
 ```
 
 **5. Use it:**
@@ -191,6 +194,49 @@ export type Shape =
 
 Flat enums map to string literal unions; data-carrying enums map to discriminated unions with exhaustive pattern matching.
 
+### Errors
+
+Rust:
+
+```rust
+#[derive(Debug, thiserror::Error, uniffi::Error)]
+pub enum NetworkError {
+    #[error("Resource not found: {url}")]
+    NotFound { url: String },
+    #[error("Request timed out after {timeout_ms}ms")]
+    Timeout { timeout_ms: u32 },
+}
+```
+
+Generated TypeScript:
+
+```typescript
+export class NetworkError extends Error {
+  override readonly name = 'NetworkError' as const;
+  constructor(public readonly variant: NetworkErrorVariant) { /* ... */ }
+  static NotFound(url: string): NetworkError { /* ... */ }
+  static Timeout(timeoutMs: number): NetworkError { /* ... */ }
+}
+```
+
+Catching errors:
+
+```typescript
+try {
+  MyApi.fetchData(url);
+} catch (e) {
+  if (e instanceof NetworkError) {
+    console.error(e.message);      // "NotFound: url=https://example.com"
+    console.error(e.variant.tag);   // "NotFound"
+    if (e.variant.tag === 'NotFound') {
+      console.error(e.variant.url); // "https://example.com" (typed access)
+    }
+  }
+}
+```
+
+Rich errors have human-readable `.message` strings built from the variant fields, structured `.variant` data for programmatic matching, and standard `.cause` for error chain tooling. Flat errors (no fields) produce a `.message` equal to the variant tag.
+
 ## Usage
 
 ### Generate command
@@ -224,6 +270,23 @@ external_packages = { other_crate = "./other_bindings.js" }
 ```
 
 See [docs/configuration.md](docs/configuration.md) for the full reference.
+
+### Naming: separate UniFFI crates
+
+If your UniFFI crate is a thin wrapper around a library (e.g., `html2markdown-uniffi` wrapping `html2markdown`), the auto-derived namespace will include the suffix — `Html2markdownUniffi`. Use `module_name` to choose a clean name:
+
+```toml
+# uniffi.toml
+[bindings.js]
+module_name = "Html2Markdown"
+```
+
+```typescript
+// Before: Html2markdownUniffi.convert(html)
+// After:  Html2Markdown.convert(html)
+```
+
+This is especially common when you keep UniFFI scaffolding in a separate crate to avoid feature-flag conflicts or to support multiple binding targets.
 
 ### External types
 

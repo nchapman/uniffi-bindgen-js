@@ -101,7 +101,13 @@ pub(super) fn render_error_class(
         out.push_str(&format!(
             "  constructor(public readonly variant: {variant_type}) {{\n"
         ));
-        out.push_str("    super(variant.tag);\n");
+        // Build a human-readable message from the variant tag and fields,
+        // e.g. "InvalidOption: field=bullet, allowed=\"*\",\"-\",\"+\", value=x"
+        // Uses JSON.stringify for non-primitive values to avoid "[object Object]".
+        out.push_str("    const { tag, ...fields } = variant;\n");
+        out.push_str("    const fmt = (v: unknown) => typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);\n");
+        out.push_str("    const msg = Object.entries(fields).map(([k, v]) => `${k}=${fmt(v)}`).join(', ');\n");
+        out.push_str("    super(msg ? `${tag}: ${msg}` : tag, { cause: variant });\n");
         out.push_str("  }\n");
         for v in &e.variants {
             let params: Vec<String> = v

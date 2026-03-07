@@ -12,7 +12,10 @@ export type NetworkErrorVariant =
 export class NetworkError extends Error {
   override readonly name = 'NetworkError' as const;
   constructor(public readonly variant: NetworkErrorVariant) {
-    super(variant.tag);
+    const { tag, ...fields } = variant;
+    const fmt = (v: unknown) => typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+    const msg = Object.entries(fields).map(([k, v]) => `${k}=${fmt(v)}`).join(', ');
+    super(msg ? `${tag}: ${msg}` : tag, { cause: variant });
   }
   static NotFound(url: string): NetworkError { return new NetworkError({ tag: 'NotFound', url }); }
   static Timeout(url: string, elapsedMs: number): NetworkError { return new NetworkError({ tag: 'Timeout', url, elapsedMs }); }

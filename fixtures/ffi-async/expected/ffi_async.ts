@@ -10,7 +10,10 @@ export type AsyncErrorVariant =
 export class AsyncError extends Error {
   override readonly name = 'AsyncError' as const;
   constructor(public readonly variant: AsyncErrorVariant) {
-    super(variant.tag);
+    const { tag, ...fields } = variant;
+    const fmt = (v: unknown) => typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+    const msg = Object.entries(fields).map(([k, v]) => `${k}=${fmt(v)}`).join(', ');
+    super(msg ? `${tag}: ${msg}` : tag, { cause: variant });
   }
   static DivisionByZero(): AsyncError { return new AsyncError({ tag: 'DivisionByZero' }); }
   static InvalidInput(): AsyncError { return new AsyncError({ tag: 'InvalidInput' }); }
