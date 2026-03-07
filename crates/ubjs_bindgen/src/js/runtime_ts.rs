@@ -25,16 +25,16 @@ async function loadWasm(wasmUrl: URL | string): Promise<WebAssembly.WebAssemblyI
   } else {
     // Browser: prefer streaming compilation (compiles while downloading)
     const url = typeof wasmUrl === 'string' ? wasmUrl : wasmUrl.href;
-    const response = fetch(url);
+    const resp = await fetch(url);
     if (typeof WebAssembly.instantiateStreaming === 'function') {
       try {
-        return await WebAssembly.instantiateStreaming(response);
+        // clone() so the original Response body remains available for the fallback
+        return await WebAssembly.instantiateStreaming(resp.clone());
       } catch (_) {
         // Fallback if streaming fails (e.g., wrong MIME type)
       }
     }
-    const bytes = await (await response).arrayBuffer();
-    return WebAssembly.instantiate(bytes);
+    return WebAssembly.instantiate(await resp.arrayBuffer());
   }
 }
 
@@ -48,7 +48,7 @@ async function loadWasm(wasmUrl: URL | string): Promise<WebAssembly.WebAssemblyI
 
 const _textEncoder = new TextEncoder();
 
-const SAFARI_TEXT_DECODER_LIMIT = 2_000_000_000; // ~2GB, well under the crash threshold
+const SAFARI_TEXT_DECODER_LIMIT = 1_800_000_000; // ~1.8GB, safely under the ~2GB crash threshold
 let _textDecoder = new TextDecoder('utf-8', { fatal: true });
 let _textDecoderBytesDecoded = 0;
 
