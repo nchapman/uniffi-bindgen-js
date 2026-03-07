@@ -12,7 +12,7 @@
  * - Large sequences/strings serialize correctly
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { FfiBasic, Counter } from '../generated/ffi_basic.js';
 import { FfiCompound, type Point } from '../generated/ffi_compound.js';
 // Async and callback fixtures require --export-table RUSTFLAGS; imported

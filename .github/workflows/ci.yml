@@ -52,6 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: extractions/setup-just@v2
       - name: Build library-mode fixture and run golden test
         run: just test-library
 
