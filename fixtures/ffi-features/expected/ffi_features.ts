@@ -3,7 +3,6 @@ import { UniffiRuntime, UniFFIWriter, UniFFIReader } from './uniffi_runtime.js';
 
 const _rt = await UniffiRuntime.load(new URL('./ffi_features.wasm', import.meta.url), 'ffi_features');
 
-/** Error for named constructor. */
 export class BuildError extends Error {
   override readonly name = 'BuildError' as const;
   constructor(public readonly tag: 'InvalidInput' | 'Overflow') {
@@ -13,7 +12,6 @@ export class BuildError extends Error {
   static Overflow(): BuildError { return new BuildError('Overflow'); }
 }
 
-/** A record with field defaults. */
 export interface Config {
   host: string;
   port?: number;
@@ -21,17 +19,14 @@ export interface Config {
   label?: string | null;
 }
 
-/** A record with reserved-word field names. */
 export interface ReturnValue {
   class_: string;
   return_: number;
   typeof_: boolean;
 }
 
-/** A flat enum. */
 export type Status = 'Active' | 'Inactive';
 
-/** An object with named constructors, docstrings, and reserved-word methods. */
 export class Widget {
   /** @internal */
   readonly _handle: bigint;
@@ -45,7 +40,6 @@ export class Widget {
   }
   /** @internal */
   static _fromHandle(handle: bigint): Widget { return new Widget(handle); }
-  /** Default constructor. */
   static create(label: string): Widget {
     const _rb_label = _rt.lowerString(label);
     const _argPtr = _rt.scratchAlloc(3 * 8);
@@ -60,10 +54,7 @@ export class Widget {
       _rt.scratchReset();
     }
   }
-  /**
-   * Named constructor that can fail.
-   * @throws {BuildError}
-   */
+  /** @throws {BuildError} */
   static fromPositive(value: number): Widget {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI32Element(_argPtr, value);
@@ -77,7 +68,6 @@ export class Widget {
       _rt.scratchReset();
     }
   }
-  /** Reserved-word method name. */
   class_(): number {
     this._assertLive();
     const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_features_fn_clone_widget', this._handle);
@@ -93,8 +83,7 @@ export class Widget {
       _rt.scratchReset();
     }
   }
-  /** Method with default argument. */
-  format(prefix: string | null = null): string {
+  format(prefix: string | null): string {
     this._assertLive();
     const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_features_fn_clone_widget', this._handle);
     const _rb_prefix = _rt.lowerIntoBuffer((w) => { w.writeOptional(prefix, (_w, _v) => { _w.writeString(_v); }); });
@@ -111,7 +100,6 @@ export class Widget {
       _rt.scratchReset();
     }
   }
-  /** Returns the config with defaults filled in. */
   getConfig(): Config {
     this._assertLive();
     const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_features_fn_clone_widget', this._handle);
@@ -127,7 +115,6 @@ export class Widget {
       _rt.scratchReset();
     }
   }
-  /** Get the label. */
   getLabel(): string {
     this._assertLive();
     const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_features_fn_clone_widget', this._handle);
@@ -204,13 +191,8 @@ function _liftErrorBuildError(rb: any): BuildError {
   });
 }
 
-/**
- * Feature coverage fixture: defaults, named ctors, docstrings,
- * reserved words, enums, records with defaults.
- */
 export namespace FfiFeatures {
-  /** Add with optional second operand (defaults to zero). */
-  export function addMaybe(a: number, b: number | null = null): number {
+  export function addMaybe(a: number, b: number | null): number {
     const _rb_b = _rt.lowerIntoBuffer((w) => { w.writeOptional(b, (_w, _v) => { _w.writeU32(_v); }); });
     const _argPtr = _rt.scratchAlloc(4 * 8);
     _rt.writeU32Element(_argPtr, a);
@@ -225,7 +207,6 @@ export namespace FfiFeatures {
       _rt.scratchReset();
     }
   }
-  /** Reserved-word function names. */
   export function class_(switch_: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU32Element(_argPtr, switch_);
@@ -252,7 +233,6 @@ export namespace FfiFeatures {
       _rt.scratchReset();
     }
   }
-  /** Accepts a record with reserved-word fields. */
   export function describeKeywords(rv: ReturnValue): string {
     const _rb_rv = _rt.lowerIntoBuffer((w) => { _lowerReturnValue(w, rv); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
@@ -267,8 +247,7 @@ export namespace FfiFeatures {
       _rt.scratchReset();
     }
   }
-  /** Greet by name, defaults to "world". */
-  export function greet(name: string | null = null): string {
+  export function greet(name: string | null): string {
     const _rb_name = _rt.lowerIntoBuffer((w) => { w.writeOptional(name, (_w, _v) => { _w.writeString(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_name);
@@ -296,7 +275,6 @@ export namespace FfiFeatures {
       _rt.scratchReset();
     }
   }
-  /** Returns the enum variant name. */
   export function statusName(s: Status): string {
     const _rb_s = _rt.lowerIntoBuffer((w) => { _lowerStatus(w, s); });
     const _argPtr = _rt.scratchAlloc(3 * 8);

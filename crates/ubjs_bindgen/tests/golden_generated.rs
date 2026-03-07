@@ -200,6 +200,8 @@ fn golden_non_exhaustive_demo_fixture() {
 // ---------------------------------------------------------------------------
 
 /// Run a golden test with a pre-compiled .wasm file as source.
+/// Auto-skips if the WASM hasn't been built yet (run `just test-ffi` or
+/// `./scripts/build_bindings.sh` to build it).
 fn run_golden_wasm(fixture_name: &str, ts_file: &str, wasm_file: &str) {
     run_golden_wasm_impl(fixture_name, ts_file, wasm_file, None)
 }
@@ -214,6 +216,14 @@ fn run_golden_wasm_impl(
     let wasm = repo.join(format!(
         "fixtures/{fixture_name}/wasm/target/wasm32-unknown-unknown/release/{wasm_file}"
     ));
+
+    if !wasm.exists() {
+        eprintln!(
+            "SKIPPED: {wasm_file} not found — build with `just test-ffi` or `./scripts/build_bindings.sh`"
+        );
+        return;
+    }
+
     let expected = repo.join(format!("fixtures/{fixture_name}/expected/{ts_file}"));
     let out_dir = repo.join(format!(
         "target/test-generated-js/{fixture_name}/wasm_{}",
@@ -243,54 +253,52 @@ fn run_golden_wasm_impl(
 }
 
 #[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
 fn golden_ffi_basic_fixture() {
     run_golden_wasm("ffi-basic", "ffi_basic.ts", "ffi_basic.wasm");
 }
 
 #[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
 fn golden_ffi_compound_fixture() {
     run_golden_wasm("ffi-compound", "ffi_compound.ts", "ffi_compound.wasm");
 }
 
 #[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
 fn golden_ffi_errors_fixture() {
     run_golden_wasm("ffi-errors", "ffi_errors.ts", "ffi_errors.wasm");
 }
 
 #[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
 fn golden_ffi_callbacks_fixture() {
     run_golden_wasm("ffi-callbacks", "ffi_callbacks.ts", "ffi_callbacks.wasm");
 }
 
 #[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
 fn golden_ffi_async_fixture() {
     run_golden_wasm("ffi-async", "ffi_async.ts", "ffi_async.wasm");
 }
 
 #[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
 fn golden_ffi_traits_fixture() {
     run_golden_wasm("ffi-traits", "ffi_traits.ts", "ffi_traits.wasm");
 }
 
 #[test]
-#[ignore = "requires pre-compiled wasm — run via `just test-ffi`"]
 fn golden_ffi_features_fixture() {
     run_golden_wasm("ffi-features", "ffi_features.ts", "ffi_features.wasm");
 }
 
 /// Library-mode golden test. Requires a compiled cdylib from
 /// `fixtures/library-mode/native-lib/`. Run via `just test-library`.
+/// Auto-skips if UBJS_LIBRARY_MODE_LIB is not set.
 #[test]
-#[ignore = "requires UBJS_LIBRARY_MODE_LIB — run via `just test-library`"]
 fn golden_library_mode_fixture() {
-    let lib_path = std::env::var("UBJS_LIBRARY_MODE_LIB")
-        .expect("UBJS_LIBRARY_MODE_LIB must be set when running this test");
+    let lib_path = match std::env::var("UBJS_LIBRARY_MODE_LIB") {
+        Ok(p) => p,
+        Err(_) => {
+            eprintln!("SKIPPED: UBJS_LIBRARY_MODE_LIB not set — run via `just test-library`");
+            return;
+        }
+    };
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let expected_path = "fixtures/library-mode/expected/library_mode.ts";
     let expected = repo.join(expected_path);

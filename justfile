@@ -72,7 +72,7 @@ test-ffi:
     echo "Building $(basename "$(dirname "$d")") wasm..."
     (cd "$d" && cargo build --target wasm32-unknown-unknown --release)
   done
-  cargo test -p uniffi-bindgen-js golden_ffi_ -- --include-ignored
+  cargo test -p uniffi-bindgen-js golden_ffi_
 
 # ---------- Full integration ----------
 

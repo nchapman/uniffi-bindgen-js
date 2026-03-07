@@ -66,6 +66,8 @@ jobs:
           cache-dependency-path: binding_tests/pnpm-lock.yaml
       - name: Build WASM fixtures and generate TypeScript bindings
         run: ./scripts/build_bindings.sh
+      - name: FFI golden tests (WASM now available)
+        run: cargo test -p uniffi-bindgen-js golden_ffi_
       - name: Upload runtime artifacts
         uses: actions/upload-artifact@v4
         with:

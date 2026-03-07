@@ -36,7 +36,6 @@ _rt.registerCallbackVTable('Formatter', 'uniffi_ffi_callbacks_fn_init_callback_v
   },
 ]);
 
-/** Accepts a Formatter callback and uses it. */
 export class Processor {
   /** @internal */
   readonly _handle: bigint;
