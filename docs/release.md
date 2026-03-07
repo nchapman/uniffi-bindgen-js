@@ -13,9 +13,8 @@ All crates inherit it via `version.workspace = true`.
 
 ## Pre-release Checklist
 
-1. Ensure CI is green: `cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test --workspace`
-2. Run the full binding test suite: `./scripts/test_bindings.sh`
-3. Verify golden tests pass (they run as part of `cargo test`)
+1. Ensure CI is green: `just check` (runs fmt, clippy, and all tests)
+2. Verify golden files typecheck: `just typecheck-golden`
 4. Review `git log` since the last release for any missed changelog entries
 
 ## Version Bump
