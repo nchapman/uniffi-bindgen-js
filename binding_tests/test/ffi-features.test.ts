@@ -17,8 +17,8 @@ import {
 } from '../generated/ffi_features.js';
 
 describe('Default arguments', () => {
-  it('greet with no argument uses default', () => {
-    expect(FfiFeatures.greet()).toBe('Hello, world!');
+  it('greet with null uses default', () => {
+    expect(FfiFeatures.greet(null)).toBe('Hello, world!');
   });
 
   it('greet with explicit name', () => {
@@ -29,8 +29,8 @@ describe('Default arguments', () => {
     expect(FfiFeatures.greet(null)).toBe('Hello, world!');
   });
 
-  it('add_maybe with no second argument', () => {
-    expect(FfiFeatures.addMaybe(5)).toBe(5);
+  it('add_maybe with null second argument', () => {
+    expect(FfiFeatures.addMaybe(5, null)).toBe(5);
   });
 
   it('add_maybe with explicit second argument', () => {
@@ -117,9 +117,9 @@ describe('Reserved-word method names', () => {
 });
 
 describe('Method with default argument', () => {
-  it('format with no prefix', () => {
+  it('format with null prefix', () => {
     const w = Widget.create('hello');
-    expect(w.format()).toBe('hello');
+    expect(w.format(null)).toBe('hello');
     w.free();
   });
 

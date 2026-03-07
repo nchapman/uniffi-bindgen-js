@@ -420,6 +420,7 @@ fn element_read_fn(t: &Type) -> &'static str {
 // Type-specific lower/lift helper generation (for records and enums)
 // ---------------------------------------------------------------------------
 
+use super::render_helpers::render_literal;
 use super::types::{EnumDef, ErrorDef, RecordDef};
 
 /// Generate a `_lowerFoo(w, value)` helper function for a record type.
@@ -428,9 +429,18 @@ pub(super) fn gen_record_lower_fn(r: &RecordDef, namespace: &str) -> String {
     let mut out = format!("function _lower{name}(w: UniFFIWriter, value: {name}): void {{\n");
     for f in &r.fields {
         let ts_field = safe_js_identifier(&camel_case(&f.name));
-        let lower = gen_lower_expr(&format!("value.{ts_field}"), &f.type_, namespace, "w");
-        // Every field must always be serialized — default values affect the TS
-        // signature (making the param optional) but not the binary format.
+        // Fields with defaults are optional in the TS interface; coalesce to
+        // the default before lowering so the value is always defined.
+        let value_expr = if let Some(ref dv) = f.default {
+            let lit = match dv {
+                uniffi_bindgen::interface::DefaultValue::Literal(l) => render_literal(l),
+                uniffi_bindgen::interface::DefaultValue::Default => "undefined".to_string(),
+            };
+            format!("(value.{ts_field} ?? {lit})")
+        } else {
+            format!("value.{ts_field}")
+        };
+        let lower = gen_lower_expr(&value_expr, &f.type_, namespace, "w");
         out.push_str(&format!("  {lower};\n"));
     }
     out.push_str("}\n");

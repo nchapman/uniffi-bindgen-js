@@ -26,9 +26,9 @@ export type Shape =
 
 function _lowerConfig(w: UniFFIWriter, value: Config): void {
   w.writeString(value.name);
-  w.writeU32(value.timeout);
-  w.writeBool(value.verbose);
-  w.writeOptional(value.label, (_w, _v) => { _w.writeString(_v); });
+  w.writeU32((value.timeout ?? 30));
+  w.writeBool((value.verbose ?? false));
+  w.writeOptional((value.label ?? null), (_w, _v) => { _w.writeString(_v); });
 }
 function _liftConfig(r: UniFFIReader): Config {
   return {

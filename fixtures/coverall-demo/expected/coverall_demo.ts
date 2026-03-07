@@ -1060,11 +1060,11 @@ if (Symbol.dispose) (ThreadsafeCounter as any).prototype[Symbol.dispose] = Threa
 // --- Serialization helpers ---
 
 function _lowerDictWithDefaults(w: UniFFIWriter, value: DictWithDefaults): void {
-  w.writeString(value.name);
-  w.writeOptional(value.category, (_w, _v) => { _w.writeString(_v); });
-  w.writeI64(value.integer);
-  w.writeSequence(value.itemList, (_w, _v) => { _w.writeString(_v); });
-  w.writeMap(value.itemMap, (_w, _k) => { _w.writeString(_k); }, (_w, _v) => { _w.writeString(_v); });
+  w.writeString((value.name ?? 'default-value'));
+  w.writeOptional((value.category ?? null), (_w, _v) => { _w.writeString(_v); });
+  w.writeI64((value.integer ?? 31n));
+  w.writeSequence((value.itemList ?? []), (_w, _v) => { _w.writeString(_v); });
+  w.writeMap((value.itemMap ?? new Map()), (_w, _k) => { _w.writeString(_k); }, (_w, _v) => { _w.writeString(_v); });
 }
 function _liftDictWithDefaults(r: UniFFIReader): DictWithDefaults {
   return {

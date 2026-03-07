@@ -279,7 +279,7 @@ describe('stress: concurrent async', async () => {
   });
 
   it('50 concurrent async object methods', async () => {
-    const counters: InstanceType<typeof AsyncCounter>[] = [];
+    const counters: Awaited<ReturnType<typeof AsyncCounter.create>>[] = [];
     for (let i = 0; i < 50; i++) {
       counters.push(await AsyncCounter.create(BigInt(i)));
     }
@@ -564,7 +564,7 @@ describe('stress: callbacks', async () => {
   });
 
   it('many processors with different callbacks', () => {
-    const procs: InstanceType<typeof Processor>[] = [];
+    const procs: ReturnType<typeof Processor.create>[] = [];
     for (let i = 0; i < 100; i++) {
       const tag = i;
       const formatter: Formatter = {

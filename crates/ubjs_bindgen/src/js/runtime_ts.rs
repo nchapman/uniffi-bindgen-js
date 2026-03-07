@@ -869,7 +869,7 @@ export class UniffiRuntime {
     }
 
     // Create typed WASM functions from JS closures
-    const wasmFns: WebAssembly.Function[] = [];
+    const wasmFns: any[] = [];
     for (const entry of entries) {
       const wasmFn = new (WebAssembly as any).Function(
         { parameters: entry.params, results: entry.results },

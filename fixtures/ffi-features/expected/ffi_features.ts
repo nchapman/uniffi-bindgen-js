@@ -144,9 +144,9 @@ if (Symbol.dispose) (Widget as any).prototype[Symbol.dispose] = Widget.prototype
 
 function _lowerConfig(w: UniFFIWriter, value: Config): void {
   w.writeString(value.host);
-  w.writeU32(value.port);
-  w.writeBool(value.verbose);
-  w.writeOptional(value.label, (_w, _v) => { _w.writeString(_v); });
+  w.writeU32((value.port ?? 8080));
+  w.writeBool((value.verbose ?? false));
+  w.writeOptional((value.label ?? null), (_w, _v) => { _w.writeString(_v); });
 }
 function _liftConfig(r: UniFFIReader): Config {
   return {
