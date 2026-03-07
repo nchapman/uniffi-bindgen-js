@@ -74,8 +74,8 @@ export class ErrorInterface extends Error {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_error_types_demo_fn_free_errorinterface', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (ErrorInterface as any).prototype[Symbol.dispose] = ErrorInterface.prototype.free;
 
 export class TestInterface {
   /** @internal */
@@ -117,8 +117,8 @@ export class TestInterface {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_error_types_demo_fn_free_testinterface', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (TestInterface as any).prototype[Symbol.dispose] = TestInterface.prototype.free;
 
 // --- Serialization helpers ---
 

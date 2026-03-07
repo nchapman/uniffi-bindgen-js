@@ -119,8 +119,8 @@ export class Widget {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_ffi_features_fn_free_widget', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (Widget as any).prototype[Symbol.dispose] = Widget.prototype.free;
 
 // --- Serialization helpers ---
 

@@ -619,8 +619,8 @@ export class Coveralls {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_coveralls', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (Coveralls as any).prototype[Symbol.dispose] = Coveralls.prototype.free;
 
 /** Object with fallible constructors — tests error on construction. */
 export class FalliblePatch {
@@ -681,8 +681,8 @@ export class FalliblePatch {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_falliblepatch', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (FalliblePatch as any).prototype[Symbol.dispose] = FalliblePatch.prototype.free;
 
 /** Forward-reference test: IFirst refers to ISecond and vice versa. */
 export class IFirst {
@@ -728,8 +728,8 @@ export class IFirst {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_ifirst', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (IFirst as any).prototype[Symbol.dispose] = IFirst.prototype.free;
 
 /** Counterpart to IFirst in the forward-reference pair. */
 export class ISecond {
@@ -775,8 +775,8 @@ export class ISecond {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_isecond', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (ISecond as any).prototype[Symbol.dispose] = ISecond.prototype.free;
 
 /** Forward-declaration test: NodeA references NodeB before it is declared. */
 export class NodeA {
@@ -811,8 +811,8 @@ export class NodeA {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_nodea', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (NodeA as any).prototype[Symbol.dispose] = NodeA.prototype.free;
 
 /** Forward-declaration test: NodeB references NodeA (mutual reference). */
 export class NodeB {
@@ -847,8 +847,8 @@ export class NodeB {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_nodeb', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (NodeB as any).prototype[Symbol.dispose] = NodeB.prototype.free;
 
 /** A simple object that wraps a Color. */
 export class Patch {
@@ -894,8 +894,8 @@ export class Patch {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_patch', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (Patch as any).prototype[Symbol.dispose] = Patch.prototype.free;
 
 /** Thread-safe counter (tests atomic state and thread safety). */
 export class ThreadsafeCounter {
@@ -949,8 +949,8 @@ export class ThreadsafeCounter {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_threadsafecounter', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (ThreadsafeCounter as any).prototype[Symbol.dispose] = ThreadsafeCounter.prototype.free;
 
 // --- Serialization helpers ---
 

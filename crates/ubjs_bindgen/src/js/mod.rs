@@ -771,10 +771,12 @@ fn render_object_class(o: &ObjectDef, namespace: &str, cfg: &config::JsBindingsC
     out.push_str(&format!("    _rt.callFree('{free_fn}', this._handle);\n"));
     out.push_str("  }\n");
 
-    // Symbol.dispose
-    out.push_str("  [Symbol.dispose](): void { this.free(); }\n");
-
     out.push_str("}\n");
+
+    // Symbol.dispose — guarded for pre-ES2025 engines (matches wasm-bindgen pattern)
+    out.push_str(&format!(
+        "if (Symbol.dispose) ({name} as any).prototype[Symbol.dispose] = {name}.prototype.free;\n"
+    ));
     out
 }
 

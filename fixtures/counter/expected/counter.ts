@@ -76,7 +76,7 @@ export class Counter {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_counter_fn_free_counter', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (Counter as any).prototype[Symbol.dispose] = Counter.prototype.free;
 
 // --- Serialization helpers ---

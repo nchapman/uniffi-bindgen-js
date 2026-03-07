@@ -105,8 +105,8 @@ export class Parser {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_ffi_errors_fn_free_parser', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (Parser as any).prototype[Symbol.dispose] = Parser.prototype.free;
 
 // --- Serialization helpers ---
 

@@ -117,8 +117,8 @@ export class AsyncCounter {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_ffi_async_fn_free_asynccounter', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (AsyncCounter as any).prototype[Symbol.dispose] = AsyncCounter.prototype.free;
 
 // --- Serialization helpers ---
 

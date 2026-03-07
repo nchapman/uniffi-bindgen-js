@@ -80,7 +80,7 @@ export class Processor {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_ffi_callbacks_fn_free_processor', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (Processor as any).prototype[Symbol.dispose] = Processor.prototype.free;
 
 // --- Serialization helpers ---

@@ -75,8 +75,8 @@ export class SuperWidget {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_keywords_demo_fn_free_superwidget', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (SuperWidget as any).prototype[Symbol.dispose] = SuperWidget.prototype.free;
 
 // --- Serialization helpers ---
 

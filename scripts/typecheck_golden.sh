@@ -49,6 +49,9 @@ done
 # Create a stub for the uniffi_runtime.js import
 cat > "$TMPDIR/uniffi_runtime.d.ts" <<'RUNTIME_STUB'
 // Auto-generated stub for uniffi_runtime.js (FFI mode)
+export declare class UniffiPanicError extends Error {
+  readonly name: 'UniffiPanicError';
+}
 export declare class UniffiRuntime {
   static load(wasmUrl: URL, namespace: string): Promise<UniffiRuntime>;
   call(name: string, argPtr: number, retPtr: number): void;

@@ -91,8 +91,8 @@ export class Drawable {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_traits_fn_free_drawable', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (Drawable as any).prototype[Symbol.dispose] = Drawable.prototype.free;
 
 // --- Serialization helpers ---
 

@@ -163,8 +163,8 @@ export class SafeDivider {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_regression_fn_free_safedivider', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (SafeDivider as any).prototype[Symbol.dispose] = SafeDivider.prototype.free;
 
 // --- Serialization helpers ---
 

@@ -45,8 +45,8 @@ export class Circle {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_ffi_traits_fn_free_circle', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (Circle as any).prototype[Symbol.dispose] = Circle.prototype.free;
 
 export class Drawable {
   /** @internal */
@@ -92,8 +92,8 @@ export class Drawable {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_ffi_traits_fn_free_drawable', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (Drawable as any).prototype[Symbol.dispose] = Drawable.prototype.free;
 
 export class Rect {
   /** @internal */
@@ -150,8 +150,8 @@ export class Rect {
     _rt.unregisterPointer(this);
     _rt.callFree('uniffi_ffi_traits_fn_free_rect', this._handle);
   }
-  [Symbol.dispose](): void { this.free(); }
 }
+if (Symbol.dispose) (Rect as any).prototype[Symbol.dispose] = Rect.prototype.free;
 
 // --- Serialization helpers ---
 
