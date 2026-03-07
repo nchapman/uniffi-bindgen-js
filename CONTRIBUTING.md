@@ -5,7 +5,6 @@ Thank you for your interest in contributing! This document covers the essentials
 ## Prerequisites
 
 - **Rust** (stable toolchain) with `clippy`, `rustfmt`, and `wasm32-unknown-unknown` target
-- **wasm-pack** (`curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh`)
 - **Node.js 22+** and **pnpm 9+** (for running JS smoke tests)
 
 ## Development Workflow

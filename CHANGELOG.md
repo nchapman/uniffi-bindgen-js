@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Full UDL-to-TypeScript code generation targeting WASM via `wasm-pack`
+- Full UDL-to-TypeScript code generation targeting WASM via UniFFI FFI-direct
 - Complete primitive type support: bool, integers, floats, string, bytes, void
 - Record, flat enum, and data-carrying enum types with serialization
 - Typed error mapping for UDL `[Throws]` declarations

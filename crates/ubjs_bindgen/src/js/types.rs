@@ -163,8 +163,7 @@ pub(super) struct CustomTypeDef {
 ///
 /// `is_async` IS expressible in UDL (`[Async]` on a callback method). The generator
 /// emits `Promise<T>` for the method return type, which is the correct TypeScript
-/// contract. Wasm fixture crates must use `wasm_bindgen_futures` and return a
-/// `js_sys::Promise` to back async callback methods at runtime.
+/// contract. The async callback is polled via the RustFuture mechanism.
 #[derive(Debug)]
 pub(super) struct CallbackMethodDef {
     pub name: String,

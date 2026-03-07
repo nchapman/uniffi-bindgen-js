@@ -3,7 +3,7 @@
 #
 # Usage: ./scripts/test_bindings.sh
 #
-# Requires: cargo, wasm-pack, pnpm
+# Requires: cargo, pnpm, wasm32-unknown-unknown target
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
