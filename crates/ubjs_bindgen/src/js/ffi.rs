@@ -9,7 +9,21 @@
 
 use uniffi_bindgen::interface::Type;
 
+use super::config::JsBindingsConfig;
 use super::naming::{camel_case, safe_js_identifier};
+
+// ---------------------------------------------------------------------------
+// Custom type resolution
+// ---------------------------------------------------------------------------
+
+/// Resolve a Custom type to its underlying builtin type.
+/// Non-Custom types are returned as-is.
+fn resolve_custom(t: &Type) -> &Type {
+    match t {
+        Type::Custom { builtin, .. } => resolve_custom(builtin),
+        _ => t,
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Element counts
@@ -17,6 +31,7 @@ use super::naming::{camel_case, safe_js_identifier};
 
 /// Number of FfiBufferElements required for a given UniFFI type.
 pub(super) fn element_count(t: &Type) -> usize {
+    let t = resolve_custom(t);
     match t {
         // Primitives: 1 element each
         Type::Int8
@@ -43,8 +58,8 @@ pub(super) fn element_count(t: &Type) -> usize {
         | Type::Sequence { .. }
         | Type::Map { .. }
         | Type::Record { .. }
-        | Type::Enum { .. }
-        | Type::Custom { .. } => 3,
+        | Type::Enum { .. } => 3,
+        Type::Custom { .. } => unreachable!("resolve_custom strips Custom"),
     }
 }
 
@@ -116,30 +131,33 @@ pub(super) fn fn_init_callback_vtable(namespace: &str, cb_name: &str) -> String 
 pub(super) fn rust_future_type_suffix(return_type: Option<&Type>) -> &'static str {
     match return_type {
         None => "void",
-        Some(t) => match t {
-            Type::Int8 => "i8",
-            Type::UInt8 => "u8",
-            Type::Int16 => "i16",
-            Type::UInt16 => "u16",
-            Type::Int32 => "i32",
-            Type::UInt32 => "u32",
-            Type::Int64 => "i64",
-            Type::UInt64 => "u64",
-            Type::Float32 => "f32",
-            Type::Float64 => "f64",
-            Type::Boolean => "i8",
-            Type::Object { .. } | Type::CallbackInterface { .. } => "u64",
-            Type::String
-            | Type::Bytes
-            | Type::Duration
-            | Type::Timestamp
-            | Type::Optional { .. }
-            | Type::Sequence { .. }
-            | Type::Map { .. }
-            | Type::Record { .. }
-            | Type::Enum { .. }
-            | Type::Custom { .. } => "rust_buffer",
-        },
+        Some(t) => {
+            let t = resolve_custom(t);
+            match t {
+                Type::Int8 => "i8",
+                Type::UInt8 => "u8",
+                Type::Int16 => "i16",
+                Type::UInt16 => "u16",
+                Type::Int32 => "i32",
+                Type::UInt32 => "u32",
+                Type::Int64 => "i64",
+                Type::UInt64 => "u64",
+                Type::Float32 => "f32",
+                Type::Float64 => "f64",
+                Type::Boolean => "i8",
+                Type::Object { .. } | Type::CallbackInterface { .. } => "u64",
+                Type::String
+                | Type::Bytes
+                | Type::Duration
+                | Type::Timestamp
+                | Type::Optional { .. }
+                | Type::Sequence { .. }
+                | Type::Map { .. }
+                | Type::Record { .. }
+                | Type::Enum { .. } => "rust_buffer",
+                Type::Custom { .. } => unreachable!("resolve_custom strips Custom"),
+            }
+        }
     }
 }
 
@@ -171,9 +189,9 @@ pub(super) fn rust_future_complete_uses_retptr(suffix: &str) -> bool {
 /// Generate a TypeScript expression to read a return value from the FFI return buffer.
 ///
 /// `offset_expr` is the pointer to the first return element.
-pub(super) fn gen_read_return(t: &Type, offset_expr: &str) -> String {
+pub(super) fn gen_read_return(t: &Type, offset_expr: &str, cfg: &JsBindingsConfig) -> String {
     if is_rust_buffer_type(t) {
-        gen_top_level_lift(t, offset_expr)
+        gen_top_level_lift(t, offset_expr, cfg)
     } else {
         let read_fn = element_read_fn(t);
         let raw = format!("_rt.{read_fn}({offset_expr})");
@@ -190,15 +208,18 @@ pub(super) fn gen_read_return(t: &Type, offset_expr: &str) -> String {
 // the inner UniFFI binary serialization format.
 
 /// Generate a TypeScript expression that lowers a top-level argument to a RustBufferDescriptor.
-fn gen_top_level_lower(var: &str, t: &Type, namespace: &str) -> String {
+fn gen_top_level_lower(var: &str, t: &Type, namespace: &str, cfg: &JsBindingsConfig) -> String {
     match t {
         // String has a custom lower/lift in UniFFI that uses raw UTF-8 in
         // the RustBuffer (no length prefix). All other compound types use
         // the standard serialized format via lower_into_rust_buffer().
         Type::String => format!("_rt.lowerString({var})"),
-        Type::Custom { builtin, .. } => gen_top_level_lower(var, builtin, namespace),
+        // Custom types: strip to the builtin for top-level serialization.
+        // Templates are NOT applied here — they're handled at the API boundary
+        // by apply_custom_type_arg_lowering() (args) and apply_return_wrap() (returns).
+        Type::Custom { builtin, .. } => gen_top_level_lower(var, builtin, namespace, cfg),
         _ => {
-            let lower_body = gen_lower_expr(var, t, namespace, "w");
+            let lower_body = gen_lower_expr(var, t, namespace, "w", cfg);
             format!("_rt.lowerIntoBuffer((w) => {{ {lower_body}; }})")
         }
     }
@@ -207,16 +228,19 @@ fn gen_top_level_lower(var: &str, t: &Type, namespace: &str) -> String {
 /// Generate a TypeScript expression that lifts a top-level return from FFI buffer elements.
 ///
 /// `offset_expr` points to the first RustBuffer element in the return buffer.
-fn gen_top_level_lift(t: &Type, offset_expr: &str) -> String {
+fn gen_top_level_lift(t: &Type, offset_expr: &str, cfg: &JsBindingsConfig) -> String {
     match t {
         // String has a custom lower/lift in UniFFI that uses raw UTF-8 in
         // the RustBuffer (no length prefix).
         Type::String => {
             format!("_rt.liftString(_rt.readRustBufferElements({offset_expr}))")
         }
-        Type::Custom { builtin, .. } => gen_top_level_lift(builtin, offset_expr),
+        // Custom types: strip to the builtin for top-level deserialization.
+        // Templates are NOT applied here — they're handled at the API boundary
+        // by apply_return_wrap().
+        Type::Custom { builtin, .. } => gen_top_level_lift(builtin, offset_expr, cfg),
         _ => {
-            let lift_body = gen_lift_expr("r", t);
+            let lift_body = gen_lift_expr("r", t, cfg);
             format!(
                 "_rt.liftFromBuffer(_rt.readRustBufferElements({offset_expr}), (r) => {{ return {lift_body}; }})"
             )
@@ -234,7 +258,7 @@ fn gen_top_level_lift(t: &Type, offset_expr: &str) -> String {
 ///   `w.writeString(name)` for strings
 ///   `w.writeI32(1); w.writeString(v.field1); ...` for enums
 ///   etc.
-fn gen_lower_expr(var: &str, t: &Type, namespace: &str, w: &str) -> String {
+fn gen_lower_expr(var: &str, t: &Type, namespace: &str, w: &str, cfg: &JsBindingsConfig) -> String {
     match t {
         Type::String => format!("{w}.writeString({var})"),
         Type::Bytes => format!("{w}.writeBytes({var})"),
@@ -252,24 +276,24 @@ fn gen_lower_expr(var: &str, t: &Type, namespace: &str, w: &str) -> String {
         Type::Duration => format!("{w}.writeDuration({var})"),
         Type::Timestamp => format!("{w}.writeTimestamp({var})"),
         Type::Optional { inner_type } => {
-            let inner_lower = gen_lower_expr("_v", inner_type, namespace, "_w");
+            let inner_lower = gen_lower_expr("_v", inner_type, namespace, "_w", cfg);
             format!("{w}.writeOptional({var}, (_w, _v) => {{ {inner_lower}; }})")
         }
         Type::Sequence { inner_type } => {
-            let inner_lower = gen_lower_expr("_v", inner_type, namespace, "_w");
+            let inner_lower = gen_lower_expr("_v", inner_type, namespace, "_w", cfg);
             format!("{w}.writeSequence({var}, (_w, _v) => {{ {inner_lower}; }})")
         }
         Type::Map {
             key_type,
             value_type,
         } => {
-            let key_lower = gen_lower_expr("_k", key_type, namespace, "_w");
-            let val_lower = gen_lower_expr("_v", value_type, namespace, "_w");
+            let key_lower = gen_lower_expr("_k", key_type, namespace, "_w", cfg);
+            let val_lower = gen_lower_expr("_v", value_type, namespace, "_w", cfg);
             format!(
                 "{w}.writeMap({var}, (_w, _k) => {{ {key_lower}; }}, (_w, _v) => {{ {val_lower}; }})"
             )
         }
-        // Record, Enum, Custom, CallbackInterface — these need type-specific serialization
+        // Record, Enum, CallbackInterface — these need type-specific serialization
         // that will be generated as standalone helper functions. Use their name.
         Type::Record { name, .. } => {
             format!("_lower{name}({w}, {var})")
@@ -277,9 +301,14 @@ fn gen_lower_expr(var: &str, t: &Type, namespace: &str, w: &str) -> String {
         Type::Enum { name, .. } => {
             format!("_lower{name}({w}, {var})")
         }
-        Type::Custom { builtin, .. } => {
-            // Custom types: lower via the builtin type
-            gen_lower_expr(var, builtin, namespace, w)
+        Type::Custom { name, builtin, .. } => {
+            // Apply custom lower template (custom → builtin) then serialize the builtin
+            let effective_var = if let Some(ct_cfg) = cfg.custom_types.get(name) {
+                ct_cfg.lower_expr(var)
+            } else {
+                var.to_string()
+            };
+            gen_lower_expr(&effective_var, builtin, namespace, w, cfg)
         }
         Type::Object { name, .. } => {
             // Objects inside compound types (Optional<Obj>, Sequence<Obj>, etc.)
@@ -299,7 +328,7 @@ fn gen_lower_expr(var: &str, t: &Type, namespace: &str, w: &str) -> String {
 }
 
 /// Generate TypeScript reader calls to deserialize from a UniFFIReader `r`.
-fn gen_lift_expr(reader_var: &str, t: &Type) -> String {
+fn gen_lift_expr(reader_var: &str, t: &Type, cfg: &JsBindingsConfig) -> String {
     match t {
         Type::String => format!("{reader_var}.readString()"),
         Type::Bytes => format!("{reader_var}.readBytes()"),
@@ -317,19 +346,19 @@ fn gen_lift_expr(reader_var: &str, t: &Type) -> String {
         Type::Duration => format!("{reader_var}.readDuration()"),
         Type::Timestamp => format!("{reader_var}.readTimestamp()"),
         Type::Optional { inner_type } => {
-            let inner_lift = gen_lift_expr("_r", inner_type);
+            let inner_lift = gen_lift_expr("_r", inner_type, cfg);
             format!("{reader_var}.readOptional((_r) => {inner_lift})")
         }
         Type::Sequence { inner_type } => {
-            let inner_lift = gen_lift_expr("_r", inner_type);
+            let inner_lift = gen_lift_expr("_r", inner_type, cfg);
             format!("{reader_var}.readSequence((_r) => {inner_lift})")
         }
         Type::Map {
             key_type,
             value_type,
         } => {
-            let key_lift = gen_lift_expr("_r", key_type);
-            let val_lift = gen_lift_expr("_r", value_type);
+            let key_lift = gen_lift_expr("_r", key_type, cfg);
+            let val_lift = gen_lift_expr("_r", value_type, cfg);
             format!("{reader_var}.readMap((_r) => {key_lift}, (_r) => {val_lift})")
         }
         Type::Record { name, .. } => {
@@ -338,9 +367,14 @@ fn gen_lift_expr(reader_var: &str, t: &Type) -> String {
         Type::Enum { name, .. } => {
             format!("_lift{name}({reader_var})")
         }
-        Type::Custom { builtin, .. } => {
-            // Custom types: lift from the builtin, then apply custom lift if configured
-            gen_lift_expr(reader_var, builtin)
+        Type::Custom { name, builtin, .. } => {
+            // Lift the builtin, then apply custom lift template (builtin → custom)
+            let inner = gen_lift_expr(reader_var, builtin, cfg);
+            if let Some(ct_cfg) = cfg.custom_types.get(name) {
+                ct_cfg.lift_expr(&inner)
+            } else {
+                inner
+            }
         }
         Type::Object { name, .. } => {
             // Object inside a buffer = u64 handle → wrap in class
@@ -355,6 +389,7 @@ fn gen_lift_expr(reader_var: &str, t: &Type) -> String {
 
 /// Convert a JS value to its FFI element representation (for primitive types).
 fn gen_to_ffi(var: &str, t: &Type) -> String {
+    let t = resolve_custom(t);
     match t {
         Type::Int64 | Type::UInt64 => format!("BigInt({var})"),
         // Callback interfaces are lowered to u64 handles via the handle map
@@ -372,6 +407,7 @@ fn gen_from_ffi(raw: &str, _t: &Type) -> String {
 /// Unlike gen_from_ffi, this handles Boolean→boolean conversion since
 /// C ABI returns i32 (0/1) not JS boolean.
 fn gen_from_ffi_raw(raw: &str, t: &Type) -> String {
+    let t = resolve_custom(t);
     match t {
         Type::Boolean => format!("{raw} !== 0"),
         _ => raw.to_string(),
@@ -380,6 +416,7 @@ fn gen_from_ffi_raw(raw: &str, t: &Type) -> String {
 
 /// TypeScript write function name on UniffiRuntime for a primitive type element.
 fn element_write_fn(t: &Type) -> &'static str {
+    let t = resolve_custom(t);
     match t {
         Type::Int8 => "writeI8Element",
         Type::UInt8 => "writeU8Element",
@@ -399,6 +436,7 @@ fn element_write_fn(t: &Type) -> &'static str {
 
 /// TypeScript read function name on UniffiRuntime for a primitive type element.
 fn element_read_fn(t: &Type) -> &'static str {
+    let t = resolve_custom(t);
     match t {
         Type::Int8 => "readI8Element",
         Type::UInt8 => "readU8Element",
@@ -424,7 +462,11 @@ use super::render_helpers::render_literal;
 use super::types::{EnumDef, ErrorDef, RecordDef};
 
 /// Generate a `_lowerFoo(w, value)` helper function for a record type.
-pub(super) fn gen_record_lower_fn(r: &RecordDef, namespace: &str) -> String {
+pub(super) fn gen_record_lower_fn(
+    r: &RecordDef,
+    namespace: &str,
+    cfg: &JsBindingsConfig,
+) -> String {
     let name = &r.name;
     let mut out = format!("function _lower{name}(w: UniFFIWriter, value: {name}): void {{\n");
     for f in &r.fields {
@@ -440,7 +482,7 @@ pub(super) fn gen_record_lower_fn(r: &RecordDef, namespace: &str) -> String {
         } else {
             format!("value.{ts_field}")
         };
-        let lower = gen_lower_expr(&value_expr, &f.type_, namespace, "w");
+        let lower = gen_lower_expr(&value_expr, &f.type_, namespace, "w", cfg);
         out.push_str(&format!("  {lower};\n"));
     }
     out.push_str("}\n");
@@ -448,12 +490,12 @@ pub(super) fn gen_record_lower_fn(r: &RecordDef, namespace: &str) -> String {
 }
 
 /// Generate a `_liftFoo(r)` helper function for a record type.
-pub(super) fn gen_record_lift_fn(r: &RecordDef) -> String {
+pub(super) fn gen_record_lift_fn(r: &RecordDef, cfg: &JsBindingsConfig) -> String {
     let name = &r.name;
     let mut out = format!("function _lift{name}(r: UniFFIReader): {name} {{\n  return {{\n");
     for f in &r.fields {
         let ts_field = safe_js_identifier(&camel_case(&f.name));
-        let lift = gen_lift_expr("r", &f.type_);
+        let lift = gen_lift_expr("r", &f.type_, cfg);
         out.push_str(&format!("    {ts_field}: {lift},\n"));
     }
     out.push_str("  };\n}\n");
@@ -503,7 +545,11 @@ pub(super) fn gen_flat_enum_lift_fn(e: &EnumDef) -> String {
 }
 
 /// Generate lower/lift helpers for a data enum (discriminated union).
-pub(super) fn gen_data_enum_lower_fn(e: &EnumDef, namespace: &str) -> String {
+pub(super) fn gen_data_enum_lower_fn(
+    e: &EnumDef,
+    namespace: &str,
+    cfg: &JsBindingsConfig,
+) -> String {
     let name = &e.name;
     let mut out = format!("function _lower{name}(w: UniFFIWriter, value: {name}): void {{\n");
     for (i, v) in e.variants.iter().enumerate() {
@@ -512,7 +558,7 @@ pub(super) fn gen_data_enum_lower_fn(e: &EnumDef, namespace: &str) -> String {
         out.push_str(&format!("    w.writeI32({});\n", i + 1));
         for f in &v.fields {
             let ts_field = safe_js_identifier(&camel_case(&f.name));
-            let lower = gen_lower_expr(&format!("value.{ts_field}"), &f.type_, namespace, "w");
+            let lower = gen_lower_expr(&format!("value.{ts_field}"), &f.type_, namespace, "w", cfg);
             out.push_str(&format!("    {lower};\n"));
         }
         out.push_str("    return;\n  }\n");
@@ -524,7 +570,7 @@ pub(super) fn gen_data_enum_lower_fn(e: &EnumDef, namespace: &str) -> String {
     out
 }
 
-pub(super) fn gen_data_enum_lift_fn(e: &EnumDef) -> String {
+pub(super) fn gen_data_enum_lift_fn(e: &EnumDef, cfg: &JsBindingsConfig) -> String {
     let name = &e.name;
     let mut out = format!("function _lift{name}(r: UniFFIReader): {name} {{\n");
     out.push_str("  const ordinal = r.readI32();\n");
@@ -539,7 +585,7 @@ pub(super) fn gen_data_enum_lift_fn(e: &EnumDef) -> String {
                 .iter()
                 .map(|f| {
                     let ts_field = safe_js_identifier(&camel_case(&f.name));
-                    let lift = gen_lift_expr("r", &f.type_);
+                    let lift = gen_lift_expr("r", &f.type_, cfg);
                     format!("{ts_field}: {lift}")
                 })
                 .collect();
@@ -591,7 +637,7 @@ pub(super) fn gen_flat_error_lift_fn(e: &ErrorDef) -> String {
 }
 
 /// Generate a lift function for a rich error type.
-pub(super) fn gen_rich_error_lift_fn(e: &ErrorDef) -> String {
+pub(super) fn gen_rich_error_lift_fn(e: &ErrorDef, cfg: &JsBindingsConfig) -> String {
     let name = &e.name;
     let variant_type = format!("{name}Variant");
     let mut out = format!("function _liftError{name}(rb: any): {name} {{\n");
@@ -608,7 +654,7 @@ pub(super) fn gen_rich_error_lift_fn(e: &ErrorDef) -> String {
                 .iter()
                 .map(|f| {
                     let ts_field = safe_js_identifier(&camel_case(&f.name));
-                    let lift = gen_lift_expr("r", &f.type_);
+                    let lift = gen_lift_expr("r", &f.type_, cfg);
                     format!("{ts_field}: {lift}")
                 })
                 .collect();
@@ -683,7 +729,11 @@ pub(super) fn gen_flat_error_value_lift_fn(e: &ErrorDef) -> String {
 }
 
 /// Generate a `_lowerFoo(w, value)` helper for a rich error used as a value type.
-pub(super) fn gen_rich_error_value_lower_fn(e: &ErrorDef, namespace: &str) -> String {
+pub(super) fn gen_rich_error_value_lower_fn(
+    e: &ErrorDef,
+    namespace: &str,
+    cfg: &JsBindingsConfig,
+) -> String {
     let name = &e.name;
     let mut out = format!("function _lower{name}(w: UniFFIWriter, value: {name}): void {{\n");
     for (i, v) in e.variants.iter().enumerate() {
@@ -697,6 +747,7 @@ pub(super) fn gen_rich_error_value_lower_fn(e: &ErrorDef, namespace: &str) -> St
                 &f.type_,
                 namespace,
                 "w",
+                cfg,
             );
             out.push_str(&format!("    {lower};\n"));
         }
@@ -710,7 +761,7 @@ pub(super) fn gen_rich_error_value_lower_fn(e: &ErrorDef, namespace: &str) -> St
 }
 
 /// Generate a `_liftFoo(r)` helper for a rich error used as a value type.
-pub(super) fn gen_rich_error_value_lift_fn(e: &ErrorDef) -> String {
+pub(super) fn gen_rich_error_value_lift_fn(e: &ErrorDef, cfg: &JsBindingsConfig) -> String {
     let name = &e.name;
     let variant_type = format!("{name}Variant");
     let mut out = format!("function _lift{name}(r: UniFFIReader): {name} {{\n");
@@ -726,7 +777,7 @@ pub(super) fn gen_rich_error_value_lift_fn(e: &ErrorDef) -> String {
                 .iter()
                 .map(|f| {
                     let ts_field = safe_js_identifier(&camel_case(&f.name));
-                    let lift = gen_lift_expr("r", &f.type_);
+                    let lift = gen_lift_expr("r", &f.type_, cfg);
                     format!("{ts_field}: {lift}")
                 })
                 .collect();
@@ -789,6 +840,7 @@ pub(super) fn gen_ffi_call(
     return_type: Option<&Type>,
     throws_name: Option<&str>,
     indent: &str,
+    cfg: &JsBindingsConfig,
 ) -> String {
     let mut lines = Vec::new();
 
@@ -804,7 +856,7 @@ pub(super) fn gen_ffi_call(
     for (var, t) in args {
         if is_rust_buffer_type(t) {
             let rb_var = format!("_rb_{}", var.replace('.', "_"));
-            let lower = gen_top_level_lower(var, t, namespace);
+            let lower = gen_top_level_lower(var, t, namespace, cfg);
             rb_setups.push(format!("{indent}const {rb_var} = {lower};"));
         }
     }
@@ -874,7 +926,7 @@ pub(super) fn gen_ffi_call(
 
     // Read return value
     if let Some(ret_type) = return_type {
-        let result = gen_read_return(ret_type, "_retPtr");
+        let result = gen_read_return(ret_type, "_retPtr", cfg);
         lines.push(format!("{indent}  const _result = {result};"));
         lines.push(format!("{indent}  return _result;"));
     } else {
@@ -906,6 +958,7 @@ pub(super) fn gen_async_ffi_call(
     return_type: Option<&Type>,
     throws_name: Option<&str>,
     indent: &str,
+    cfg: &JsBindingsConfig,
 ) -> String {
     let mut lines = Vec::new();
     let suffix = rust_future_type_suffix(return_type);
@@ -922,7 +975,7 @@ pub(super) fn gen_async_ffi_call(
     for (var, t) in args {
         if is_rust_buffer_type(t) {
             let rb_var = format!("_rb_{}", var.replace('.', "_"));
-            let lower = gen_top_level_lower(var, t, namespace);
+            let lower = gen_top_level_lower(var, t, namespace, cfg);
             lines.push(format!("{indent}const {rb_var} = {lower};"));
         }
     }
@@ -1042,7 +1095,7 @@ pub(super) fn gen_async_ffi_call(
         // Read RustBuffer from the retptr C struct
         let rb = "_rt._readRustBufferStruct(_rbRetPtr)";
         if let Some(ret_type) = return_type {
-            let lift = gen_top_level_lift_from_rb(ret_type, rb);
+            let lift = gen_top_level_lift_from_rb(ret_type, rb, cfg);
             lines.push(format!("{indent}  const _result = {lift};"));
             lines.push(format!("{indent}  return _result;"));
         }
@@ -1072,12 +1125,13 @@ const RUST_CALL_STATUS_STRUCT_SIZE: usize = 32;
 
 /// Lift a value from a `RustBufferDescriptor` expression (already read from C struct).
 /// Used for `rust_future_complete_rust_buffer` returns.
-fn gen_top_level_lift_from_rb(t: &Type, rb_expr: &str) -> String {
+fn gen_top_level_lift_from_rb(t: &Type, rb_expr: &str, cfg: &JsBindingsConfig) -> String {
     match t {
         Type::String => format!("_rt.liftString({rb_expr})"),
-        Type::Custom { builtin, .. } => gen_top_level_lift_from_rb(builtin, rb_expr),
+        // Custom: strip to builtin; template applied at API boundary by apply_return_wrap().
+        Type::Custom { builtin, .. } => gen_top_level_lift_from_rb(builtin, rb_expr, cfg),
         _ => {
-            let lift_body = gen_lift_expr("r", t);
+            let lift_body = gen_lift_expr("r", t, cfg);
             format!("_rt.liftFromBuffer({rb_expr}, (r) => {{ return {lift_body}; }})")
         }
     }
@@ -1094,6 +1148,7 @@ use super::types::CallbackInterfaceDef;
 /// On wasm32, compound types passed through RustBuffer use pointers (i32).
 /// Primitives and handles use their native WASM types.
 fn wasm_type_str(t: &Type) -> &'static str {
+    let t = resolve_custom(t);
     match t {
         Type::Int8
         | Type::UInt8
@@ -1115,13 +1170,14 @@ fn wasm_type_str(t: &Type) -> &'static str {
         | Type::Sequence { .. }
         | Type::Map { .. }
         | Type::Record { .. }
-        | Type::Enum { .. }
-        | Type::Custom { .. } => "i32",
+        | Type::Enum { .. } => "i32",
+        Type::Custom { .. } => unreachable!("resolve_custom strips Custom"),
     }
 }
 
 /// Whether a type is passed by pointer (as RustBuffer) in a callback VTable method.
 fn is_callback_ptr_type(t: &Type) -> bool {
+    let t = resolve_custom(t);
     matches!(
         t,
         Type::String
@@ -1133,7 +1189,6 @@ fn is_callback_ptr_type(t: &Type) -> bool {
             | Type::Map { .. }
             | Type::Record { .. }
             | Type::Enum { .. }
-            | Type::Custom { .. }
     )
 }
 
@@ -1141,7 +1196,8 @@ fn is_callback_ptr_type(t: &Type) -> bool {
 ///
 /// For compound types, the argument is a pointer to a RustBuffer C struct in WASM memory.
 /// We read the RustBuffer, then lift the value from it.
-fn gen_callback_arg_lift(var: &str, t: &Type) -> String {
+fn gen_callback_arg_lift(var: &str, t: &Type, cfg: &JsBindingsConfig) -> String {
+    let t = resolve_custom(t);
     match t {
         Type::String => {
             format!(
@@ -1149,7 +1205,7 @@ fn gen_callback_arg_lift(var: &str, t: &Type) -> String {
             )
         }
         _ if is_callback_ptr_type(t) => {
-            let lift_body = gen_lift_expr("_r", t);
+            let lift_body = gen_lift_expr("_r", t, cfg);
             format!(
                 "_rt.liftFromBuffer(_rt._readRustBufferStruct({var}), (_r) => {{ return {lift_body}; }})"
             )
@@ -1163,7 +1219,14 @@ fn gen_callback_arg_lift(var: &str, t: &Type) -> String {
 ///
 /// For compound types, we need to lower the value into a RustBuffer and write it
 /// to the output pointer as a RustBuffer C struct.
-fn gen_callback_ret_lower(result_var: &str, out_ptr: &str, t: &Type, namespace: &str) -> String {
+fn gen_callback_ret_lower(
+    result_var: &str,
+    out_ptr: &str,
+    t: &Type,
+    namespace: &str,
+    cfg: &JsBindingsConfig,
+) -> String {
+    let t = resolve_custom(t);
     match t {
         Type::String => {
             format!(
@@ -1171,7 +1234,7 @@ fn gen_callback_ret_lower(result_var: &str, out_ptr: &str, t: &Type, namespace: 
             )
         }
         _ if is_callback_ptr_type(t) => {
-            let lower_body = gen_lower_expr(result_var, t, namespace, "w");
+            let lower_body = gen_lower_expr(result_var, t, namespace, "w", cfg);
             format!(
                 "const _retRb = _rt.lowerIntoBuffer((w) => {{ {lower_body}; }}); _rt._writeRustBufferStruct({out_ptr}, _retRb);"
             )
@@ -1193,7 +1256,8 @@ fn gen_callback_ret_lower(result_var: &str, out_ptr: &str, t: &Type, namespace: 
         Type::Object { .. } | Type::CallbackInterface { .. } => {
             format!("_rt._dv().setBigUint64({out_ptr}, {result_var}, true);")
         }
-        _ => "/* unsupported callback return type */".to_string(),
+        Type::Custom { .. } => unreachable!("resolve_custom strips Custom"),
+        _ => unreachable!("unsupported callback return type: {t:?}"),
     }
 }
 
@@ -1207,6 +1271,7 @@ fn gen_callback_ret_lower(result_var: &str, out_ptr: &str, t: &Type, namespace: 
 pub(super) fn gen_callback_vtable_registration(
     cb: &CallbackInterfaceDef,
     namespace: &str,
+    cfg: &JsBindingsConfig,
 ) -> String {
     let mut out = String::new();
     let cb_name = &cb.name;
@@ -1282,7 +1347,7 @@ pub(super) fn gen_callback_vtable_registration(
         let mut call_args = Vec::new();
         for (i, arg) in m.args.iter().enumerate() {
             let arg_var = format!("_arg{i}");
-            let lifted = gen_callback_arg_lift(&arg_var, &arg.type_);
+            let lifted = gen_callback_arg_lift(&arg_var, &arg.type_, cfg);
             let lifted_var = format!("_lifted{i}");
             out.push_str(&format!("        const {lifted_var} = {lifted};\n"));
             call_args.push(lifted_var);
@@ -1293,7 +1358,7 @@ pub(super) fn gen_callback_vtable_registration(
         if has_return {
             out.push_str(&format!("        const _result = {call_expr};\n"));
             let ret_type = m.return_type.as_ref().unwrap();
-            let lower_code = gen_callback_ret_lower("_result", "_outPtr", ret_type, namespace);
+            let lower_code = gen_callback_ret_lower("_result", "_outPtr", ret_type, namespace, cfg);
             out.push_str(&format!("        {lower_code}\n"));
         } else {
             out.push_str(&format!("        {call_expr};\n"));

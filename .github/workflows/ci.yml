@@ -46,6 +46,15 @@ jobs:
       - name: Typecheck golden files
         run: ./scripts/typecheck_golden.sh
 
+  test-library-mode:
+    needs: lint-and-unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build library-mode fixture and run golden test
+        run: just test-library
+
   build-runtime-artifacts:
     needs: lint-and-unit
     runs-on: ubuntu-latest

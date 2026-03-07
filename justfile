@@ -7,7 +7,8 @@ default:
 # ---------- Quick checks ----------
 
 # Run full CI check (format, lint, test).
-check: fmt-check lint test
+# If wasm32-unknown-unknown is installed, also runs FFI golden tests.
+check: fmt-check lint test _check-ffi
 
 # Check formatting without changing files.
 fmt-check:
@@ -20,6 +21,17 @@ lint:
 # Run workspace tests (unit + golden).
 test *args:
   cargo test --workspace {{ args }}
+
+# Build FFI wasm fixtures and run golden tests if wasm32 target is installed.
+_check-ffi:
+  #!/usr/bin/env bash
+  if rustup target list --installed 2>/dev/null | grep -q wasm32-unknown-unknown; then
+    echo "wasm32-unknown-unknown target found — running FFI golden tests..."
+    just test-ffi
+  else
+    echo "NOTE: wasm32-unknown-unknown not installed — skipping FFI golden tests."
+    echo "      Install with: rustup target add wasm32-unknown-unknown"
+  fi
 
 # ---------- Formatting ----------
 
@@ -44,7 +56,11 @@ regen-golden:
     dir="$(dirname "$(dirname "$udl")")"
     name="$(basename "$udl" .udl)"
     ns="$(echo "$name" | tr '-' '_')"
-    cargo run -- generate "$udl" --out-dir /tmp/regen_golden 2>/dev/null
+    config_flag=""
+    if [ -f "$dir/src/uniffi.toml" ]; then
+      config_flag="--config $dir/src/uniffi.toml"
+    fi
+    cargo run -- generate $config_flag "$udl" --out-dir /tmp/regen_golden 2>/dev/null
     [ -f "/tmp/regen_golden/${ns}.ts" ] && cp "/tmp/regen_golden/${ns}.ts" "$dir/expected/${ns}.ts"
   done
   echo "Regenerated all UDL-mode golden files."

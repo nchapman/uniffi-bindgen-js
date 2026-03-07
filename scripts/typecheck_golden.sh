@@ -161,7 +161,7 @@ cat > "$TMPDIR/tsconfig.json" <<'EOF'
     "module": "ES2022",
     "lib": ["ES2022", "ESNext.Disposable", "DOM"],
     "moduleResolution": "bundler",
-    "strict": false,
+    "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
     "types": []

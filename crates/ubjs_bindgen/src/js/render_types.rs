@@ -238,6 +238,7 @@ fn render_constructors_ffi(
                 Some(&return_type),
                 throws_name.as_deref(),
                 "    ",
+                cfg,
             )
         } else {
             ffi::gen_ffi_call(
@@ -247,6 +248,7 @@ fn render_constructors_ffi(
                 Some(&return_type),
                 throws_name.as_deref(),
                 "    ",
+                cfg,
             )
         };
         out.push_str(&body);
@@ -324,6 +326,7 @@ fn render_methods_on_class_ffi(
                 m.return_type.as_ref(),
                 throws_name.as_deref(),
                 "    ",
+                cfg,
             )
         } else {
             ffi::gen_ffi_call(
@@ -333,6 +336,7 @@ fn render_methods_on_class_ffi(
                 m.return_type.as_ref(),
                 throws_name.as_deref(),
                 "    ",
+                cfg,
             )
         };
         out.push_str(&body);
@@ -407,6 +411,7 @@ fn render_companion_methods_ffi(
                 m.return_type.as_ref(),
                 throws_name.as_deref(),
                 "    ",
+                cfg,
             )
         } else {
             ffi::gen_ffi_call(
@@ -416,6 +421,7 @@ fn render_companion_methods_ffi(
                 m.return_type.as_ref(),
                 throws_name.as_deref(),
                 "    ",
+                cfg,
             )
         };
         out.push_str(&body);
@@ -431,6 +437,7 @@ fn render_trait_methods_ffi(
     parent_name: &str,
     self_type: &uniffi_bindgen::interface::Type,
     namespace: &str,
+    cfg: &config::JsBindingsConfig,
 ) -> String {
     let mut out = String::new();
 
@@ -442,6 +449,7 @@ fn render_trait_methods_ffi(
             self_type,
             namespace,
             &uniffi_bindgen::interface::Type::String,
+            cfg,
         ));
     }
 
@@ -453,6 +461,7 @@ fn render_trait_methods_ffi(
             self_type,
             namespace,
             &uniffi_bindgen::interface::Type::String,
+            cfg,
         ));
     }
 
@@ -462,6 +471,7 @@ fn render_trait_methods_ffi(
             parent_name,
             self_type,
             namespace,
+            cfg,
         ));
     }
 
@@ -473,6 +483,7 @@ fn render_trait_methods_ffi(
             self_type,
             namespace,
             &uniffi_bindgen::interface::Type::UInt64,
+            cfg,
         ));
     }
 
@@ -482,6 +493,7 @@ fn render_trait_methods_ffi(
             parent_name,
             self_type,
             namespace,
+            cfg,
         ));
     }
 
@@ -496,6 +508,7 @@ fn render_trait_method_ffi(
     self_type: &uniffi_bindgen::interface::Type,
     namespace: &str,
     return_type: &uniffi_bindgen::interface::Type,
+    cfg: &config::JsBindingsConfig,
 ) -> String {
     let mut out = String::new();
     let ffi_name = ffi::ffibuf_fn_method(namespace, parent_name, ffi_method_name);
@@ -514,6 +527,7 @@ fn render_trait_method_ffi(
         Some(return_type),
         None,
         "    ",
+        cfg,
     );
     out.push_str(&body);
     out.push_str("\n  }\n");
@@ -526,6 +540,7 @@ fn render_trait_eq_ffi(
     parent_name: &str,
     self_type: &uniffi_bindgen::interface::Type,
     namespace: &str,
+    cfg: &config::JsBindingsConfig,
 ) -> String {
     let mut out = String::new();
     let ffi_name = ffi::ffibuf_fn_method(namespace, parent_name, ffi_method_name);
@@ -544,6 +559,7 @@ fn render_trait_eq_ffi(
         Some(&uniffi_bindgen::interface::Type::Boolean),
         None,
         "    ",
+        cfg,
     );
     out.push_str(&body);
     out.push_str("\n  }\n");
@@ -556,6 +572,7 @@ fn render_trait_ord_ffi(
     parent_name: &str,
     self_type: &uniffi_bindgen::interface::Type,
     namespace: &str,
+    cfg: &config::JsBindingsConfig,
 ) -> String {
     let mut out = String::new();
     let ffi_name = ffi::ffibuf_fn_method(namespace, parent_name, ffi_method_name);
@@ -574,6 +591,7 @@ fn render_trait_ord_ffi(
         Some(&uniffi_bindgen::interface::Type::Int8),
         None,
         "    ",
+        cfg,
     );
     out.push_str(&body);
     out.push_str("\n  }\n");
@@ -628,7 +646,7 @@ pub(super) fn render_record_interface(
 
         // Synthesised trait methods
         out.push_str(&render_trait_methods_ffi(
-            &r.traits, name, &self_type, namespace,
+            &r.traits, name, &self_type, namespace, cfg,
         ));
 
         // Methods (instance-style, take `self` as first param)
@@ -774,7 +792,7 @@ pub(super) fn render_enum_type(
 
         // Synthesised trait methods
         out.push_str(&render_trait_methods_ffi(
-            &e.traits, name, &self_type, namespace,
+            &e.traits, name, &self_type, namespace, cfg,
         ));
 
         // Methods (instance-style, take `self` as first param)

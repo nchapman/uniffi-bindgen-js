@@ -323,7 +323,7 @@ fn render_ts(
     for cb in &metadata.callback_interfaces {
         if !cfg.exclude.contains(&cb.name) {
             out.push('\n');
-            out.push_str(&ffi::gen_callback_vtable_registration(cb, namespace));
+            out.push_str(&ffi::gen_callback_vtable_registration(cb, namespace, cfg));
         }
     }
 
@@ -346,8 +346,8 @@ fn render_ts(
             continue;
         }
         out.push('\n');
-        out.push_str(&ffi::gen_record_lower_fn(r, namespace));
-        out.push_str(&ffi::gen_record_lift_fn(r));
+        out.push_str(&ffi::gen_record_lower_fn(r, namespace, cfg));
+        out.push_str(&ffi::gen_record_lift_fn(r, cfg));
     }
     for e in &metadata.enums {
         if cfg.exclude.contains(&e.name) {
@@ -358,8 +358,8 @@ fn render_ts(
             out.push_str(&ffi::gen_flat_enum_lower_fn(e, namespace));
             out.push_str(&ffi::gen_flat_enum_lift_fn(e));
         } else {
-            out.push_str(&ffi::gen_data_enum_lower_fn(e, namespace));
-            out.push_str(&ffi::gen_data_enum_lift_fn(e));
+            out.push_str(&ffi::gen_data_enum_lower_fn(e, namespace, cfg));
+            out.push_str(&ffi::gen_data_enum_lift_fn(e, cfg));
         }
     }
     // Error value-type serialization helpers. Emitted when the error:
@@ -389,10 +389,10 @@ fn render_ts(
             }
         } else {
             if needs_lower {
-                out.push_str(&ffi::gen_rich_error_value_lower_fn(error, namespace));
+                out.push_str(&ffi::gen_rich_error_value_lower_fn(error, namespace, cfg));
             }
             if needs_lift {
-                out.push_str(&ffi::gen_rich_error_value_lift_fn(error));
+                out.push_str(&ffi::gen_rich_error_value_lift_fn(error, cfg));
             }
         }
     }
@@ -461,7 +461,7 @@ fn render_ts(
             if error.is_flat {
                 out.push_str(&ffi::gen_flat_error_lift_fn(error));
             } else {
-                out.push_str(&ffi::gen_rich_error_lift_fn(error));
+                out.push_str(&ffi::gen_rich_error_lift_fn(error, cfg));
             }
         }
     }
@@ -660,6 +660,7 @@ fn render_function(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfig) -
             f.return_type.as_ref(),
             throws_name.as_deref(),
             "    ",
+            cfg,
         )
     } else {
         ffi::gen_ffi_call(
@@ -669,6 +670,7 @@ fn render_function(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfig) -
             f.return_type.as_ref(),
             throws_name.as_deref(),
             "    ",
+            cfg,
         )
     };
 
@@ -759,7 +761,7 @@ fn render_object_class(o: &ObjectDef, namespace: &str, cfg: &config::JsBindingsC
     }
 
     // Synthesised trait methods (instance methods on the class)
-    out.push_str(&render_object_trait_methods(o, namespace));
+    out.push_str(&render_object_trait_methods(o, namespace, cfg));
 
     // free()
     out.push_str("  /** Releases the underlying WASM resource. Safe to call more than once. */\n");
@@ -782,7 +784,11 @@ fn render_object_class(o: &ObjectDef, namespace: &str, cfg: &config::JsBindingsC
 
 /// Render synthesised trait methods (Display, Debug, Eq, Hash, Ord)
 /// as instance methods on an object class using FFI calls.
-fn render_object_trait_methods(o: &ObjectDef, namespace: &str) -> String {
+fn render_object_trait_methods(
+    o: &ObjectDef,
+    namespace: &str,
+    cfg: &config::JsBindingsConfig,
+) -> String {
     let mut out = String::new();
     let name = &o.name;
 
@@ -794,6 +800,7 @@ fn render_object_trait_methods(o: &ObjectDef, namespace: &str) -> String {
             namespace,
             &uniffi_bindgen::interface::Type::String,
             false, // has_other
+            cfg,
         ));
     }
 
@@ -805,6 +812,7 @@ fn render_object_trait_methods(o: &ObjectDef, namespace: &str) -> String {
             namespace,
             &uniffi_bindgen::interface::Type::String,
             false,
+            cfg,
         ));
     }
 
@@ -838,6 +846,7 @@ fn render_object_trait_methods(o: &ObjectDef, namespace: &str) -> String {
             Some(&uniffi_bindgen::interface::Type::Boolean),
             None,
             "    ",
+            cfg,
         );
         out.push_str(&body);
         out.push_str("\n  }\n");
@@ -851,6 +860,7 @@ fn render_object_trait_methods(o: &ObjectDef, namespace: &str) -> String {
             namespace,
             &uniffi_bindgen::interface::Type::UInt64,
             false,
+            cfg,
         ));
     }
 
@@ -884,6 +894,7 @@ fn render_object_trait_methods(o: &ObjectDef, namespace: &str) -> String {
             Some(&uniffi_bindgen::interface::Type::Int8),
             None,
             "    ",
+            cfg,
         );
         out.push_str(&body);
         out.push_str("\n  }\n");
@@ -900,6 +911,7 @@ fn render_object_trait_method(
     namespace: &str,
     return_type: &uniffi_bindgen::interface::Type,
     _has_other: bool,
+    cfg: &config::JsBindingsConfig,
 ) -> String {
     let mut out = String::new();
     let ts_ret = ts_type_str(return_type);
@@ -928,6 +940,7 @@ fn render_object_trait_method(
         Some(return_type),
         None,
         "    ",
+        cfg,
     );
     out.push_str(&body);
     out.push_str("\n  }\n");
@@ -939,7 +952,7 @@ fn render_ctor(
     class_name: &str,
     namespace: &str,
     exported: &str,
-    _cfg: &config::JsBindingsConfig,
+    cfg: &config::JsBindingsConfig,
 ) -> String {
     let mut out = String::new();
 
@@ -993,6 +1006,7 @@ fn render_ctor(
             Some(&handle_type),
             throws_name.as_deref(),
             "    ",
+            cfg,
         )
     } else {
         ffi::gen_ffi_call(
@@ -1002,6 +1016,7 @@ fn render_ctor(
             Some(&handle_type),
             throws_name.as_deref(),
             "    ",
+            cfg,
         )
     };
     // Replace the generic return with constructing the class from handle
@@ -1086,6 +1101,7 @@ fn render_method(
             m.return_type.as_ref(),
             throws_name.as_deref(),
             "    ",
+            cfg,
         )
     } else {
         ffi::gen_ffi_call(
@@ -1095,6 +1111,7 @@ fn render_method(
             m.return_type.as_ref(),
             throws_name.as_deref(),
             "    ",
+            cfg,
         )
     };
 

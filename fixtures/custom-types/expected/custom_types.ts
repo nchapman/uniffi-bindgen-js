@@ -11,11 +11,9 @@ export type Url = string;
 
 export namespace CustomTypes {
   export function handlesEqual(a: Handle, b: Handle): boolean {
-    const _rb_a = _rt.lowerIntoBuffer((w) => { w.writeI64(a); });
-    const _rb_b = _rt.lowerIntoBuffer((w) => { w.writeI64(b); });
-    const _argPtr = _rt.scratchAlloc(6 * 8);
-    _rt.writeRustBufferElements(_argPtr, _rb_a);
-    _rt.writeRustBufferElements(_argPtr + 24, _rb_b);
+    const _argPtr = _rt.scratchAlloc(2 * 8);
+    _rt.writeI64Element(_argPtr, BigInt(a));
+    _rt.writeI64Element(_argPtr + 8, BigInt(b));
     const _retPtr = _rt.scratchAlloc(5 * 8);
     try {
       _rt.call('uniffi_ffibuffer_custom_types_fn_func_handles_equal', _argPtr, _retPtr);
@@ -29,11 +27,11 @@ export namespace CustomTypes {
   export function makeHandle(seed: bigint): Handle {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI64Element(_argPtr, BigInt(seed));
-    const _retPtr = _rt.scratchAlloc(7 * 8);
+    const _retPtr = _rt.scratchAlloc(5 * 8);
     try {
       _rt.call('uniffi_ffibuffer_custom_types_fn_func_make_handle', _argPtr, _retPtr);
-      _rt.checkCallStatus(_retPtr + 24);
-      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readI64(); });
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI64Element(_retPtr);
       return _result;
     } finally {
       _rt.scratchReset();

@@ -62,6 +62,11 @@ fn run_golden_impl(
     let generated = fs::read_to_string(out_dir.join(generated_ts)).expect("generated file");
 
     // When UPDATE_GOLDEN is set, overwrite the expected file instead of asserting.
+    // Safety: never allow UPDATE_GOLDEN in CI — it would silently auto-pass all tests.
+    assert!(
+        std::env::var("CI").is_err() || std::env::var("UPDATE_GOLDEN").is_err(),
+        "UPDATE_GOLDEN must not be set in CI"
+    );
     if std::env::var("UPDATE_GOLDEN").is_ok() {
         fs::create_dir_all(expected.parent().unwrap()).expect("create expected dir");
         fs::write(&expected, &generated).expect("update golden file");
@@ -206,6 +211,17 @@ fn run_golden_wasm(fixture_name: &str, ts_file: &str, wasm_file: &str) {
     run_golden_wasm_impl(fixture_name, ts_file, wasm_file, None)
 }
 
+fn run_golden_wasm_with_config(
+    fixture_name: &str,
+    ts_file: &str,
+    wasm_file: &str,
+    config_file: &str,
+) {
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let config = repo.join(format!("fixtures/{fixture_name}/wasm/{config_file}"));
+    run_golden_wasm_impl(fixture_name, ts_file, wasm_file, Some(config))
+}
+
 fn run_golden_wasm_impl(
     fixture_name: &str,
     ts_file: &str,
@@ -242,6 +258,10 @@ fn run_golden_wasm_impl(
 
     let generated = fs::read_to_string(out_dir.join(ts_file)).expect("generated file");
 
+    assert!(
+        std::env::var("CI").is_err() || std::env::var("UPDATE_GOLDEN").is_err(),
+        "UPDATE_GOLDEN must not be set in CI"
+    );
     if std::env::var("UPDATE_GOLDEN").is_ok() {
         fs::create_dir_all(expected.parent().unwrap()).expect("create expected dir");
         fs::write(&expected, &generated).expect("update golden file");
@@ -287,6 +307,26 @@ fn golden_ffi_features_fixture() {
     run_golden_wasm("ffi-features", "ffi_features.ts", "ffi_features.wasm");
 }
 
+#[test]
+fn golden_ffi_custom_types_fixture() {
+    run_golden_wasm_with_config(
+        "ffi-custom-types",
+        "ffi_custom_types.ts",
+        "ffi_custom_types.wasm",
+        "uniffi.toml",
+    );
+}
+
+#[test]
+fn golden_ffi_rename_exclude_fixture() {
+    run_golden_wasm_with_config(
+        "ffi-rename-exclude",
+        "ffi_rename_exclude.ts",
+        "ffi_rename_exclude.wasm",
+        "uniffi.toml",
+    );
+}
+
 /// Library-mode golden test. Requires a compiled cdylib from
 /// `fixtures/library-mode/native-lib/`. Run via `just test-library`.
 /// Auto-skips if UBJS_LIBRARY_MODE_LIB is not set.
@@ -316,6 +356,10 @@ fn golden_library_mode_fixture() {
 
     let generated = fs::read_to_string(out_dir.join("library_mode.ts")).expect("generated file");
 
+    assert!(
+        std::env::var("CI").is_err() || std::env::var("UPDATE_GOLDEN").is_err(),
+        "UPDATE_GOLDEN must not be set in CI"
+    );
     if std::env::var("UPDATE_GOLDEN").is_ok() {
         fs::create_dir_all(expected.parent().unwrap()).expect("create expected dir");
         fs::write(&expected, &generated).expect("update golden file");

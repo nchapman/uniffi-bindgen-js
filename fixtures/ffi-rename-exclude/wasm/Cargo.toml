@@ -1,0 +1,13 @@
+[package]
+name = "ffi-rename-exclude"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+name = "ffi_rename_exclude"
+
+[dependencies]
+uniffi = { version = "0.31.0", features = ["scaffolding-ffi-buffer-fns", "wasm-unstable-single-threaded"] }

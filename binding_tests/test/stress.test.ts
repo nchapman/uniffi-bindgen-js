@@ -242,23 +242,29 @@ describe('stress: large compound types', () => {
 // Concurrent async stress
 // ---------------------------------------------------------------------------
 
-describe('stress: concurrent async', async () => {
+describe('stress: concurrent async', () => {
   let FfiAsync: typeof import('../generated/ffi_async.js').FfiAsync;
   let AsyncCounter: typeof import('../generated/ffi_async.js').AsyncCounter;
+  let AsyncError: typeof import('../generated/ffi_async.js').AsyncError;
+  let available = false;
 
-  try {
-    const mod = await import('../generated/ffi_async.js');
-    FfiAsync = mod.FfiAsync;
-    AsyncCounter = mod.AsyncCounter;
-    // Probe with a real call — import succeeds even without --export-table,
-    // but actual async calls fail when __indirect_function_table is missing.
-    await FfiAsync.asyncAdd(1, 1);
-  } catch {
-    it.skip('async not available (WASM missing --export-table)', () => {});
-    return;
-  }
+  beforeAll(async () => {
+    try {
+      const mod = await import('../generated/ffi_async.js');
+      FfiAsync = mod.FfiAsync;
+      AsyncCounter = mod.AsyncCounter;
+      AsyncError = mod.AsyncError;
+      // Probe with a real call — import succeeds even without --export-table,
+      // but actual async calls fail when __indirect_function_table is missing.
+      await FfiAsync.asyncAdd(1, 1);
+      available = true;
+    } catch {
+      // async not available (WASM missing --export-table)
+    }
+  });
 
-  it('100 concurrent async calls', async () => {
+  it('100 concurrent async calls', async (ctx) => {
+    if (!available) return ctx.skip();
     const promises = Array.from({ length: 100 }, (_, i) =>
       FfiAsync.asyncAdd(i, 1),
     );
@@ -268,7 +274,8 @@ describe('stress: concurrent async', async () => {
     }
   });
 
-  it('100 concurrent async string calls', async () => {
+  it('100 concurrent async string calls', async (ctx) => {
+    if (!available) return ctx.skip();
     const promises = Array.from({ length: 100 }, (_, i) =>
       FfiAsync.asyncGreet(`user_${i}`),
     );
@@ -278,7 +285,8 @@ describe('stress: concurrent async', async () => {
     }
   });
 
-  it('50 concurrent async object methods', async () => {
+  it('50 concurrent async object methods', async (ctx) => {
+    if (!available) return ctx.skip();
     const counters: Awaited<ReturnType<typeof AsyncCounter.create>>[] = [];
     for (let i = 0; i < 50; i++) {
       counters.push(await AsyncCounter.create(BigInt(i)));
@@ -294,7 +302,8 @@ describe('stress: concurrent async', async () => {
     }
   });
 
-  it('concurrent create, increment, read, free cycle', async () => {
+  it('concurrent create, increment, read, free cycle', async (ctx) => {
+    if (!available) return ctx.skip();
     const run = async (id: number) => {
       const c = await AsyncCounter.create(BigInt(id));
       await c.increment();
@@ -312,7 +321,8 @@ describe('stress: concurrent async', async () => {
     }
   });
 
-  it('mixed sync and async calls', async () => {
+  it('mixed sync and async calls', async (ctx) => {
+    if (!available) return ctx.skip();
     const asyncResult = FfiAsync.asyncAdd(10, 20);
     const syncResult = FfiBasic.add(1, 2);
     expect(syncResult).toBe(3);
@@ -506,21 +516,24 @@ describe('stress: error handling', () => {
   });
 
   it('async errors under load', async (ctx) => {
-    let FfiAsync: typeof import('../generated/ffi_async.js').FfiAsync;
+    let FfiAsyncLocal: typeof import('../generated/ffi_async.js').FfiAsync;
+    let AsyncErrorLocal: typeof import('../generated/ffi_async.js').AsyncError;
     try {
       const mod = await import('../generated/ffi_async.js');
-      FfiAsync = mod.FfiAsync;
-      await FfiAsync.asyncAdd(1, 1);
+      FfiAsyncLocal = mod.FfiAsync;
+      AsyncErrorLocal = mod.AsyncError;
+      await FfiAsyncLocal.asyncAdd(1, 1);
     } catch {
       ctx.skip();
       return;
     }
     const promises = Array.from({ length: 100 }, () =>
-      FfiAsync.asyncDivide(1, 0).catch((e: unknown) => e),
+      FfiAsyncLocal.asyncDivide(1, 0).catch((e: unknown) => e),
     );
     const results = await Promise.all(promises);
     for (const e of results) {
-      expect(e).toBeInstanceOf(Error);
+      expect(e).toBeInstanceOf(AsyncErrorLocal);
+      expect((e as InstanceType<typeof AsyncErrorLocal>).variant.tag).toBe('DivisionByZero');
     }
   });
 });
@@ -531,23 +544,27 @@ describe('stress: error handling', () => {
 
 // Callbacks require --export-table RUSTFLAGS; use dynamic import to avoid
 // failing the whole file if the WASM wasn't built with the right flags.
-describe('stress: callbacks', async () => {
+describe('stress: callbacks', () => {
   let Processor: typeof import('../generated/ffi_callbacks.js').Processor;
   type Formatter = import('../generated/ffi_callbacks.js').Formatter;
+  let available = false;
 
-  try {
-    const mod = await import('../generated/ffi_callbacks.js');
-    Processor = mod.Processor;
-    // Probe with a real call — import may succeed but runtime fails
-    // without --export-table.
-    const probe = Processor.create({ format: (s: string) => s });
-    probe.free();
-  } catch {
-    it.skip('callbacks not available (WASM missing --export-table)', () => {});
-    return;
-  }
+  beforeAll(async () => {
+    try {
+      const mod = await import('../generated/ffi_callbacks.js');
+      Processor = mod.Processor;
+      // Probe with a real call — import may succeed but runtime fails
+      // without --export-table.
+      const probe = Processor.create({ format: (s: string) => s });
+      probe.free();
+      available = true;
+    } catch {
+      // callbacks not available (WASM missing --export-table)
+    }
+  });
 
-  it('1,000 calls through callback interface', () => {
+  it('1,000 calls through callback interface', (ctx) => {
+    if (!available) return ctx.skip();
     let count = 0;
     const formatter: Formatter = {
       format: (input: string) => {
@@ -563,7 +580,8 @@ describe('stress: callbacks', async () => {
     proc.free();
   });
 
-  it('many processors with different callbacks', () => {
+  it('many processors with different callbacks', (ctx) => {
+    if (!available) return ctx.skip();
     const procs: ReturnType<typeof Processor.create>[] = [];
     for (let i = 0; i < 100; i++) {
       const tag = i;
@@ -581,7 +599,8 @@ describe('stress: callbacks', async () => {
     }
   });
 
-  it('callback returning large strings', () => {
+  it('callback returning large strings', (ctx) => {
+    if (!available) return ctx.skip();
     const formatter: Formatter = {
       format: (input: string) => input.repeat(1000),
     };
@@ -592,7 +611,8 @@ describe('stress: callbacks', async () => {
     proc.free();
   });
 
-  it('callback with large input string', () => {
+  it('callback with large input string', (ctx) => {
+    if (!available) return ctx.skip();
     const formatter: Formatter = {
       format: (input: string) => `len=${input.length}`,
     };
