@@ -839,8 +839,13 @@ pub(super) fn gen_ffi_call(
         total_ret_elements
     ));
 
-    // Call
-    lines.push(format!("{indent}_rt.call('{ffi_name}', _argPtr, _retPtr);"));
+    // Call, check status, read result — wrapped in try/finally so that
+    // scratchReset() runs even when checkCallStatus throws an error.
+    lines.push(format!("{indent}try {{"));
+
+    lines.push(format!(
+        "{indent}  _rt.call('{ffi_name}', _argPtr, _retPtr);"
+    ));
 
     // Check call status
     let status_offset = if ret_elements > 0 {
@@ -851,21 +856,24 @@ pub(super) fn gen_ffi_call(
 
     if let Some(err_name) = throws_name {
         lines.push(format!(
-            "{indent}_rt.checkCallStatus({status_offset}, (rb) => _liftError{err_name}(rb));"
+            "{indent}  _rt.checkCallStatus({status_offset}, (rb) => _liftError{err_name}(rb));"
         ));
     } else {
-        lines.push(format!("{indent}_rt.checkCallStatus({status_offset});"));
+        lines.push(format!("{indent}  _rt.checkCallStatus({status_offset});"));
     }
 
     // Read return value
     if let Some(ret_type) = return_type {
         let result = gen_read_return(ret_type, "_retPtr");
-        lines.push(format!("{indent}const _result = {result};"));
-        lines.push(format!("{indent}_rt.scratchReset();"));
-        lines.push(format!("{indent}return _result;"));
+        lines.push(format!("{indent}  const _result = {result};"));
+        lines.push(format!("{indent}  return _result;"));
     } else {
-        lines.push(format!("{indent}_rt.scratchReset();"));
+        // void return — nothing to read
     }
+
+    lines.push(format!("{indent}}} finally {{"));
+    lines.push(format!("{indent}  _rt.scratchReset();"));
+    lines.push(format!("{indent}}}"));
 
     lines.join("\n")
 }
@@ -1026,26 +1034,20 @@ pub(super) fn gen_async_ffi_call(
         if let Some(ret_type) = return_type {
             let lift = gen_top_level_lift_from_rb(ret_type, rb);
             lines.push(format!("{indent}  const _result = {lift};"));
-            lines.push(format!("{indent}  _rt.scratchReset();"));
             lines.push(format!("{indent}  return _result;"));
-        } else {
-            lines.push(format!("{indent}  _rt.scratchReset();"));
         }
-    } else if suffix == "void" {
-        lines.push(format!("{indent}  _rt.scratchReset();"));
-    } else {
+    } else if suffix != "void" {
         // Primitive or handle return (from C ABI, always a number/bigint)
         if let Some(ret_type) = return_type {
             let raw = gen_from_ffi_raw("_result", ret_type);
-            lines.push(format!("{indent}  _rt.scratchReset();"));
             lines.push(format!("{indent}  return {raw};"));
-        } else {
-            lines.push(format!("{indent}  _rt.scratchReset();"));
         }
     }
 
-    // Finally: free the future
+    // Finally: free the future and reset scratch.
+    // scratchReset is in finally so it runs even when checkCallStatus throws.
     lines.push(format!("{indent}}} finally {{"));
+    lines.push(format!("{indent}  _rt.scratchReset();"));
     lines.push(format!(
         "{indent}  (_rt.getExport('{free_fn}') as any)(_futureHandle);"
     ));

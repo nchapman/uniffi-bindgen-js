@@ -11,19 +11,25 @@ export namespace RenameExclude {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_name);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_rename_exclude_fn_func_hello', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_rename_exclude_fn_func_hello', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function version(): string {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_rename_exclude_fn_func_version', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_rename_exclude_fn_func_version', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

@@ -195,141 +195,183 @@ export namespace TypeLimitsDemo {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU32Element(_argPtr, idx);
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_maybe_throw', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr, (rb) => _liftErrorLargeError(rb));
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_maybe_throw', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr, (rb) => _liftErrorLargeError(rb));
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function takeBytes(v: Uint8Array): Uint8Array {
     const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeBytes(v); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_bytes', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readBytes(); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_bytes', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readBytes(); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function takeEnum(v: LargeEnum): LargeEnum {
     const _rb_v = _rt.lowerIntoBuffer((w) => { _lowerLargeEnum(w, v); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_enum', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftLargeEnum(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_enum', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftLargeEnum(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function takeF32(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeF32Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_f32', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_f32', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function takeF64(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeF64Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_f64', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_f64', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function takeI16(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI16Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_i16', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI16Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_i16', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI16Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function takeI32(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI32Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_i32', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_i32', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function takeI64(v: bigint): bigint {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI64Element(_argPtr, BigInt(v));
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_i64', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_i64', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function takeI8(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI8Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_i8', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI8Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_i8', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI8Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function takeString(v: string): string {
     const _rb_v = _rt.lowerString(v);
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_string', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_string', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function takeU16(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU16Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_u16', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU16Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_u16', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU16Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function takeU32(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU32Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_u32', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_u32', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function takeU64(v: bigint): bigint {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU64Element(_argPtr, BigInt(v));
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_u64', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_u64', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function takeU8(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU8Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_u8', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU8Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_limits_demo_fn_func_take_u8', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU8Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

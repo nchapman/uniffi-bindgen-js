@@ -72,11 +72,14 @@ export class Counter {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI64Element(_argPtr, BigInt(start));
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_docstrings_fn_constructor_counter_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new Counter(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_docstrings_fn_constructor_counter_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new Counter(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Returns the current value. */
   get(): bigint {
@@ -85,11 +88,14 @@ export class Counter {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_docstrings_fn_method_counter_get', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_docstrings_fn_method_counter_get', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Increments the counter by one. */
   increment(): void {
@@ -98,9 +104,12 @@ export class Counter {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_docstrings_fn_method_counter_increment', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr);
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_docstrings_fn_method_counter_increment', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -148,10 +157,13 @@ export namespace Docstrings {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_name);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_docstrings_fn_func_greet', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_docstrings_fn_func_greet', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

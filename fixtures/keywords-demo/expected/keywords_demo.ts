@@ -36,11 +36,14 @@ export class SuperWidget {
   static create(): SuperWidget {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_keywords_demo_fn_constructor_superwidget_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new SuperWidget(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_keywords_demo_fn_constructor_superwidget_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new SuperWidget(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   class_(var_: string): string {
     this._assertLive();
@@ -50,11 +53,14 @@ export class SuperWidget {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_var_);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_keywords_demo_fn_method_superwidget_class', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_keywords_demo_fn_method_superwidget_class', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   return_(): number {
     this._assertLive();
@@ -62,11 +68,14 @@ export class SuperWidget {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_keywords_demo_fn_method_superwidget_return', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_keywords_demo_fn_method_superwidget_return', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -112,31 +121,40 @@ export namespace KeywordsDemo {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU32Element(_argPtr, switch_);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_keywords_demo_fn_func_class', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_keywords_demo_fn_func_class', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function delete_(static_: boolean): boolean {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeBoolElement(_argPtr, static_);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_keywords_demo_fn_func_delete', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readBoolElement(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_keywords_demo_fn_func_delete', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readBoolElement(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function return_(var_: string): string {
     const _rb_var_ = _rt.lowerString(var_);
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_var_);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_keywords_demo_fn_func_return', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_keywords_demo_fn_func_return', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

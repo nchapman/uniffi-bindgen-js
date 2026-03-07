@@ -3,17 +3,13 @@ import { UniffiRuntime, UniFFIWriter, UniFFIReader } from './uniffi_runtime.js';
 
 const _rt = await UniffiRuntime.load(new URL('./ffi_errors.wasm', import.meta.url), 'ffi_errors');
 
-export type MathErrorVariant =
-  | { tag: 'DivisionByZero' }
-  | { tag: 'Overflow' };
-
 export class MathError extends Error {
   override readonly name = 'MathError' as const;
-  constructor(public readonly variant: MathErrorVariant) {
-    super(variant.tag);
+  constructor(public readonly tag: 'DivisionByZero' | 'Overflow') {
+    super(tag);
   }
-  static DivisionByZero(): MathError { return new MathError({ tag: 'DivisionByZero' }); }
-  static Overflow(): MathError { return new MathError({ tag: 'Overflow' }); }
+  static DivisionByZero(): MathError { return new MathError('DivisionByZero'); }
+  static Overflow(): MathError { return new MathError('Overflow'); }
 }
 
 export type NetworkErrorVariant =
@@ -31,19 +27,14 @@ export class NetworkError extends Error {
   static ServerError(code: number, message: string): NetworkError { return new NetworkError({ tag: 'ServerError', code, message }); }
 }
 
-export type ParseErrorVariant =
-  | { tag: 'InvalidInput' }
-  | { tag: 'MissingSection' }
-  | { tag: 'SyntaxError' };
-
 export class ParseError extends Error {
   override readonly name = 'ParseError' as const;
-  constructor(public readonly variant: ParseErrorVariant) {
-    super(variant.tag);
+  constructor(public readonly tag: 'InvalidInput' | 'MissingSection' | 'SyntaxError') {
+    super(tag);
   }
-  static InvalidInput(): ParseError { return new ParseError({ tag: 'InvalidInput' }); }
-  static MissingSection(): ParseError { return new ParseError({ tag: 'MissingSection' }); }
-  static SyntaxError(): ParseError { return new ParseError({ tag: 'SyntaxError' }); }
+  static InvalidInput(): ParseError { return new ParseError('InvalidInput'); }
+  static MissingSection(): ParseError { return new ParseError('MissingSection'); }
+  static SyntaxError(): ParseError { return new ParseError('SyntaxError'); }
 }
 
 export class Parser {
@@ -65,11 +56,14 @@ export class Parser {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_input);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_errors_fn_constructor_parser_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorParseError(rb));
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new Parser(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_errors_fn_constructor_parser_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorParseError(rb));
+      const _result = _rt.readHandleElement(_retPtr);
+      return new Parser(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** @throws {ParseError} */
   parseSection(name: string): string {
@@ -80,11 +74,14 @@ export class Parser {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_name);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_errors_fn_method_parser_parse_section', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24, (rb) => _liftErrorParseError(rb));
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_errors_fn_method_parser_parse_section', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24, (rb) => _liftErrorParseError(rb));
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   result(): string {
     this._assertLive();
@@ -92,11 +89,14 @@ export class Parser {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_errors_fn_method_parser_result', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_errors_fn_method_parser_result', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -113,12 +113,8 @@ if (Symbol.dispose) (Parser as any).prototype[Symbol.dispose] = Parser.prototype
 function _liftErrorMathError(rb: any): MathError {
   return _rt.liftFromBuffer(rb, (r) => {
     const ordinal = r.readI32();
-    if (ordinal === 1) {
-      return new MathError({ tag: 'DivisionByZero' });
-    }
-    if (ordinal === 2) {
-      return new MathError({ tag: 'Overflow' });
-    }
+    if (ordinal === 1) return new MathError('DivisionByZero');
+    if (ordinal === 2) return new MathError('Overflow');
     throw new Error(`Unknown MathError ordinal: ${ordinal}`);
   });
 }
@@ -142,15 +138,9 @@ function _liftErrorNetworkError(rb: any): NetworkError {
 function _liftErrorParseError(rb: any): ParseError {
   return _rt.liftFromBuffer(rb, (r) => {
     const ordinal = r.readI32();
-    if (ordinal === 1) {
-      return new ParseError({ tag: 'InvalidInput' });
-    }
-    if (ordinal === 2) {
-      return new ParseError({ tag: 'MissingSection' });
-    }
-    if (ordinal === 3) {
-      return new ParseError({ tag: 'SyntaxError' });
-    }
+    if (ordinal === 1) return new ParseError('InvalidInput');
+    if (ordinal === 2) return new ParseError('MissingSection');
+    if (ordinal === 3) return new ParseError('SyntaxError');
     throw new Error(`Unknown ParseError ordinal: ${ordinal}`);
   });
 }
@@ -162,11 +152,14 @@ export namespace FfiErrors {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_url);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_errors_fn_func_fetch_data', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24, (rb) => _liftErrorNetworkError(rb));
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_errors_fn_func_fetch_data', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24, (rb) => _liftErrorNetworkError(rb));
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** @throws {MathError} */
   export function safeDivide(a: number, b: number): string {
@@ -174,10 +167,13 @@ export namespace FfiErrors {
     _rt.writeF64Element(_argPtr, a);
     _rt.writeF64Element(_argPtr + 8, b);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_errors_fn_func_safe_divide', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24, (rb) => _liftErrorMathError(rb));
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_errors_fn_func_safe_divide', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24, (rb) => _liftErrorMathError(rb));
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

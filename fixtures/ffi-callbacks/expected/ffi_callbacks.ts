@@ -36,6 +36,7 @@ _rt.registerCallbackVTable('Formatter', 'uniffi_ffi_callbacks_fn_init_callback_v
   },
 ]);
 
+/** Accepts a Formatter callback and uses it. */
 export class Processor {
   /** @internal */
   readonly _handle: bigint;
@@ -53,11 +54,14 @@ export class Processor {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _rt.insertCallbackHandle(formatter));
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_callbacks_fn_constructor_processor_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new Processor(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_callbacks_fn_constructor_processor_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new Processor(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   process(input: string): string {
     this._assertLive();
@@ -67,11 +71,14 @@ export class Processor {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_input);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_callbacks_fn_method_processor_process', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_callbacks_fn_method_processor_process', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {

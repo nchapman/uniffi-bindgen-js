@@ -11,43 +11,55 @@ export namespace TypeZoo {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_items);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_bigints', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readI64()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_bigints', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readI64()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoBool(v: boolean): boolean {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeBoolElement(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_bool', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readBoolElement(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_bool', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readBoolElement(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoBoolMap(m: Map<string, boolean>): Map<string, boolean> {
     const _rb_m = _rt.lowerIntoBuffer((w) => { w.writeMap(m, (_w, _k) => { _w.writeString(_k); }, (_w, _v) => { _w.writeBool(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_m);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_bool_map', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readString(), (_r) => _r.readBool()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_bool_map', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readString(), (_r) => _r.readBool()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoBytes(data: Uint8Array): Uint8Array {
     const _rb_data = _rt.lowerIntoBuffer((w) => { w.writeBytes(data); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_data);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_bytes', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readBytes(); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_bytes', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readBytes(); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * @param d - Duration in seconds.
@@ -58,165 +70,213 @@ export namespace TypeZoo {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_d);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_duration', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readDuration(); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_duration', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readDuration(); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoF32(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeF32Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_f32', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_f32', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoF64(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeF64Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_f64', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_f64', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoI16(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI16Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_i16', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI16Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_i16', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI16Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoI32(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI32Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_i32', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_i32', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoI64(v: bigint): bigint {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI64Element(_argPtr, BigInt(v));
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_i64', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_i64', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoI8(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI8Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_i8', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI8Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_i8', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI8Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoMap(m: Map<string, number>): Map<string, number> {
     const _rb_m = _rt.lowerIntoBuffer((w) => { w.writeMap(m, (_w, _k) => { _w.writeString(_k); }, (_w, _v) => { _w.writeI32(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_m);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_map', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readString(), (_r) => _r.readI32()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_map', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readString(), (_r) => _r.readI32()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoString(v: string): string {
     const _rb_v = _rt.lowerString(v);
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_string', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_string', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoStrings(items: string[]): string[] {
     const _rb_items = _rt.lowerIntoBuffer((w) => { w.writeSequence(items, (_w, _v) => { _w.writeString(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_items);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_strings', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readString()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_strings', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readString()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoTimestamp(t: Date): Date {
     const _rb_t = _rt.lowerIntoBuffer((w) => { w.writeTimestamp(t); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_t);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_timestamp', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readTimestamp(); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_timestamp', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readTimestamp(); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoU16(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU16Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_u16', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU16Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_u16', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU16Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoU32(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU32Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_u32', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_u32', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoU64(v: bigint): bigint {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU64Element(_argPtr, BigInt(v));
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_u64', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_u64', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function echoU8(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU8Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_u8', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU8Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_echo_u8', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU8Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function maybeString(input: string | null): string | null {
     const _rb_input = _rt.lowerIntoBuffer((w) => { w.writeOptional(input, (_w, _v) => { _w.writeString(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_input);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_type_zoo_fn_func_maybe_string', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readString()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_type_zoo_fn_func_maybe_string', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readString()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

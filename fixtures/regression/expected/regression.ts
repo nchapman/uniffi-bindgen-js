@@ -95,11 +95,14 @@ export class SafeDivider {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI32Element(_argPtr, initial);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_regression_fn_constructor_safedivider_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new SafeDivider(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_regression_fn_constructor_safedivider_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new SafeDivider(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Named constructor that can fail — exercises named-ctor [Throws] path.
@@ -109,11 +112,14 @@ export class SafeDivider {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI32Element(_argPtr, initial);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_regression_fn_constructor_safedivider_from_positive', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorDivError(rb));
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new SafeDivider(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_regression_fn_constructor_safedivider_from_positive', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorDivError(rb));
+      const _result = _rt.readHandleElement(_retPtr);
+      return new SafeDivider(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Divide and return the result — exercises method [Throws] + return branch.
@@ -126,11 +132,14 @@ export class SafeDivider {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeI32Element(_argPtr + 8, divisor);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_regression_fn_method_safedivider_divide', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorDivError(rb));
-    const _result = _rt.readI32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_regression_fn_method_safedivider_divide', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorDivError(rb));
+      const _result = _rt.readI32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Asynchronously compute the square — exercises [Async] method on interface.
@@ -150,9 +159,9 @@ export class SafeDivider {
       _rt._writeRustCallStatusStruct(_statusPtr);
       const _result = (_rt.getExport('ffi_regression_rust_future_complete_i32') as any)(_futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr);
-      _rt.scratchReset();
       return _result;
     } finally {
+      _rt.scratchReset();
       (_rt.getExport('ffi_regression_rust_future_free_i32') as any)(_futureHandle);
     }
   }
@@ -185,10 +194,13 @@ export namespace Regression {
     _rt.writeHandleElement(_argPtr, _rt.insertCallbackHandle(t));
     _rt.writeRustBufferElements(_argPtr + 8, _rb_value);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_regression_fn_func_apply', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_regression_fn_func_apply', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

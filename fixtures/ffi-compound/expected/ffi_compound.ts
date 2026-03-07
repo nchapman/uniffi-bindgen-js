@@ -72,32 +72,41 @@ export namespace FfiCompound {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_c);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_color_name', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_color_name', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityBool(v: boolean): boolean {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeBoolElement(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_bool', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readBoolElement(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_bool', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readBoolElement(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityBytes(v: Uint8Array): Uint8Array {
     const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeBytes(v); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_bytes', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readBytes(); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_bytes', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readBytes(); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * @param v - Duration in seconds.
@@ -108,232 +117,298 @@ export namespace FfiCompound {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_duration', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readDuration(); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_duration', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readDuration(); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityF32(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeF32Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_f32', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_f32', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityF64(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeF64Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_f64', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_f64', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityI16(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI16Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_i16', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI16Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_i16', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI16Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityI32(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI32Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_i32', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_i32', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityI64(v: bigint): bigint {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI64Element(_argPtr, BigInt(v));
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_i64', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_i64', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityI8(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI8Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_i8', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI8Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_i8', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI8Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityMapPoint(v: Map<string, Point>): Map<string, Point> {
     const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeMap(v, (_w, _k) => { _w.writeString(_k); }, (_w, _v) => { _lowerPoint(_w, _v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_map_point', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readString(), (_r) => _liftPoint(_r)); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_map_point', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readString(), (_r) => _liftPoint(_r)); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityMapStringI32(v: Map<string, number>): Map<string, number> {
     const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeMap(v, (_w, _k) => { _w.writeString(_k); }, (_w, _v) => { _w.writeI32(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_map_string_i32', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readString(), (_r) => _r.readI32()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_map_string_i32', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readString(), (_r) => _r.readI32()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityOptionalI32(v: number | null): number | null {
     const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeOptional(v, (_w, _v) => { _w.writeI32(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_optional_i32', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readI32()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_optional_i32', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readI32()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityOptionalPoint(v: Point | null): Point | null {
     const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeOptional(v, (_w, _v) => { _lowerPoint(_w, _v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_optional_point', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _liftPoint(_r)); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_optional_point', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _liftPoint(_r)); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityOptionalString(v: string | null): string | null {
     const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeOptional(v, (_w, _v) => { _w.writeString(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_optional_string', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readString()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_optional_string', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readString()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identitySeqI32(v: number[]): number[] {
     const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeSequence(v, (_w, _v) => { _w.writeI32(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_seq_i32', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readI32()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_seq_i32', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readI32()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identitySeqPoint(v: Point[]): Point[] {
     const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeSequence(v, (_w, _v) => { _lowerPoint(_w, _v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_seq_point', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _liftPoint(_r)); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_seq_point', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _liftPoint(_r)); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identitySeqString(v: string[]): string[] {
     const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeSequence(v, (_w, _v) => { _w.writeString(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_seq_string', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readString()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_seq_string', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readString()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityString(v: string): string {
     const _rb_v = _rt.lowerString(v);
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_string', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_string', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityTimestamp(v: Date): Date {
     const _rb_v = _rt.lowerIntoBuffer((w) => { w.writeTimestamp(v); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_v);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_timestamp', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readTimestamp(); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_timestamp', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readTimestamp(); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityU16(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU16Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_u16', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU16Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_u16', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU16Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityU32(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU32Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_u32', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_u32', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityU64(v: bigint): bigint {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU64Element(_argPtr, BigInt(v));
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_u64', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_u64', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function identityU8(v: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU8Element(_argPtr, v);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_u8', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU8Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_identity_u8', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU8Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function makePoint(x: number, y: number): Point {
     const _argPtr = _rt.scratchAlloc(2 * 8);
     _rt.writeF64Element(_argPtr, x);
     _rt.writeF64Element(_argPtr + 8, y);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_make_point', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftPoint(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_make_point', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftPoint(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function pointDistance(a: Point, b: Point): number {
     const _rb_a = _rt.lowerIntoBuffer((w) => { _lowerPoint(w, a); });
@@ -342,21 +417,27 @@ export namespace FfiCompound {
     _rt.writeRustBufferElements(_argPtr, _rb_a);
     _rt.writeRustBufferElements(_argPtr + 24, _rb_b);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_point_distance', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_point_distance', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function shapeArea(s: Shape): number {
     const _rb_s = _rt.lowerIntoBuffer((w) => { _lowerShape(w, s); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_s);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_shape_area', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_compound_fn_func_shape_area', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

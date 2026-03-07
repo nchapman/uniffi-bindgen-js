@@ -3,6 +3,7 @@ import { UniffiRuntime, UniFFIWriter, UniFFIReader } from './uniffi_runtime.js';
 
 const _rt = await UniffiRuntime.load(new URL('./ffi_features.wasm', import.meta.url), 'ffi_features');
 
+/** Error for named constructor. */
 export class BuildError extends Error {
   override readonly name = 'BuildError' as const;
   constructor(public readonly tag: 'InvalidInput' | 'Overflow') {
@@ -12,6 +13,7 @@ export class BuildError extends Error {
   static Overflow(): BuildError { return new BuildError('Overflow'); }
 }
 
+/** A record with field defaults. */
 export interface Config {
   host: string;
   port?: number;
@@ -19,14 +21,17 @@ export interface Config {
   label?: string | null;
 }
 
+/** A record with reserved-word field names. */
 export interface ReturnValue {
   class_: string;
   return_: number;
   typeof_: boolean;
 }
 
+/** A flat enum. */
 export type Status = 'Active' | 'Inactive';
 
+/** An object with named constructors, docstrings, and reserved-word methods. */
 export class Widget {
   /** @internal */
   readonly _handle: bigint;
@@ -40,41 +45,56 @@ export class Widget {
   }
   /** @internal */
   static _fromHandle(handle: bigint): Widget { return new Widget(handle); }
+  /** Default constructor. */
   static create(label: string): Widget {
     const _rb_label = _rt.lowerString(label);
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_label);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_features_fn_constructor_widget_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new Widget(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_features_fn_constructor_widget_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new Widget(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
-  /** @throws {BuildError} */
+  /**
+   * Named constructor that can fail.
+   * @throws {BuildError}
+   */
   static fromPositive(value: number): Widget {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI32Element(_argPtr, value);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_features_fn_constructor_widget_from_positive', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorBuildError(rb));
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new Widget(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_features_fn_constructor_widget_from_positive', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorBuildError(rb));
+      const _result = _rt.readHandleElement(_retPtr);
+      return new Widget(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
+  /** Reserved-word method name. */
   class_(): number {
     this._assertLive();
     const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_features_fn_clone_widget', this._handle);
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_features_fn_method_widget_class', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_features_fn_method_widget_class', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
-  format(prefix: string | null): string {
+  /** Method with default argument. */
+  format(prefix: string | null = null): string {
     this._assertLive();
     const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_features_fn_clone_widget', this._handle);
     const _rb_prefix = _rt.lowerIntoBuffer((w) => { w.writeOptional(prefix, (_w, _v) => { _w.writeString(_v); }); });
@@ -82,35 +102,46 @@ export class Widget {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_prefix);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_features_fn_method_widget_format', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_features_fn_method_widget_format', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
+  /** Returns the config with defaults filled in. */
   getConfig(): Config {
     this._assertLive();
     const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_features_fn_clone_widget', this._handle);
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_features_fn_method_widget_get_config', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftConfig(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_features_fn_method_widget_get_config', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftConfig(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
+  /** Get the label. */
   getLabel(): string {
     this._assertLive();
     const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_features_fn_clone_widget', this._handle);
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_features_fn_method_widget_get_label', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_features_fn_method_widget_get_label', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -173,81 +204,111 @@ function _liftErrorBuildError(rb: any): BuildError {
   });
 }
 
+/**
+ * Feature coverage fixture: defaults, named ctors, docstrings,
+ * reserved words, enums, records with defaults.
+ */
 export namespace FfiFeatures {
-  export function addMaybe(a: number, b: number | null): number {
+  /** Add with optional second operand (defaults to zero). */
+  export function addMaybe(a: number, b: number | null = null): number {
     const _rb_b = _rt.lowerIntoBuffer((w) => { w.writeOptional(b, (_w, _v) => { _w.writeU32(_v); }); });
     const _argPtr = _rt.scratchAlloc(4 * 8);
     _rt.writeU32Element(_argPtr, a);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_b);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_features_fn_func_add_maybe', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_features_fn_func_add_maybe', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
+  /** Reserved-word function names. */
   export function class_(switch_: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU32Element(_argPtr, switch_);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_features_fn_func_class', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_features_fn_func_class', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function delete_(static_: boolean): boolean {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeBoolElement(_argPtr, static_);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_features_fn_func_delete', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readBoolElement(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_features_fn_func_delete', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readBoolElement(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
+  /** Accepts a record with reserved-word fields. */
   export function describeKeywords(rv: ReturnValue): string {
     const _rb_rv = _rt.lowerIntoBuffer((w) => { _lowerReturnValue(w, rv); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_rv);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_features_fn_func_describe_keywords', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_features_fn_func_describe_keywords', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
-  export function greet(name: string | null): string {
+  /** Greet by name, defaults to "world". */
+  export function greet(name: string | null = null): string {
     const _rb_name = _rt.lowerIntoBuffer((w) => { w.writeOptional(name, (_w, _v) => { _w.writeString(_v); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_name);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_features_fn_func_greet', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_features_fn_func_greet', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function return_(var_: string): string {
     const _rb_var_ = _rt.lowerString(var_);
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_var_);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_features_fn_func_return', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_features_fn_func_return', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
+  /** Returns the enum variant name. */
   export function statusName(s: Status): string {
     const _rb_s = _rt.lowerIntoBuffer((w) => { _lowerStatus(w, s); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_s);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_features_fn_func_status_name', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_features_fn_func_status_name', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

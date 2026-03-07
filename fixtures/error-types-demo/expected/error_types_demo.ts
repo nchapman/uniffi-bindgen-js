@@ -24,11 +24,14 @@ export class ErrorInterface extends Error {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_error_types_demo_fn_method_errorinterface_chain', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readString()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_error_types_demo_fn_method_errorinterface_chain', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readString()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   link(index: bigint): string | null {
     this._assertLive();
@@ -37,11 +40,14 @@ export class ErrorInterface extends Error {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeU64Element(_argPtr + 8, BigInt(index));
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_error_types_demo_fn_method_errorinterface_link', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readString()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_error_types_demo_fn_method_errorinterface_link', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readString()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   toString(): string {
     this._assertLive();
@@ -49,11 +55,14 @@ export class ErrorInterface extends Error {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_error_types_demo_fn_method_errorinterface_uniffi_trait_display', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_error_types_demo_fn_method_errorinterface_uniffi_trait_display', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   toDebugString(): string {
     this._assertLive();
@@ -61,11 +70,14 @@ export class ErrorInterface extends Error {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_error_types_demo_fn_method_errorinterface_uniffi_trait_debug', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_error_types_demo_fn_method_errorinterface_uniffi_trait_debug', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -93,11 +105,14 @@ export class TestInterface {
   static create(): TestInterface {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_error_types_demo_fn_constructor_testinterface_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new TestInterface(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_error_types_demo_fn_constructor_testinterface_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new TestInterface(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** @throws {ErrorInterface} */
   oops(): void {
@@ -106,9 +121,12 @@ export class TestInterface {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_error_types_demo_fn_method_testinterface_oops', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr, (rb) => _liftErrorErrorInterface(rb));
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_error_types_demo_fn_method_testinterface_oops', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr, (rb) => _liftErrorErrorInterface(rb));
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -134,18 +152,24 @@ export namespace ErrorTypesDemo {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_message);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_error_types_demo_fn_func_get_error', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return ErrorInterface._fromHandle(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_error_types_demo_fn_func_get_error', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return ErrorInterface._fromHandle(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** @throws {ErrorInterface} */
   export function oops(): void {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_error_types_demo_fn_func_oops', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr, (rb) => _liftErrorErrorInterface(rb));
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_error_types_demo_fn_func_oops', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr, (rb) => _liftErrorErrorInterface(rb));
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

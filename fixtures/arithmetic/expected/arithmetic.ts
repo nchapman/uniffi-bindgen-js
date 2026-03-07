@@ -30,21 +30,27 @@ export namespace Arithmetic {
     _rt.writeF64Element(_argPtr, a);
     _rt.writeF64Element(_argPtr + 8, b);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_arithmetic_fn_func_divide', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorMathError(rb));
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_arithmetic_fn_func_divide', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorMathError(rb));
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** @throws {MathError} */
   export function sqrt(x: number): number {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeF64Element(_argPtr, x);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_arithmetic_fn_func_sqrt', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorMathError(rb));
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_arithmetic_fn_func_sqrt', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorMathError(rb));
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

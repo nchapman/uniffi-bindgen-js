@@ -48,11 +48,14 @@ export namespace RichErrors {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_url);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_rich_errors_fn_func_fetch_data', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24, (rb) => _liftErrorNetworkError(rb));
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_rich_errors_fn_func_fetch_data', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24, (rb) => _liftErrorNetworkError(rb));
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** @throws {NetworkError} */
   export async function fetchDataAsync(url: string): Promise<string> {
@@ -71,9 +74,9 @@ export namespace RichErrors {
       (_rt.getExport('ffi_rich_errors_rust_future_complete_rust_buffer') as any)(_rbRetPtr, _futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr, (rb) => _liftErrorNetworkError(rb));
       const _result = _rt.liftString(_rt._readRustBufferStruct(_rbRetPtr));
-      _rt.scratchReset();
       return _result;
     } finally {
+      _rt.scratchReset();
       (_rt.getExport('ffi_rich_errors_rust_future_free_rust_buffer') as any)(_futureHandle);
     }
   }
@@ -95,9 +98,9 @@ export namespace RichErrors {
       (_rt.getExport('ffi_rich_errors_rust_future_complete_rust_buffer') as any)(_rbRetPtr, _futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr, (rb) => _liftErrorNetworkError(rb));
       const _result = _rt.liftString(_rt._readRustBufferStruct(_rbRetPtr));
-      _rt.scratchReset();
       return _result;
     } finally {
+      _rt.scratchReset();
       (_rt.getExport('ffi_rich_errors_rust_future_free_rust_buffer') as any)(_futureHandle);
     }
   }
@@ -108,10 +111,13 @@ export namespace RichErrors {
     _rt.writeRustBufferElements(_argPtr, _rb_url);
     _rt.writeU32Element(_argPtr + 24, timeoutMs);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_rich_errors_fn_func_fetch_with_timeout', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24, (rb) => _liftErrorNetworkError(rb));
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_rich_errors_fn_func_fetch_with_timeout', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24, (rb) => _liftErrorNetworkError(rb));
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

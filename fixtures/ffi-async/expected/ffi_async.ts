@@ -3,17 +3,13 @@ import { UniffiRuntime, UniFFIWriter, UniFFIReader } from './uniffi_runtime.js';
 
 const _rt = await UniffiRuntime.load(new URL('./ffi_async.wasm', import.meta.url), 'ffi_async');
 
-export type AsyncErrorVariant =
-  | { tag: 'DivisionByZero' }
-  | { tag: 'InvalidInput' };
-
 export class AsyncError extends Error {
   override readonly name = 'AsyncError' as const;
-  constructor(public readonly variant: AsyncErrorVariant) {
-    super(variant.tag);
+  constructor(public readonly tag: 'DivisionByZero' | 'InvalidInput') {
+    super(tag);
   }
-  static DivisionByZero(): AsyncError { return new AsyncError({ tag: 'DivisionByZero' }); }
-  static InvalidInput(): AsyncError { return new AsyncError({ tag: 'InvalidInput' }); }
+  static DivisionByZero(): AsyncError { return new AsyncError('DivisionByZero'); }
+  static InvalidInput(): AsyncError { return new AsyncError('InvalidInput'); }
 }
 
 export class AsyncCounter {
@@ -42,9 +38,9 @@ export class AsyncCounter {
       _rt._writeRustCallStatusStruct(_statusPtr);
       const _result = (_rt.getExport('ffi_ffi_async_rust_future_complete_u64') as any)(_futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr);
-      _rt.scratchReset();
       return new AsyncCounter(_result);
     } finally {
+      _rt.scratchReset();
       (_rt.getExport('ffi_ffi_async_rust_future_free_u64') as any)(_futureHandle);
     }
   }
@@ -63,9 +59,9 @@ export class AsyncCounter {
       _rt._writeRustCallStatusStruct(_statusPtr);
       const _result = (_rt.getExport('ffi_ffi_async_rust_future_complete_u64') as any)(_futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr);
-      _rt.scratchReset();
       return _result;
     } finally {
+      _rt.scratchReset();
       (_rt.getExport('ffi_ffi_async_rust_future_free_u64') as any)(_futureHandle);
     }
   }
@@ -84,8 +80,8 @@ export class AsyncCounter {
       _rt._writeRustCallStatusStruct(_statusPtr);
       (_rt.getExport('ffi_ffi_async_rust_future_complete_void') as any)(_futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr);
-      _rt.scratchReset();
     } finally {
+      _rt.scratchReset();
       (_rt.getExport('ffi_ffi_async_rust_future_free_void') as any)(_futureHandle);
     }
   }
@@ -105,8 +101,8 @@ export class AsyncCounter {
       _rt._writeRustCallStatusStruct(_statusPtr);
       (_rt.getExport('ffi_ffi_async_rust_future_complete_void') as any)(_futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr, (rb) => _liftErrorAsyncError(rb));
-      _rt.scratchReset();
     } finally {
+      _rt.scratchReset();
       (_rt.getExport('ffi_ffi_async_rust_future_free_void') as any)(_futureHandle);
     }
   }
@@ -125,12 +121,8 @@ if (Symbol.dispose) (AsyncCounter as any).prototype[Symbol.dispose] = AsyncCount
 function _liftErrorAsyncError(rb: any): AsyncError {
   return _rt.liftFromBuffer(rb, (r) => {
     const ordinal = r.readI32();
-    if (ordinal === 1) {
-      return new AsyncError({ tag: 'DivisionByZero' });
-    }
-    if (ordinal === 2) {
-      return new AsyncError({ tag: 'InvalidInput' });
-    }
+    if (ordinal === 1) return new AsyncError('DivisionByZero');
+    if (ordinal === 2) return new AsyncError('InvalidInput');
     throw new Error(`Unknown AsyncError ordinal: ${ordinal}`);
   });
 }
@@ -150,9 +142,9 @@ export namespace FfiAsync {
       _rt._writeRustCallStatusStruct(_statusPtr);
       const _result = (_rt.getExport('ffi_ffi_async_rust_future_complete_u32') as any)(_futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr);
-      _rt.scratchReset();
       return _result;
     } finally {
+      _rt.scratchReset();
       (_rt.getExport('ffi_ffi_async_rust_future_free_u32') as any)(_futureHandle);
     }
   }
@@ -173,9 +165,9 @@ export namespace FfiAsync {
       (_rt.getExport('ffi_ffi_async_rust_future_complete_rust_buffer') as any)(_rbRetPtr, _futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr, (rb) => _liftErrorAsyncError(rb));
       const _result = _rt.liftString(_rt._readRustBufferStruct(_rbRetPtr));
-      _rt.scratchReset();
       return _result;
     } finally {
+      _rt.scratchReset();
       (_rt.getExport('ffi_ffi_async_rust_future_free_rust_buffer') as any)(_futureHandle);
     }
   }
@@ -193,9 +185,9 @@ export namespace FfiAsync {
       _rt._writeRustCallStatusStruct(_statusPtr);
       const _result = (_rt.getExport('ffi_ffi_async_rust_future_complete_u64') as any)(_futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr);
-      _rt.scratchReset();
       return _result;
     } finally {
+      _rt.scratchReset();
       (_rt.getExport('ffi_ffi_async_rust_future_free_u64') as any)(_futureHandle);
     }
   }
@@ -215,9 +207,9 @@ export namespace FfiAsync {
       (_rt.getExport('ffi_ffi_async_rust_future_complete_rust_buffer') as any)(_rbRetPtr, _futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr);
       const _result = _rt.liftString(_rt._readRustBufferStruct(_rbRetPtr));
-      _rt.scratchReset();
       return _result;
     } finally {
+      _rt.scratchReset();
       (_rt.getExport('ffi_ffi_async_rust_future_free_rust_buffer') as any)(_futureHandle);
     }
   }
@@ -233,8 +225,8 @@ export namespace FfiAsync {
       _rt._writeRustCallStatusStruct(_statusPtr);
       (_rt.getExport('ffi_ffi_async_rust_future_complete_void') as any)(_futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr);
-      _rt.scratchReset();
     } finally {
+      _rt.scratchReset();
       (_rt.getExport('ffi_ffi_async_rust_future_free_void') as any)(_futureHandle);
     }
   }

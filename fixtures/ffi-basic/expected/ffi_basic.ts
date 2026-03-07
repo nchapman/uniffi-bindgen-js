@@ -20,11 +20,14 @@ export class Counter {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeU64Element(_argPtr, BigInt(initialValue));
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_basic_fn_constructor_counter_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new Counter(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_basic_fn_constructor_counter_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new Counter(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   addFrom(other: Counter): void {
     this._assertLive();
@@ -34,9 +37,12 @@ export class Counter {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeHandleElement(_argPtr + 8, _clone_other);
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_basic_fn_method_counter_add_from', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr);
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_basic_fn_method_counter_add_from', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   getValue(): bigint {
     this._assertLive();
@@ -44,11 +50,14 @@ export class Counter {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_basic_fn_method_counter_get_value', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_basic_fn_method_counter_get_value', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   increment(): void {
     this._assertLive();
@@ -56,9 +65,12 @@ export class Counter {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_basic_fn_method_counter_increment', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr);
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_basic_fn_method_counter_increment', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -78,65 +90,83 @@ export namespace FfiBasic {
     _rt.writeU32Element(_argPtr, a);
     _rt.writeU32Element(_argPtr + 8, b);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_add', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_add', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function cloneCounter(counter: Counter): Counter {
     const _clone_counter = _rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', counter._handle);
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clone_counter);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_clone_counter', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return Counter._fromHandle(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_clone_counter', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return Counter._fromHandle(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function getCounterValue(counter: Counter): bigint {
     const _clone_counter = _rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', counter._handle);
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clone_counter);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_get_counter_value', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_get_counter_value', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function getCounterValues(counters: Counter[]): bigint[] {
     const _rb_counters = _rt.lowerIntoBuffer((w) => { w.writeSequence(counters, (_w, _v) => { _w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', _v._handle)); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_counters);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_get_counter_values', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readU64()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_get_counter_values', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readU64()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function getOptionalCounterValue(counter: Counter | null): bigint | null {
     const _rb_counter = _rt.lowerIntoBuffer((w) => { w.writeOptional(counter, (_w, _v) => { _w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_basic_fn_clone_counter', _v._handle)); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_counter);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_get_optional_counter_value', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readU64()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_get_optional_counter_value', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readU64()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function greet(name: string): string {
     const _rb_name = _rt.lowerString(name);
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_name);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_greet', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_basic_fn_func_greet', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

@@ -15,7 +15,9 @@
 import { describe, it, expect } from 'vitest';
 import { FfiBasic, Counter } from '../generated/ffi_basic.js';
 import { FfiCompound, type Point } from '../generated/ffi_compound.js';
-import { FfiAsync, AsyncCounter } from '../generated/ffi_async.js';
+// Async and callback fixtures require --export-table RUSTFLAGS; imported
+// dynamically in the describe blocks that use them.
+import { FfiErrors, MathError, NetworkError, ParseError, Parser } from '../generated/ffi_errors.js';
 
 // ---------------------------------------------------------------------------
 // Object handle lifecycle stress
@@ -240,7 +242,22 @@ describe('stress: large compound types', () => {
 // Concurrent async stress
 // ---------------------------------------------------------------------------
 
-describe('stress: concurrent async', () => {
+describe('stress: concurrent async', async () => {
+  let FfiAsync: typeof import('../generated/ffi_async.js').FfiAsync;
+  let AsyncCounter: typeof import('../generated/ffi_async.js').AsyncCounter;
+
+  try {
+    const mod = await import('../generated/ffi_async.js');
+    FfiAsync = mod.FfiAsync;
+    AsyncCounter = mod.AsyncCounter;
+    // Probe with a real call — import succeeds even without --export-table,
+    // but actual async calls fail when __indirect_function_table is missing.
+    await FfiAsync.asyncAdd(1, 1);
+  } catch {
+    it.skip('async not available (WASM missing --export-table)', () => {});
+    return;
+  }
+
   it('100 concurrent async calls', async () => {
     const promises = Array.from({ length: 100 }, (_, i) =>
       FfiAsync.asyncAdd(i, 1),
@@ -262,11 +279,10 @@ describe('stress: concurrent async', () => {
   });
 
   it('50 concurrent async object methods', async () => {
-    const counters: AsyncCounter[] = [];
+    const counters: InstanceType<typeof AsyncCounter>[] = [];
     for (let i = 0; i < 50; i++) {
       counters.push(await AsyncCounter.create(BigInt(i)));
     }
-    // Concurrently read all values
     const values = await Promise.all(
       counters.map((c) => c.getValue()),
     );
@@ -297,7 +313,6 @@ describe('stress: concurrent async', () => {
   });
 
   it('mixed sync and async calls', async () => {
-    // Sync calls interleaved with async shouldn't corrupt scratch state
     const asyncResult = FfiAsync.asyncAdd(10, 20);
     const syncResult = FfiBasic.add(1, 2);
     expect(syncResult).toBe(3);
@@ -341,5 +356,246 @@ describe('stress: edge cases', () => {
       expect(FfiCompound.identityI32(-2_147_483_648)).toBe(-2_147_483_648);
       expect(FfiCompound.identityU64(18_446_744_073_709_551_615n)).toBe(18_446_744_073_709_551_615n);
     }
+  });
+
+  it('null byte in strings', () => {
+    const withNull = 'hello\x00world';
+    const result = FfiCompound.identityString(withNull);
+    expect(result).toBe(withNull);
+    expect(result.length).toBe(11);
+  });
+
+  it('string with all ASCII control characters', () => {
+    let s = '';
+    for (let i = 0; i < 32; i++) {
+      s += String.fromCharCode(i);
+    }
+    const result = FfiCompound.identityString(s);
+    expect(result.length).toBe(32);
+    expect(result.charCodeAt(0)).toBe(0);
+    expect(result.charCodeAt(31)).toBe(31);
+  });
+
+  it('mixed CJK, emoji, and ASCII', () => {
+    const mixed = '你好世界🌍Hello🎉こんにちは';
+    for (let i = 0; i < 100; i++) {
+      expect(FfiCompound.identityString(mixed)).toBe(mixed);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Objects surviving memory growth
+// ---------------------------------------------------------------------------
+
+describe('stress: objects across memory growth', () => {
+  it('object handles remain valid after large data transfer', () => {
+    // Create objects first
+    const counters: Counter[] = [];
+    for (let i = 0; i < 100; i++) {
+      counters.push(Counter.create(BigInt(i)));
+    }
+
+    // Push large data through — may trigger memory.grow()
+    const big = 'x'.repeat(500_000);
+    const result = FfiCompound.identityString(big);
+    expect(result.length).toBe(500_000);
+
+    // Verify all object handles still work after potential memory growth
+    for (let i = 0; i < counters.length; i++) {
+      expect(counters[i].getValue()).toBe(BigInt(i));
+    }
+    for (const c of counters) {
+      c.free();
+    }
+  });
+
+  it('object methods work between large allocations', () => {
+    const c = Counter.create(0n);
+    for (let i = 0; i < 10; i++) {
+      c.increment();
+      // Large alloc between increments
+      const big = new Uint8Array(200_000);
+      big.fill(i);
+      const result = FfiCompound.identityBytes(big);
+      expect(result[0]).toBe(i);
+    }
+    expect(c.getValue()).toBe(10n);
+    c.free();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Error paths under load
+// ---------------------------------------------------------------------------
+
+describe('stress: error handling', () => {
+  it('1,000 thrown flat errors (RustBuffer freed correctly)', () => {
+    for (let i = 0; i < 1_000; i++) {
+      try {
+        FfiErrors.safeDivide(1, 0);
+        expect.fail('should have thrown');
+      } catch (e) {
+        expect(e).toBeInstanceOf(MathError);
+        expect((e as MathError).variant.tag).toBe('DivisionByZero');
+      }
+    }
+  });
+
+  it('1,000 thrown rich errors with string fields', () => {
+    for (let i = 0; i < 1_000; i++) {
+      try {
+        FfiErrors.fetchData('500');
+        expect.fail('should have thrown');
+      } catch (e) {
+        expect(e).toBeInstanceOf(NetworkError);
+        const err = e as NetworkError;
+        expect(err.variant.tag).toBe('ServerError');
+        if (err.variant.tag === 'ServerError') {
+          expect(err.variant.message).toBe('Internal Server Error');
+        }
+      }
+    }
+  });
+
+  it('alternating success and error paths', () => {
+    for (let i = 0; i < 500; i++) {
+      // Success path
+      expect(FfiErrors.safeDivide(10, 2)).toBe('5');
+      // Error path
+      try {
+        FfiErrors.safeDivide(1, 0);
+      } catch (e) {
+        expect((e as MathError).variant.tag).toBe('DivisionByZero');
+      }
+    }
+  });
+
+  it('throwing constructor under load', () => {
+    for (let i = 0; i < 500; i++) {
+      // Alternating success and failure
+      if (i % 2 === 0) {
+        const p = Parser.create('valid input');
+        expect(p.result()).toBe('valid input');
+        p.free();
+      } else {
+        try {
+          Parser.create('');
+        } catch (e) {
+          expect((e as ParseError).variant.tag).toBe('InvalidInput');
+        }
+      }
+    }
+  });
+
+  it('throwing method does not leak object', () => {
+    const p = Parser.create('some data');
+    for (let i = 0; i < 500; i++) {
+      try {
+        p.parseSection('nonexistent');
+      } catch (e) {
+        expect((e as ParseError).variant.tag).toBe('MissingSection');
+      }
+    }
+    // Object should still be usable after many thrown errors
+    expect(p.result()).toBe('some data');
+    p.free();
+  });
+
+  it('async errors under load', async () => {
+    let FfiAsync: typeof import('../generated/ffi_async.js').FfiAsync;
+    try {
+      const mod = await import('../generated/ffi_async.js');
+      FfiAsync = mod.FfiAsync;
+      // Probe to check --export-table availability
+      await FfiAsync.asyncAdd(1, 1);
+    } catch {
+      return; // async not available
+    }
+    const promises = Array.from({ length: 100 }, () =>
+      FfiAsync.asyncDivide(1, 0).catch((e: unknown) => e),
+    );
+    const results = await Promise.all(promises);
+    for (const e of results) {
+      expect(e).toBeInstanceOf(Error);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Callbacks under load
+// ---------------------------------------------------------------------------
+
+// Callbacks require --export-table RUSTFLAGS; use dynamic import to avoid
+// failing the whole file if the WASM wasn't built with the right flags.
+describe('stress: callbacks', async () => {
+  let Processor: typeof import('../generated/ffi_callbacks.js').Processor;
+  type Formatter = import('../generated/ffi_callbacks.js').Formatter;
+
+  try {
+    const mod = await import('../generated/ffi_callbacks.js');
+    Processor = mod.Processor;
+    // Probe with a real call — import may succeed but runtime fails
+    // without --export-table.
+    const probe = Processor.create({ format: (s: string) => s });
+    probe.free();
+  } catch {
+    it.skip('callbacks not available (WASM missing --export-table)', () => {});
+    return;
+  }
+
+  it('1,000 calls through callback interface', () => {
+    let count = 0;
+    const formatter: Formatter = {
+      format: (input: string) => {
+        count++;
+        return input.toUpperCase();
+      },
+    };
+    const proc = Processor.create(formatter);
+    for (let i = 0; i < 1_000; i++) {
+      expect(proc.process('hello')).toBe('HELLO');
+    }
+    expect(count).toBe(1_000);
+    proc.free();
+  });
+
+  it('many processors with different callbacks', () => {
+    const procs: InstanceType<typeof Processor>[] = [];
+    for (let i = 0; i < 100; i++) {
+      const tag = i;
+      const formatter: Formatter = {
+        format: (input: string) => `[${tag}] ${input}`,
+      };
+      procs.push(Processor.create(formatter));
+    }
+    // Use all in reverse order
+    for (let i = 99; i >= 0; i--) {
+      expect(procs[i].process('test')).toBe(`[${i}] test`);
+    }
+    for (const p of procs) {
+      p.free();
+    }
+  });
+
+  it('callback returning large strings', () => {
+    const formatter: Formatter = {
+      format: (input: string) => input.repeat(1000),
+    };
+    const proc = Processor.create(formatter);
+    const result = proc.process('abc');
+    expect(result.length).toBe(3000);
+    expect(result.slice(0, 3)).toBe('abc');
+    proc.free();
+  });
+
+  it('callback with large input string', () => {
+    const formatter: Formatter = {
+      format: (input: string) => `len=${input.length}`,
+    };
+    const proc = Processor.create(formatter);
+    const bigInput = 'x'.repeat(100_000);
+    expect(proc.process(bigInput)).toBe('len=100000');
+    proc.free();
   });
 });

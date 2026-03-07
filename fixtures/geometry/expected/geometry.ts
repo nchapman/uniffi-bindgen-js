@@ -104,11 +104,14 @@ export namespace Geometry {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_shape);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_geometry_fn_func_area', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_geometry_fn_func_area', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function step(p: Point, d: Direction): Point {
     const _rb_p = _rt.lowerIntoBuffer((w) => { _lowerPoint(w, p); });
@@ -117,11 +120,14 @@ export namespace Geometry {
     _rt.writeRustBufferElements(_argPtr, _rb_p);
     _rt.writeRustBufferElements(_argPtr + 24, _rb_d);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_geometry_fn_func_step', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftPoint(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_geometry_fn_func_step', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftPoint(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function translate(p: Point, dx: number, dy: number): Point {
     const _rb_p = _rt.lowerIntoBuffer((w) => { _lowerPoint(w, p); });
@@ -130,10 +136,13 @@ export namespace Geometry {
     _rt.writeF64Element(_argPtr + 24, dx);
     _rt.writeF64Element(_argPtr + 32, dy);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_geometry_fn_func_translate', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftPoint(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_geometry_fn_func_translate', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftPoint(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

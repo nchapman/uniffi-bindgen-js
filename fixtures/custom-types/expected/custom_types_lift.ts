@@ -17,21 +17,27 @@ export namespace CustomTypes {
     _rt.writeRustBufferElements(_argPtr, _rb_a);
     _rt.writeRustBufferElements(_argPtr + 24, _rb_b);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_custom_types_fn_func_handles_equal', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readBoolElement(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_custom_types_fn_func_handles_equal', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readBoolElement(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function makeHandle(seed: bigint): Handle {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI64Element(_argPtr, BigInt(seed));
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_custom_types_fn_func_make_handle', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readI64(); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_custom_types_fn_func_make_handle', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readI64(); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function normalizeUrl(url: Url): Url {
     const _ct_url = url.toString();
@@ -39,10 +45,13 @@ export namespace CustomTypes {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb__ct_url);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_custom_types_fn_func_normalize_url', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return new URL(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_custom_types_fn_func_normalize_url', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return new URL(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

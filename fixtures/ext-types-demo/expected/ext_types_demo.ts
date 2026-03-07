@@ -13,11 +13,14 @@ export namespace ExtTypesDemo {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_input);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ext_types_demo_fn_func_echo_remote', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftRemoteThing(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ext_types_demo_fn_func_echo_remote', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftRemoteThing(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Echo a RemoteCounter back to the caller. */
   export function echoRemoteCounter(input: RemoteCounter): RemoteCounter {
@@ -25,11 +28,14 @@ export namespace ExtTypesDemo {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clone_input);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ext_types_demo_fn_func_echo_remote_counter', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return RemoteCounter._fromHandle(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_ext_types_demo_fn_func_echo_remote_counter', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return RemoteCounter._fromHandle(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Echo a RemoteState back to the caller. */
   export function echoRemoteState(input: RemoteState): RemoteState {
@@ -37,11 +43,14 @@ export namespace ExtTypesDemo {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_input);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ext_types_demo_fn_func_echo_remote_state', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftRemoteState(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ext_types_demo_fn_func_echo_remote_state', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftRemoteState(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Echo a list of RemoteThings (tests Sequence<ExternalRecord> recursive visitor).
@@ -51,11 +60,14 @@ export namespace ExtTypesDemo {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_input);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ext_types_demo_fn_func_list_remote', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _liftRemoteThing(_r)); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ext_types_demo_fn_func_list_remote', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _liftRemoteThing(_r)); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Echo a nullable RemoteThing (tests Optional<ExternalRecord> import deduplication).
@@ -65,10 +77,13 @@ export namespace ExtTypesDemo {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_input);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ext_types_demo_fn_func_maybe_remote', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _liftRemoteThing(_r)); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ext_types_demo_fn_func_maybe_remote', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _liftRemoteThing(_r)); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

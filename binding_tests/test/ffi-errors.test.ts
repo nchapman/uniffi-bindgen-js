@@ -27,7 +27,7 @@ describe('FfiErrors.safeDivide (flat error)', () => {
       expect.fail('should have thrown');
     } catch (e) {
       expect(e).toBeInstanceOf(MathError);
-      expect((e as MathError).tag).toBe('DivisionByZero');
+      expect((e as MathError).variant.tag).toBe('DivisionByZero');
     }
   });
 });
@@ -102,7 +102,7 @@ describe('Parser (object with throws)', () => {
       expect.fail('should have thrown');
     } catch (e) {
       expect(e).toBeInstanceOf(ParseError);
-      expect((e as ParseError).tag).toBe('InvalidInput');
+      expect((e as ParseError).variant.tag).toBe('InvalidInput');
     }
   });
 
@@ -119,7 +119,7 @@ describe('Parser (object with throws)', () => {
       expect.fail('should have thrown');
     } catch (e) {
       expect(e).toBeInstanceOf(ParseError);
-      expect((e as ParseError).tag).toBe('MissingSection');
+      expect((e as ParseError).variant.tag).toBe('MissingSection');
     }
     p.free();
   });

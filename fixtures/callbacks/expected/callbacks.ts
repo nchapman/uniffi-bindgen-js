@@ -64,11 +64,14 @@ export namespace Callbacks {
     _rt.writeHandleElement(_argPtr, _rt.insertCallbackHandle(fmt));
     _rt.writeRustBufferElements(_argPtr + 8, _rb_template);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_callbacks_fn_func_apply_formatter', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_callbacks_fn_func_apply_formatter', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function formatGreeting(fmt: Formatter, name: string): string {
     const _rb_name = _rt.lowerString(name);
@@ -76,10 +79,13 @@ export namespace Callbacks {
     _rt.writeHandleElement(_argPtr, _rt.insertCallbackHandle(fmt));
     _rt.writeRustBufferElements(_argPtr + 8, _rb_name);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_callbacks_fn_func_format_greeting', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_callbacks_fn_func_format_greeting', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

@@ -12,22 +12,28 @@ export namespace SimpleFns {
     _rt.writeU32Element(_argPtr, a);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_b);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_simple_fns_fn_func_add_maybe', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU32Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_simple_fns_fn_func_add_maybe', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU32Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function greet(name: string): string {
     const _rb_name = _rt.lowerString(name);
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_name);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_simple_fns_fn_func_greet', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_simple_fns_fn_func_greet', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export async function greetAsync(name: string): Promise<string> {
     const _rb_name = _rt.lowerString(name);
@@ -45,9 +51,9 @@ export namespace SimpleFns {
       (_rt.getExport('ffi_simple_fns_rust_future_complete_rust_buffer') as any)(_rbRetPtr, _futureHandle, _statusPtr);
       _rt.checkCallStatus(_statusPtr);
       const _result = _rt.liftString(_rt._readRustBufferStruct(_rbRetPtr));
-      _rt.scratchReset();
       return _result;
     } finally {
+      _rt.scratchReset();
       (_rt.getExport('ffi_simple_fns_rust_future_free_rust_buffer') as any)(_futureHandle);
     }
   }
@@ -56,10 +62,13 @@ export namespace SimpleFns {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_name);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_simple_fns_fn_func_greet_optional', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_simple_fns_fn_func_greet_optional', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

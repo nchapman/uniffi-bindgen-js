@@ -20,11 +20,14 @@ export class Circle {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeF64Element(_argPtr, radius);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_traits_fn_constructor_circle_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new Circle(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_traits_fn_constructor_circle_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new Circle(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   radius(): number {
     this._assertLive();
@@ -32,11 +35,14 @@ export class Circle {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_traits_fn_method_circle_radius', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_traits_fn_method_circle_radius', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -61,29 +67,35 @@ export class Drawable {
   }
   /** @internal */
   static _fromHandle(handle: bigint): Drawable { return new Drawable(handle); }
-  describe(): string {
-    this._assertLive();
-    const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_traits_fn_clone_drawable', this._handle);
-    const _argPtr = _rt.scratchAlloc(1 * 8);
-    _rt.writeHandleElement(_argPtr, _clonedHandle);
-    const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_traits_fn_method_drawable_describe', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
-  }
   area(): number {
     this._assertLive();
     const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_traits_fn_clone_drawable', this._handle);
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_traits_fn_method_drawable_area', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_traits_fn_method_drawable_area', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
+  }
+  describe(): string {
+    this._assertLive();
+    const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_traits_fn_clone_drawable', this._handle);
+    const _argPtr = _rt.scratchAlloc(1 * 8);
+    _rt.writeHandleElement(_argPtr, _clonedHandle);
+    const _retPtr = _rt.scratchAlloc(7 * 8);
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_traits_fn_method_drawable_describe', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -113,11 +125,14 @@ export class Rect {
     _rt.writeF64Element(_argPtr, width);
     _rt.writeF64Element(_argPtr + 8, height);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_traits_fn_constructor_rect_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new Rect(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_traits_fn_constructor_rect_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new Rect(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   height(): number {
     this._assertLive();
@@ -125,11 +140,14 @@ export class Rect {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_traits_fn_method_rect_height', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_traits_fn_method_rect_height', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   width(): number {
     this._assertLive();
@@ -137,11 +155,14 @@ export class Rect {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_traits_fn_method_rect_width', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_traits_fn_method_rect_width', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -161,30 +182,39 @@ export namespace FfiTraits {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_shapes);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_traits_fn_func_describe_all', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_traits_fn_func_describe_all', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function makeShapes(): Drawable[] {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_traits_fn_func_make_shapes', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => Drawable._fromHandle(_r.readU64())); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_traits_fn_func_make_shapes', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => Drawable._fromHandle(_r.readU64())); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   export function totalArea(shapes: Drawable[]): number {
     const _rb_shapes = _rt.lowerIntoBuffer((w) => { w.writeSequence(shapes, (_w, _v) => { _w.writeU64(_rt.cloneObjectHandle('uniffi_ffi_traits_fn_clone_drawable', _v._handle)); }); });
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_shapes);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_traits_fn_func_total_area', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_ffi_traits_fn_func_total_area', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }

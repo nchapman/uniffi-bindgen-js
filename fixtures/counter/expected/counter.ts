@@ -20,11 +20,14 @@ export class Counter {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI64Element(_argPtr, BigInt(start));
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_counter_fn_constructor_counter_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new Counter(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_counter_fn_constructor_counter_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new Counter(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   decrement(): void {
     this._assertLive();
@@ -32,9 +35,12 @@ export class Counter {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_counter_fn_method_counter_decrement', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr);
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_counter_fn_method_counter_decrement', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   get(): bigint {
     this._assertLive();
@@ -42,11 +48,14 @@ export class Counter {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_counter_fn_method_counter_get', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readI64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_counter_fn_method_counter_get', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readI64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   increment(): void {
     this._assertLive();
@@ -54,9 +63,12 @@ export class Counter {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_counter_fn_method_counter_increment', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr);
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_counter_fn_method_counter_increment', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   resetTo(value: bigint): void {
     this._assertLive();
@@ -65,9 +77,12 @@ export class Counter {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeI64Element(_argPtr + 8, BigInt(value));
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_counter_fn_method_counter_reset_to', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr);
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_counter_fn_method_counter_reset_to', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {

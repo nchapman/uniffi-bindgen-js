@@ -326,11 +326,14 @@ export class Coveralls {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_name);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_coveralls_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new Coveralls(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_coveralls_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new Coveralls(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** @throws {CoverallError} */
   static fallibleNew(name: string, shouldFail: boolean): Coveralls {
@@ -339,11 +342,14 @@ export class Coveralls {
     _rt.writeRustBufferElements(_argPtr, _rb_name);
     _rt.writeBoolElement(_argPtr + 24, shouldFail);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_coveralls_fallible_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorCoverallError(rb));
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new Coveralls(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_coveralls_fallible_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorCoverallError(rb));
+      const _result = _rt.readHandleElement(_retPtr);
+      return new Coveralls(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Add a patch to this coveralls. */
   addPatch(patch: Patch): void {
@@ -354,9 +360,12 @@ export class Coveralls {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeHandleElement(_argPtr + 8, _clone_patch);
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_add_patch', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr);
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_add_patch', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Add a repair record. */
   addRepair(repair: Repair): void {
@@ -367,9 +376,12 @@ export class Coveralls {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_repair);
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_add_repair', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr);
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_add_repair', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Clone into a new instance (tests object return from method). */
   cloneMe(): Coveralls {
@@ -378,11 +390,14 @@ export class Coveralls {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_clone_me', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return Coveralls._fromHandle(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_clone_me', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return Coveralls._fromHandle(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Return a string-keyed map. */
   getDict2(key: string, value: bigint): Map<string, bigint> {
@@ -394,11 +409,14 @@ export class Coveralls {
     _rt.writeRustBufferElements(_argPtr + 8, _rb_key);
     _rt.writeU64Element(_argPtr + 32, BigInt(value));
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_dict2', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readString(), (_r) => _r.readU64()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_dict2', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readString(), (_r) => _r.readU64()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Return a non-string-keyed map. */
   getDict3(key: number, value: bigint): Map<number, bigint> {
@@ -409,11 +427,14 @@ export class Coveralls {
     _rt.writeU32Element(_argPtr + 8, key);
     _rt.writeU64Element(_argPtr + 16, BigInt(value));
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_dict3', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readU32(), (_r) => _r.readU64()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_dict3', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readU32(), (_r) => _r.readU64()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Return a map with string keys and optional string values. */
   getMetadata(): Map<string, string | null> {
@@ -422,11 +443,14 @@ export class Coveralls {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_metadata', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readString(), (_r) => _r.readOptional((_r) => _r.readString())); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_metadata', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readString(), (_r) => _r.readOptional((_r) => _r.readString())); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   getName(): string {
     this._assertLive();
@@ -434,11 +458,14 @@ export class Coveralls {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_name', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_name', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   getOther(): Coveralls | null {
     this._assertLive();
@@ -446,11 +473,14 @@ export class Coveralls {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_other', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => Coveralls._fromHandle(_r.readU64())); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_other', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => Coveralls._fromHandle(_r.readU64())); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Return all stored repairs. */
   getRepairs(): Repair[] {
@@ -459,11 +489,14 @@ export class Coveralls {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_repairs', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _liftRepair(_r)); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_repairs', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _liftRepair(_r)); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Simple pass-through returning the status string. */
   getStatus(status: string): string {
@@ -474,11 +507,14 @@ export class Coveralls {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_status);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_status', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_status', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Return a sequence of optional strings. */
   getTags(): (string | null)[] {
@@ -487,11 +523,14 @@ export class Coveralls {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_tags', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readOptional((_r) => _r.readString())); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_get_tags', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readOptional((_r) => _r.readString())); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Method that always throws a simple error.
@@ -504,11 +543,14 @@ export class Coveralls {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeBoolElement(_argPtr + 8, shouldThrow);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_maybe_throw', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorCoverallError(rb));
-    const _result = _rt.readBoolElement(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_maybe_throw', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorCoverallError(rb));
+      const _result = _rt.readBoolElement(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Method that throws a complex (rich) error.
@@ -521,11 +563,14 @@ export class Coveralls {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeI8Element(_argPtr + 8, selector);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_maybe_throw_complex', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorComplexError(rb));
-    const _result = _rt.readBoolElement(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_maybe_throw_complex', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorComplexError(rb));
+      const _result = _rt.readBoolElement(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Another throws variant — returns boolean.
@@ -538,11 +583,14 @@ export class Coveralls {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeBoolElement(_argPtr + 8, shouldThrow);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_maybe_throw_into', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorCoverallError(rb));
-    const _result = _rt.readBoolElement(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_maybe_throw_into', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorCoverallError(rb));
+      const _result = _rt.readBoolElement(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Reverse some bytes via a method (tests binary on object). */
   reverseBytes(input: Uint8Array): Uint8Array {
@@ -553,11 +601,14 @@ export class Coveralls {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_input);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_reverse_bytes', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readBytes(); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_reverse_bytes', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readBytes(); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Empty record round-trip. */
   setAndGetEmptyStruct(emptyStruct: EmptyStruct): EmptyStruct {
@@ -568,11 +619,14 @@ export class Coveralls {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_emptyStruct);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_set_and_get_empty_struct', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftEmptyStruct(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_set_and_get_empty_struct', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftEmptyStruct(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   setName(name: string): void {
     this._assertLive();
@@ -582,9 +636,12 @@ export class Coveralls {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_name);
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_set_name', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr);
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_set_name', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Strong reference count (tests Self=ByArc on the Rust side). */
   strongCount(): bigint {
@@ -593,11 +650,14 @@ export class Coveralls {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_strong_count', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_strong_count', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Take another Coveralls, creating a reference chain. */
   takeOther(other: Coveralls | null): void {
@@ -608,9 +668,12 @@ export class Coveralls {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_other);
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_take_other', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr);
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_coveralls_take_other', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -643,11 +706,14 @@ export class FalliblePatch {
     _rt.writeRustBufferElements(_argPtr, _rb_color);
     _rt.writeBoolElement(_argPtr + 24, shouldFail);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_falliblepatch_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorCoverallError(rb));
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new FalliblePatch(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_falliblepatch_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorCoverallError(rb));
+      const _result = _rt.readHandleElement(_retPtr);
+      return new FalliblePatch(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** @throws {CoverallError} */
   static secondary(color: Color, shouldFail: boolean): FalliblePatch {
@@ -656,11 +722,14 @@ export class FalliblePatch {
     _rt.writeRustBufferElements(_argPtr, _rb_color);
     _rt.writeBoolElement(_argPtr + 24, shouldFail);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_falliblepatch_secondary', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorCoverallError(rb));
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new FalliblePatch(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_falliblepatch_secondary', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorCoverallError(rb));
+      const _result = _rt.readHandleElement(_retPtr);
+      return new FalliblePatch(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   getColor(): Color {
     this._assertLive();
@@ -668,11 +737,14 @@ export class FalliblePatch {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_falliblepatch_get_color', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftColor(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_falliblepatch_get_color', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftColor(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -701,11 +773,14 @@ export class IFirst {
   static create(): IFirst {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_ifirst_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new IFirst(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_ifirst_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new IFirst(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   compare(other: ISecond | null = null): boolean {
     this._assertLive();
@@ -715,11 +790,14 @@ export class IFirst {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_other);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_ifirst_compare', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readBoolElement(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_ifirst_compare', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readBoolElement(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -748,11 +826,14 @@ export class ISecond {
   static create(): ISecond {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_isecond_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new ISecond(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_isecond_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new ISecond(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   compare(other: IFirst | null): boolean {
     this._assertLive();
@@ -762,11 +843,14 @@ export class ISecond {
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_other);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_isecond_compare', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readBoolElement(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_isecond_compare', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readBoolElement(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -798,11 +882,14 @@ export class NodeA {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_nodea_get_partner', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => NodeB._fromHandle(_r.readU64())); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_nodea_get_partner', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => NodeB._fromHandle(_r.readU64())); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -834,11 +921,14 @@ export class NodeB {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_nodeb_get_partner', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => NodeA._fromHandle(_r.readU64())); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_nodeb_get_partner', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => NodeA._fromHandle(_r.readU64())); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -869,11 +959,14 @@ export class Patch {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_color);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_patch_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new Patch(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_patch_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new Patch(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   getColor(): Color {
     this._assertLive();
@@ -881,11 +974,14 @@ export class Patch {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_patch_get_color', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftColor(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_patch_get_color', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftColor(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -914,11 +1010,14 @@ export class ThreadsafeCounter {
   static create(): ThreadsafeCounter {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_threadsafecounter_new', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return new ThreadsafeCounter(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_constructor_threadsafecounter_new', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return new ThreadsafeCounter(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   getCount(): bigint {
     this._assertLive();
@@ -926,11 +1025,14 @@ export class ThreadsafeCounter {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_threadsafecounter_get_count', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_threadsafecounter_get_count', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   increment(): void {
     this._assertLive();
@@ -938,9 +1040,12 @@ export class ThreadsafeCounter {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _clonedHandle);
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_threadsafecounter_increment', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr);
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_method_threadsafecounter_increment', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
@@ -1199,21 +1304,27 @@ export namespace CoverallDemo {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _rt.insertCallbackHandle(node));
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_ancestor_names', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readString()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_ancestor_names', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readSequence((_r) => _r.readString()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Create a SimpleDict whose optional fields are all null. */
   export function createNoneDict(): SimpleDict {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_create_none_dict', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftSimpleDict(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_create_none_dict', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftSimpleDict(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Create a Patch with a specific color. */
   export function createPatch(color: Color): Patch {
@@ -1221,21 +1332,27 @@ export namespace CoverallDemo {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_color);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_create_patch', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return Patch._fromHandle(_result);
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_create_patch', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return Patch._fromHandle(_result);
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Create a SimpleDict with sample values filled in. */
   export function createSomeDict(): SimpleDict {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_create_some_dict', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftSimpleDict(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_create_some_dict', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftSimpleDict(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Accept an optional Color enum parameter. */
   export function describeMaybeColor(input: Color | null): string {
@@ -1243,11 +1360,14 @@ export namespace CoverallDemo {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_input);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_describe_maybe_color', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_describe_maybe_color', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Accept an optional SimpleDict parameter. */
   export function describeMaybeDict(input: SimpleDict | null): string {
@@ -1255,11 +1375,14 @@ export namespace CoverallDemo {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_input);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_describe_maybe_dict', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_describe_maybe_dict', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Divide a float by a text-parsed divisor; exercises error paths.
@@ -1271,11 +1394,14 @@ export namespace CoverallDemo {
     _rt.writeF64Element(_argPtr, value);
     _rt.writeRustBufferElements(_argPtr + 8, _rb_divisor);
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_divide_by_text', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorComplexError(rb));
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_divide_by_text', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8, (rb) => _liftErrorComplexError(rb));
+      const _result = _rt.readF64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Round-trip a map with non-string keys (record<u32, u64>). */
   export function getIntMap(key: number, value: bigint): Map<number, bigint> {
@@ -1283,66 +1409,84 @@ export namespace CoverallDemo {
     _rt.writeU32Element(_argPtr, key);
     _rt.writeU64Element(_argPtr + 8, BigInt(value));
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_int_map', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readU32(), (_r) => _r.readU64()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_int_map', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readMap((_r) => _r.readU32(), (_r) => _r.readU64()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Return an optional Color enum based on a flag. */
   export function getMaybeColor(returnValue: boolean): Color | null {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeBoolElement(_argPtr, returnValue);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_maybe_color', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _liftColor(_r)); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_maybe_color', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _liftColor(_r)); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Return an optional u32 based on a flag. */
   export function getMaybeCount(returnValue: boolean): number | null {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeBoolElement(_argPtr, returnValue);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_maybe_count', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readU32()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_maybe_count', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readU32()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Return an optional SimpleDict based on a flag. */
   export function getMaybeDict(returnValue: boolean): SimpleDict | null {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeBoolElement(_argPtr, returnValue);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_maybe_dict', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _liftSimpleDict(_r)); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_maybe_dict', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _liftSimpleDict(_r)); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Return an optional boolean based on a flag. */
   export function getMaybeFlag(returnValue: boolean): boolean | null {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeBoolElement(_argPtr, returnValue);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_maybe_flag', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readBool()); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_maybe_flag', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readOptional((_r) => _r.readBool()); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Return an enum variant based on a numeric selector. */
   export function getMaybeSimpleDict(index: number): MaybeSimpleDict {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeI8Element(_argPtr, index);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_maybe_simple_dict', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftMaybeSimpleDict(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_maybe_simple_dict', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftMaybeSimpleDict(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Return the number of live Coveralls instances (tracking via constructor/destructor).
@@ -1350,41 +1494,53 @@ export namespace CoverallDemo {
   export function getNumAlive(): bigint {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_num_alive', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readU64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_get_num_alive', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readU64Element(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Create a Rust-implemented Getters for trait round-trip tests. */
   export function makeRustGetters(): Getters {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_make_rust_getters', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readHandleElement(_retPtr);
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_make_rust_getters', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 8);
+      const _result = _rt.readHandleElement(_retPtr);
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Return a ReturnOnlyDict (tests return-only record type). */
   export function outputReturnOnlyDict(): ReturnOnlyDict {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_output_return_only_dict', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftReturnOnlyDict(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_output_return_only_dict', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftReturnOnlyDict(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Return a ReturnOnlyEnum (tests return-only enum type). */
   export function outputReturnOnlyEnum(): ReturnOnlyEnum {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_output_return_only_enum', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftReturnOnlyEnum(r); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_output_return_only_enum', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return _liftReturnOnlyEnum(r); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Round-trip a string; throws ComplexError on certain inputs.
@@ -1395,11 +1551,14 @@ export namespace CoverallDemo {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_value);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_println', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24, (rb) => _liftErrorComplexError(rb));
-    const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_println', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24, (rb) => _liftErrorComplexError(rb));
+      const _result = _rt.liftString(_rt.readRustBufferElements(_retPtr));
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /** Reverse arbitrary bytes (binary data round-trip). */
   export function reverseBytes(input: Uint8Array): Uint8Array {
@@ -1407,11 +1566,14 @@ export namespace CoverallDemo {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_input);
     const _retPtr = _rt.scratchAlloc(7 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_reverse_bytes', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 24);
-    const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readBytes(); });
-    _rt.scratchReset();
-    return _result;
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_reverse_bytes', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr + 24);
+      const _result = _rt.liftFromBuffer(_rt.readRustBufferElements(_retPtr), (r) => { return r.readBytes(); });
+      return _result;
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Exercise a foreign-implemented Getters.
@@ -1421,9 +1583,12 @@ export namespace CoverallDemo {
     const _argPtr = _rt.scratchAlloc(1 * 8);
     _rt.writeHandleElement(_argPtr, _rt.insertCallbackHandle(getters));
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_test_getters', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr, (rb) => _liftErrorCoverallError(rb));
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_test_getters', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr, (rb) => _liftErrorCoverallError(rb));
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Throw a CoverallFlatError.
@@ -1432,9 +1597,12 @@ export namespace CoverallDemo {
   export function throwFlatError(): void {
     const _argPtr = 0;
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_throw_flat_error', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr, (rb) => _liftErrorCoverallFlatError(rb));
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_throw_flat_error', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr, (rb) => _liftErrorCoverallFlatError(rb));
+    } finally {
+      _rt.scratchReset();
+    }
   }
   /**
    * Validate HTML source; throws HTMLError on invalid input.
@@ -1445,8 +1613,11 @@ export namespace CoverallDemo {
     const _argPtr = _rt.scratchAlloc(3 * 8);
     _rt.writeRustBufferElements(_argPtr, _rb_source);
     const _retPtr = _rt.scratchAlloc(4 * 8);
-    _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_validate_html', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr, (rb) => _liftErrorHTMLError(rb));
-    _rt.scratchReset();
+    try {
+      _rt.call('uniffi_ffibuffer_coverall_demo_fn_func_validate_html', _argPtr, _retPtr);
+      _rt.checkCallStatus(_retPtr, (rb) => _liftErrorHTMLError(rb));
+    } finally {
+      _rt.scratchReset();
+    }
   }
 }
