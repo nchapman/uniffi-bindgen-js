@@ -56,6 +56,7 @@ export class Drawable {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_traits_fn_free_drawable', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): Drawable { return new Drawable(handle); }
@@ -87,6 +88,7 @@ export class Drawable {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_traits_fn_free_drawable', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }

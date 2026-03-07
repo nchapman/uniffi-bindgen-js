@@ -12,6 +12,7 @@ export class Circle {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_ffi_traits_fn_free_circle', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): Circle { return new Circle(handle); }
@@ -41,6 +42,7 @@ export class Circle {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_ffi_traits_fn_free_circle', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
@@ -55,21 +57,10 @@ export class Drawable {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_ffi_traits_fn_free_drawable', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): Drawable { return new Drawable(handle); }
-  area(): number {
-    this._assertLive();
-    const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_traits_fn_clone_drawable', this._handle);
-    const _argPtr = _rt.scratchAlloc(1 * 8);
-    _rt.writeHandleElement(_argPtr, _clonedHandle);
-    const _retPtr = _rt.scratchAlloc(5 * 8);
-    _rt.call('uniffi_ffibuffer_ffi_traits_fn_method_drawable_area', _argPtr, _retPtr);
-    _rt.checkCallStatus(_retPtr + 8);
-    const _result = _rt.readF64Element(_retPtr);
-    _rt.scratchReset();
-    return _result;
-  }
   describe(): string {
     this._assertLive();
     const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_traits_fn_clone_drawable', this._handle);
@@ -82,10 +73,23 @@ export class Drawable {
     _rt.scratchReset();
     return _result;
   }
+  area(): number {
+    this._assertLive();
+    const _clonedHandle = _rt.cloneObjectHandle('uniffi_ffi_traits_fn_clone_drawable', this._handle);
+    const _argPtr = _rt.scratchAlloc(1 * 8);
+    _rt.writeHandleElement(_argPtr, _clonedHandle);
+    const _retPtr = _rt.scratchAlloc(5 * 8);
+    _rt.call('uniffi_ffibuffer_ffi_traits_fn_method_drawable_area', _argPtr, _retPtr);
+    _rt.checkCallStatus(_retPtr + 8);
+    const _result = _rt.readF64Element(_retPtr);
+    _rt.scratchReset();
+    return _result;
+  }
   /** Releases the underlying WASM resource. Safe to call more than once. */
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_ffi_traits_fn_free_drawable', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
@@ -100,6 +104,7 @@ export class Rect {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_ffi_traits_fn_free_rect', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): Rect { return new Rect(handle); }
@@ -142,6 +147,7 @@ export class Rect {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_ffi_traits_fn_free_rect', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }

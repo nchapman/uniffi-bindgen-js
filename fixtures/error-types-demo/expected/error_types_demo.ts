@@ -14,6 +14,7 @@ export class ErrorInterface extends Error {
     super('ErrorInterface');
     Object.defineProperty(this, 'name', { value: 'ErrorInterface' });
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_error_types_demo_fn_free_errorinterface', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): ErrorInterface { return new ErrorInterface(handle); }
@@ -70,6 +71,7 @@ export class ErrorInterface extends Error {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_error_types_demo_fn_free_errorinterface', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
@@ -84,6 +86,7 @@ export class TestInterface {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_error_types_demo_fn_free_testinterface', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): TestInterface { return new TestInterface(handle); }
@@ -111,6 +114,7 @@ export class TestInterface {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_error_types_demo_fn_free_testinterface', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }

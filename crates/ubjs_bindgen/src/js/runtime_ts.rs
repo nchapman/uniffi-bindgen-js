@@ -98,6 +98,8 @@ export class UniffiRuntime {
   // Callback handle map: JS objects keyed by u64 handle
   private _nextHandle: bigint;
   private _handleMap: Map<bigint, unknown>;
+  // Prevent leaked object handles from becoming permanent memory leaks
+  private _pointerRegistry: FinalizationRegistry<{ freeFn: string; handle: bigint }>;
   // Async/RustFuture polling infrastructure
   private _asyncCallbackIdx: number;
   private _asyncPendingResolves: Map<bigint, (result: number) => void>;
@@ -122,6 +124,9 @@ export class UniffiRuntime {
     this._scratchSize = scratchSize;
     this._scratchOffset = 0;
     this._table = (instance.exports.__indirect_function_table as WebAssembly.Table) ?? null;
+    this._pointerRegistry = new FinalizationRegistry(({ freeFn, handle }) => {
+      try { this.callFree(freeFn, handle); } catch (_) { /* best-effort */ }
+    });
     this._nextHandle = 1n;
     this._handleMap = new Map();
     this._asyncCallbackIdx = -1;
@@ -254,6 +259,24 @@ export class UniffiRuntime {
   cloneCallbackHandle(h: bigint): bigint {
     const obj = this._handleMap.get(h);
     return this.insertCallbackHandle(obj);
+  }
+
+  // -----------------------------------------------------------------------
+  // FinalizationRegistry for leaked handles
+  // -----------------------------------------------------------------------
+
+  /**
+   * Register an object so its handle is freed if the object is garbage-collected
+   * without an explicit free() call. This is a safety net, not a substitute
+   * for deterministic cleanup.
+   */
+  registerPointer(obj: object, freeFn: string, handle: bigint): void {
+    this._pointerRegistry.register(obj, { freeFn, handle }, obj);
+  }
+
+  /** Unregister an object from the FinalizationRegistry (called by free()). */
+  unregisterPointer(obj: object): void {
+    this._pointerRegistry.unregister(obj);
   }
 
   // -----------------------------------------------------------------------
@@ -911,20 +934,27 @@ export class UniFFIWriter {
   }
 
   writeDuration(seconds: number): void {
-    // Duration = u64 secs + u32 nanos
-    const secs = Math.floor(seconds);
-    const nanos = Math.round((seconds - secs) * 1_000_000_000);
+    // Duration = u64 secs + u32 nanos (always non-negative)
+    if (seconds < 0) throw new RangeError('Duration must be non-negative');
+    let secs = Math.floor(seconds);
+    let nanos = Math.round((seconds - secs) * 1_000_000_000);
+    // Math.round can produce 1e9 when the fractional part rounds up
+    if (nanos >= 1_000_000_000) { secs += 1; nanos -= 1_000_000_000; }
     this.writeU64(BigInt(secs));
     this.writeU32(nanos);
   }
 
   writeTimestamp(date: Date): void {
-    // Timestamp = i64 seconds_from_epoch + u32 nanos (matches UniFFI SystemTime format)
+    // UniFFI SystemTime wire format: i64 seconds + u32 nanos
+    // seconds carries the sign, nanos is the subsecond part of the absolute offset.
+    // For pre-epoch: -1500ms → seconds=-1, nanos=500_000_000
+    //   (meaning abs offset = 1.5s, subtracted from epoch)
     const ms = date.getTime();
-    const totalSecs = Math.trunc(ms / 1000);
     const absMs = Math.abs(ms);
+    const sign = ms >= 0 ? 1 : -1;
+    const absSecs = Math.floor(absMs / 1000);
     const nanos = (absMs % 1000) * 1_000_000;
-    this.writeI64(BigInt(totalSecs));
+    this.writeI64(BigInt(sign * absSecs));
     this.writeU32(nanos);
   }
 
@@ -1058,12 +1088,17 @@ export class UniFFIReader {
   }
 
   readTimestamp(): Date {
-    // Timestamp = i64 seconds_from_epoch + u32 nanos (matches UniFFI SystemTime format)
+    // UniFFI SystemTime wire format: i64 seconds + u32 nanos
+    // seconds carries the sign, nanos is the subsecond part of the absolute offset.
+    // Reconstruct: abs_offset = Duration(abs(seconds), nanos), then epoch ± abs_offset.
+    // Note: sub-second pre-epoch timestamps (0 to -1s) round-trip as positive
+    // because seconds=0 loses sign information. This matches Rust UniFFI behavior.
     const seconds = this.readI64();
     const nanos = this.readU32();
     const secs = Number(seconds);
-    const ms = secs * 1000 + Math.floor(nanos / 1_000_000) * (secs >= 0 ? 1 : -1);
-    return new Date(ms);
+    const sign = secs >= 0 ? 1 : -1;
+    const absMs = Math.abs(secs) * 1000 + Math.floor(nanos / 1_000_000);
+    return new Date(sign * absMs);
   }
 
   readOptional<T>(readInner: (r: UniFFIReader) => T): T | null {

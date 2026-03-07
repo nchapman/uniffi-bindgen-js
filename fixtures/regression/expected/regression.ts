@@ -86,6 +86,7 @@ export class SafeDivider {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_regression_fn_free_safedivider', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): SafeDivider { return new SafeDivider(handle); }
@@ -159,6 +160,7 @@ export class SafeDivider {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_regression_fn_free_safedivider', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }

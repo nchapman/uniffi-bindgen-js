@@ -26,6 +26,136 @@ use render_types::{
 };
 use types::*;
 
+/// Walk all type positions in `metadata` and collect error names that appear
+/// as value types (e.g. as record fields, enum variant fields, function
+/// args/returns, etc.).  These errors need `_lower{Name}` / `_lift{Name}`
+/// helpers even if they have no constructors or methods of their own.
+fn collect_errors_as_value_types(metadata: &BindingsMetadata) -> HashSet<String> {
+    use uniffi_bindgen::interface::Type;
+
+    let error_names: HashSet<&str> = metadata.errors.iter().map(|e| e.name.as_str()).collect();
+    let mut used: HashSet<String> = HashSet::new();
+
+    fn visit(t: &Type, error_names: &HashSet<&str>, used: &mut HashSet<String>) {
+        match t {
+            Type::Enum { name, .. } if error_names.contains(name.as_str()) => {
+                used.insert(name.clone());
+            }
+            Type::Optional { inner_type } | Type::Sequence { inner_type } => {
+                visit(inner_type, error_names, used);
+            }
+            Type::Map {
+                key_type,
+                value_type,
+            } => {
+                visit(key_type, error_names, used);
+                visit(value_type, error_names, used);
+            }
+            _ => {}
+        }
+    }
+
+    macro_rules! visit_type {
+        ($t:expr) => {
+            visit($t, &error_names, &mut used)
+        };
+    }
+
+    for f in &metadata.functions {
+        for a in &f.args {
+            visit_type!(&a.type_);
+        }
+        if let Some(r) = &f.return_type {
+            visit_type!(r);
+        }
+    }
+    for r in &metadata.records {
+        for f in &r.fields {
+            visit_type!(&f.type_);
+        }
+        for c in &r.constructors {
+            for a in &c.args {
+                visit_type!(&a.type_);
+            }
+        }
+        for m in &r.methods {
+            for a in &m.args {
+                visit_type!(&a.type_);
+            }
+            if let Some(r) = &m.return_type {
+                visit_type!(r);
+            }
+        }
+    }
+    for e in &metadata.enums {
+        for v in &e.variants {
+            for f in &v.fields {
+                visit_type!(&f.type_);
+            }
+        }
+        for c in &e.constructors {
+            for a in &c.args {
+                visit_type!(&a.type_);
+            }
+        }
+        for m in &e.methods {
+            for a in &m.args {
+                visit_type!(&a.type_);
+            }
+            if let Some(r) = &m.return_type {
+                visit_type!(r);
+            }
+        }
+    }
+    for e in &metadata.errors {
+        for v in &e.variants {
+            for f in &v.fields {
+                visit_type!(&f.type_);
+            }
+        }
+        for c in &e.constructors {
+            for a in &c.args {
+                visit_type!(&a.type_);
+            }
+        }
+        for m in &e.methods {
+            for a in &m.args {
+                visit_type!(&a.type_);
+            }
+            if let Some(r) = &m.return_type {
+                visit_type!(r);
+            }
+        }
+    }
+    for o in &metadata.objects {
+        for c in &o.constructors {
+            for a in &c.args {
+                visit_type!(&a.type_);
+            }
+        }
+        for m in &o.methods {
+            for a in &m.args {
+                visit_type!(&a.type_);
+            }
+            if let Some(r) = &m.return_type {
+                visit_type!(r);
+            }
+        }
+    }
+    for cb in &metadata.callback_interfaces {
+        for m in &cb.methods {
+            for a in &m.args {
+                visit_type!(&a.type_);
+            }
+            if let Some(r) = &m.return_type {
+                visit_type!(r);
+            }
+        }
+    }
+
+    used
+}
+
 fn source_extension(source: &std::path::Path) -> Option<&str> {
     source.extension().and_then(|e| e.to_str())
 }
@@ -232,32 +362,36 @@ fn render_ts(
             out.push_str(&ffi::gen_data_enum_lift_fn(e));
         }
     }
-    // Error value-type serialization helpers. Only emitted when the error has
-    // constructors (which return the type via RustBuffer and need _liftFoo) or
-    // methods (which need _lowerFoo to serialize `this`). Errors without
-    // constructors/methods only need the _liftError variant for RustCallStatus.
+    // Error value-type serialization helpers. Emitted when the error:
+    // - has constructors (return type via RustBuffer needs _liftFoo)
+    // - has methods (need _lowerFoo to serialize `this`)
+    // - is used as a value type in record fields, enum variants, etc.
+    let errors_as_value_types = collect_errors_as_value_types(metadata);
     for error in &metadata.errors {
         if cfg.exclude.contains(&error.name) {
             continue;
         }
         let has_ctors = !error.constructors.is_empty();
         let has_methods = !error.methods.is_empty();
-        if !has_ctors && !has_methods {
+        let is_value_type = errors_as_value_types.contains(&error.name);
+        let needs_lower = has_methods || is_value_type;
+        let needs_lift = has_ctors || is_value_type;
+        if !needs_lower && !needs_lift {
             continue;
         }
         out.push('\n');
         if error.is_flat {
-            if has_methods {
+            if needs_lower {
                 out.push_str(&ffi::gen_flat_error_value_lower_fn(error, namespace));
             }
-            if has_ctors {
+            if needs_lift {
                 out.push_str(&ffi::gen_flat_error_value_lift_fn(error));
             }
         } else {
-            if has_methods {
+            if needs_lower {
                 out.push_str(&ffi::gen_rich_error_value_lower_fn(error, namespace));
             }
-            if has_ctors {
+            if needs_lift {
                 out.push_str(&ffi::gen_rich_error_value_lift_fn(error));
             }
         }
@@ -412,7 +546,7 @@ fn apply_return_wrap(
 ) {
     match return_type {
         Some(uniffi_bindgen::interface::Type::Object { name, .. }) => {
-            debug_assert!(
+            assert!(
                 body.contains("return _result;"),
                 "apply_return_wrap: expected 'return _result;' in body for Object '{name}'"
             );
@@ -425,7 +559,7 @@ fn apply_return_wrap(
             if let Some(ct_cfg) = cfg.custom_types.get(name) {
                 let lifted = ct_cfg.lift_expr("_result");
                 if lifted != "_result" {
-                    debug_assert!(
+                    assert!(
                         body.contains("return _result;"),
                         "apply_return_wrap: expected 'return _result;' in body for Custom '{name}'"
                     );
@@ -579,6 +713,10 @@ fn render_object_class(o: &ObjectDef, namespace: &str, cfg: &config::JsBindingsC
         ));
     }
     out.push_str("    this._handle = handle;\n");
+    let free_fn = ffi::fn_free(namespace, name);
+    out.push_str(&format!(
+        "    _rt.registerPointer(this, '{free_fn}', handle);\n"
+    ));
     out.push_str("  }\n");
 
     // Internal factory from handle
@@ -628,6 +766,7 @@ fn render_object_class(o: &ObjectDef, namespace: &str, cfg: &config::JsBindingsC
     out.push_str("  free(): void {\n");
     out.push_str("    if (this._freed) return;\n");
     out.push_str("    this._freed = true;\n");
+    out.push_str("    _rt.unregisterPointer(this);\n");
     let free_fn = ffi::fn_free(namespace, name);
     out.push_str(&format!("    _rt.callFree('{free_fn}', this._handle);\n"));
     out.push_str("  }\n");

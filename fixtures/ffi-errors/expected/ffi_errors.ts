@@ -3,13 +3,17 @@ import { UniffiRuntime, UniFFIWriter, UniFFIReader } from './uniffi_runtime.js';
 
 const _rt = await UniffiRuntime.load(new URL('./ffi_errors.wasm', import.meta.url), 'ffi_errors');
 
+export type MathErrorVariant =
+  | { tag: 'DivisionByZero' }
+  | { tag: 'Overflow' };
+
 export class MathError extends Error {
   override readonly name = 'MathError' as const;
-  constructor(public readonly tag: 'DivisionByZero' | 'Overflow') {
-    super(tag);
+  constructor(public readonly variant: MathErrorVariant) {
+    super(variant.tag);
   }
-  static DivisionByZero(): MathError { return new MathError('DivisionByZero'); }
-  static Overflow(): MathError { return new MathError('Overflow'); }
+  static DivisionByZero(): MathError { return new MathError({ tag: 'DivisionByZero' }); }
+  static Overflow(): MathError { return new MathError({ tag: 'Overflow' }); }
 }
 
 export type NetworkErrorVariant =
@@ -27,14 +31,19 @@ export class NetworkError extends Error {
   static ServerError(code: number, message: string): NetworkError { return new NetworkError({ tag: 'ServerError', code, message }); }
 }
 
+export type ParseErrorVariant =
+  | { tag: 'InvalidInput' }
+  | { tag: 'MissingSection' }
+  | { tag: 'SyntaxError' };
+
 export class ParseError extends Error {
   override readonly name = 'ParseError' as const;
-  constructor(public readonly tag: 'InvalidInput' | 'MissingSection' | 'SyntaxError') {
-    super(tag);
+  constructor(public readonly variant: ParseErrorVariant) {
+    super(variant.tag);
   }
-  static InvalidInput(): ParseError { return new ParseError('InvalidInput'); }
-  static MissingSection(): ParseError { return new ParseError('MissingSection'); }
-  static SyntaxError(): ParseError { return new ParseError('SyntaxError'); }
+  static InvalidInput(): ParseError { return new ParseError({ tag: 'InvalidInput' }); }
+  static MissingSection(): ParseError { return new ParseError({ tag: 'MissingSection' }); }
+  static SyntaxError(): ParseError { return new ParseError({ tag: 'SyntaxError' }); }
 }
 
 export class Parser {
@@ -46,6 +55,7 @@ export class Parser {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_ffi_errors_fn_free_parser', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): Parser { return new Parser(handle); }
@@ -92,6 +102,7 @@ export class Parser {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_ffi_errors_fn_free_parser', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
@@ -102,8 +113,12 @@ export class Parser {
 function _liftErrorMathError(rb: any): MathError {
   return _rt.liftFromBuffer(rb, (r) => {
     const ordinal = r.readI32();
-    if (ordinal === 1) return new MathError('DivisionByZero');
-    if (ordinal === 2) return new MathError('Overflow');
+    if (ordinal === 1) {
+      return new MathError({ tag: 'DivisionByZero' });
+    }
+    if (ordinal === 2) {
+      return new MathError({ tag: 'Overflow' });
+    }
     throw new Error(`Unknown MathError ordinal: ${ordinal}`);
   });
 }
@@ -127,9 +142,15 @@ function _liftErrorNetworkError(rb: any): NetworkError {
 function _liftErrorParseError(rb: any): ParseError {
   return _rt.liftFromBuffer(rb, (r) => {
     const ordinal = r.readI32();
-    if (ordinal === 1) return new ParseError('InvalidInput');
-    if (ordinal === 2) return new ParseError('MissingSection');
-    if (ordinal === 3) return new ParseError('SyntaxError');
+    if (ordinal === 1) {
+      return new ParseError({ tag: 'InvalidInput' });
+    }
+    if (ordinal === 2) {
+      return new ParseError({ tag: 'MissingSection' });
+    }
+    if (ordinal === 3) {
+      return new ParseError({ tag: 'SyntaxError' });
+    }
     throw new Error(`Unknown ParseError ordinal: ${ordinal}`);
   });
 }

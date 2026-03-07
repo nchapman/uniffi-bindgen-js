@@ -219,6 +219,24 @@ Import the `.wasm` file as an asset URL or arraybuffer depending on your bundler
 - Non-exhaustive enums and errors with catch-all variants
 - Default argument values and optional parameters
 
+## Platform Requirements
+
+Generated bindings require:
+
+- **ES2022 modules** — top-level `await` is used to load the WASM module.
+- **`FinalizationRegistry`** — used as a safety net for preventing leaked object handles (supported in all modern engines).
+- **`WebAssembly.Function`** (Type Reflection proposal) — required only when using **callback interfaces** or **async functions**. These features need typed WASM trampolines via `__indirect_function_table`. Supported in V8 (Chrome, Node.js 22+) and SpiderMonkey (Firefox). Safari 18.2+ added support; older Safari versions may not work.
+
+The Rust crate must be compiled with:
+```toml
+uniffi = { features = ["scaffolding-ffi-buffer-fns", "wasm-unstable-single-threaded"] }
+```
+
+For callback interfaces and async, also set:
+```
+RUSTFLAGS="-C link-arg=--export-table -C link-arg=--growable-table"
+```
+
 ## Compatibility
 
 | uniffi-bindgen-js | uniffi-rs |

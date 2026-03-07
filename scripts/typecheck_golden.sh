@@ -12,7 +12,7 @@ trap 'rm -rf "$TMPDIR"' EXIT
 
 # Fixtures to skip (known gaps in FFI mode):
 # ext-types-demo: external type cross-package serialization not yet supported
-# coverall-demo: depends on ext-types-demo types (cross-package imports)
+# coverall-demo: callback trampoline type inference + Rust-implemented callback returns
 # library-mode: requires pre-built native library (separate build step)
 SKIP_FIXTURES="ext-types-demo|coverall-demo|library-mode"
 
@@ -105,6 +105,8 @@ export declare class UniffiRuntime {
   _writeCallStatusSuccess(ptr: number): void;
   _writeCallStatusPanic(ptr: number, error: unknown): void;
   registerCallbackVTable(name: string, initFnName: string, entries: any[]): void;
+  registerPointer(obj: object, freeFn: string, handle: bigint): void;
+  unregisterPointer(obj: object): void;
 }
 export declare class UniFFIWriter {
   writeI8(v: number): void;

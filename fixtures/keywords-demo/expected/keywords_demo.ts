@@ -29,6 +29,7 @@ export class SuperWidget {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_keywords_demo_fn_free_superwidget', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): SuperWidget { return new SuperWidget(handle); }
@@ -71,6 +72,7 @@ export class SuperWidget {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_keywords_demo_fn_free_superwidget', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }

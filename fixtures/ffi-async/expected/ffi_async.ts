@@ -3,13 +3,17 @@ import { UniffiRuntime, UniFFIWriter, UniFFIReader } from './uniffi_runtime.js';
 
 const _rt = await UniffiRuntime.load(new URL('./ffi_async.wasm', import.meta.url), 'ffi_async');
 
+export type AsyncErrorVariant =
+  | { tag: 'DivisionByZero' }
+  | { tag: 'InvalidInput' };
+
 export class AsyncError extends Error {
   override readonly name = 'AsyncError' as const;
-  constructor(public readonly tag: 'DivisionByZero' | 'InvalidInput') {
-    super(tag);
+  constructor(public readonly variant: AsyncErrorVariant) {
+    super(variant.tag);
   }
-  static DivisionByZero(): AsyncError { return new AsyncError('DivisionByZero'); }
-  static InvalidInput(): AsyncError { return new AsyncError('InvalidInput'); }
+  static DivisionByZero(): AsyncError { return new AsyncError({ tag: 'DivisionByZero' }); }
+  static InvalidInput(): AsyncError { return new AsyncError({ tag: 'InvalidInput' }); }
 }
 
 export class AsyncCounter {
@@ -21,6 +25,7 @@ export class AsyncCounter {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_ffi_async_fn_free_asynccounter', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): AsyncCounter { return new AsyncCounter(handle); }
@@ -109,6 +114,7 @@ export class AsyncCounter {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_ffi_async_fn_free_asynccounter', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
@@ -119,8 +125,12 @@ export class AsyncCounter {
 function _liftErrorAsyncError(rb: any): AsyncError {
   return _rt.liftFromBuffer(rb, (r) => {
     const ordinal = r.readI32();
-    if (ordinal === 1) return new AsyncError('DivisionByZero');
-    if (ordinal === 2) return new AsyncError('InvalidInput');
+    if (ordinal === 1) {
+      return new AsyncError({ tag: 'DivisionByZero' });
+    }
+    if (ordinal === 2) {
+      return new AsyncError({ tag: 'InvalidInput' });
+    }
     throw new Error(`Unknown AsyncError ordinal: ${ordinal}`);
   });
 }

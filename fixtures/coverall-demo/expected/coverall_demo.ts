@@ -317,6 +317,7 @@ export class Coveralls {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_coverall_demo_fn_free_coveralls', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): Coveralls { return new Coveralls(handle); }
@@ -615,6 +616,7 @@ export class Coveralls {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_coveralls', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
@@ -630,6 +632,7 @@ export class FalliblePatch {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_coverall_demo_fn_free_falliblepatch', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): FalliblePatch { return new FalliblePatch(handle); }
@@ -675,6 +678,7 @@ export class FalliblePatch {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_falliblepatch', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
@@ -690,6 +694,7 @@ export class IFirst {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_coverall_demo_fn_free_ifirst', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): IFirst { return new IFirst(handle); }
@@ -720,6 +725,7 @@ export class IFirst {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_ifirst', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
@@ -735,6 +741,7 @@ export class ISecond {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_coverall_demo_fn_free_isecond', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): ISecond { return new ISecond(handle); }
@@ -765,6 +772,7 @@ export class ISecond {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_isecond', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
@@ -780,6 +788,7 @@ export class NodeA {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_coverall_demo_fn_free_nodea', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): NodeA { return new NodeA(handle); }
@@ -799,6 +808,7 @@ export class NodeA {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_nodea', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
@@ -814,6 +824,7 @@ export class NodeB {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_coverall_demo_fn_free_nodeb', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): NodeB { return new NodeB(handle); }
@@ -833,6 +844,7 @@ export class NodeB {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_nodeb', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
@@ -848,6 +860,7 @@ export class Patch {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_coverall_demo_fn_free_patch', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): Patch { return new Patch(handle); }
@@ -878,6 +891,7 @@ export class Patch {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_patch', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
@@ -893,6 +907,7 @@ export class ThreadsafeCounter {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_coverall_demo_fn_free_threadsafecounter', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): ThreadsafeCounter { return new ThreadsafeCounter(handle); }
@@ -931,6 +946,7 @@ export class ThreadsafeCounter {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_coverall_demo_fn_free_threadsafecounter', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
@@ -1125,6 +1141,16 @@ function _liftReturnOnlyEnum(r: UniFFIReader): ReturnOnlyEnum {
     return { tag: 'Four', m: r.readMap((_r) => _r.readString(), (_r) => _liftCoverallFlatError(_r)) };
   }
   throw new Error(`Unknown ReturnOnlyEnum ordinal: ${ordinal}`);
+}
+
+function _lowerCoverallFlatError(w: UniFFIWriter, value: CoverallFlatError): void {
+  if (value.tag === 'TooManyVariants') { w.writeI32(1); return; }
+  throw new Error(`Unknown CoverallFlatError variant: ${value.tag}`);
+}
+function _liftCoverallFlatError(r: UniFFIReader): CoverallFlatError {
+  const ordinal = r.readI32();
+  if (ordinal === 1) return new CoverallFlatError('TooManyVariants');
+  throw new Error(`Unknown CoverallFlatError ordinal: ${ordinal}`);
 }
 
 function _liftErrorComplexError(rb: any): ComplexError {

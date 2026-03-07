@@ -12,6 +12,7 @@ export class Counter {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_counter_fn_free_counter', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): Counter { return new Counter(handle); }
@@ -72,6 +73,7 @@ export class Counter {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_counter_fn_free_counter', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }

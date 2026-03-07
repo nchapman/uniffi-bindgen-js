@@ -222,11 +222,10 @@ fn render_constructors_ffi(
             .collect();
 
         // Constructor returns the type via RustBuffer (for enums/records/errors).
-        // Use a Record type to get RustBuffer return handling — this causes
-        // gen_ffi_call to emit `_lift{parent_name}(r)`. The corresponding
-        // _liftFoo helper is emitted conditionally in render_ts() when
-        // the type has constructors.
-        let return_type = uniffi_bindgen::interface::Type::Record {
+        // Both Enum and Record map to the same RustBuffer path in gen_ffi_call,
+        // emitting `_lift{parent_name}(r)`. Use Enum here for consistency with
+        // companion method self_type (errors/enums share the same wire format).
+        let return_type = uniffi_bindgen::interface::Type::Enum {
             name: parent_name.to_string(),
             module_path: String::new(),
         };
@@ -257,21 +256,89 @@ fn render_constructors_ffi(
 }
 
 /// Render methods on an error/enum class as instance methods using FFI calls.
+/// Self is lowered via `_lower{ParentName}(w, this)` as the first FFI arg.
 fn render_methods_on_class_ffi(
     methods: &[MethodDef],
     parent_name: &str,
     namespace: &str,
     cfg: &config::JsBindingsConfig,
 ) -> String {
-    // Error enum methods would require lowering `this` as an enum/error value.
-    // This is uncommon — no existing fixture exercises it. If needed, generate
-    // a _lower function for the error and pass `this` as the first FFI arg.
     if methods.is_empty() {
         return String::new();
     }
-    let _ = (parent_name, namespace, cfg);
-    // TODO: implement error enum instance methods via FFI when a test case arises
-    String::new()
+    // Errors serialize like enums on the wire.
+    let self_type = uniffi_bindgen::interface::Type::Enum {
+        name: parent_name.to_string(),
+        module_path: String::new(),
+    };
+    let mut out = String::new();
+    for m in methods {
+        if cfg.exclude.contains(&format!("{parent_name}.{}", m.name)) {
+            continue;
+        }
+        let exported = cfg
+            .rename
+            .get(&format!("{parent_name}.{}", m.name))
+            .map(|s| safe_js_identifier(s))
+            .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
+        let params: Vec<String> = m.args.iter().map(render_param).collect();
+        let ts_ret = ts_return_type(m.return_type.as_ref(), m.is_async);
+        let async_kw = if m.is_async { "async " } else { "" };
+
+        let throws_name = m.throws_type.as_ref().map(type_name);
+        let mut annotations = duration_annotations(&m.args);
+        if let Some(ann) = duration_return_annotation(m.return_type.as_ref()) {
+            annotations.push(ann);
+        }
+        out.push_str(&render_jsdoc_with_throws(
+            m.docstring.as_deref(),
+            throws_name.as_deref(),
+            &annotations,
+            "  ",
+        ));
+        out.push_str(&format!(
+            "  {async_kw}{exported}({}): {ts_ret} {{\n",
+            params.join(", ")
+        ));
+
+        // Build FFI call: `this` as self (first arg) + user args
+        let ffi_name = ffi::ffibuf_fn_method(namespace, parent_name, &m.name);
+
+        let js_arg_names: Vec<String> = m
+            .args
+            .iter()
+            .map(|a| safe_js_identifier(&camel_case(&a.name)))
+            .collect();
+
+        let mut arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> =
+            vec![("this", &self_type)];
+        for (name, a) in js_arg_names.iter().zip(m.args.iter()) {
+            arg_pairs.push((name.as_str(), &a.type_));
+        }
+
+        let body = if m.is_async {
+            ffi::gen_async_ffi_call(
+                &ffi_name,
+                namespace,
+                &arg_pairs,
+                m.return_type.as_ref(),
+                throws_name.as_deref(),
+                "    ",
+            )
+        } else {
+            ffi::gen_ffi_call(
+                &ffi_name,
+                namespace,
+                &arg_pairs,
+                m.return_type.as_ref(),
+                throws_name.as_deref(),
+                "    ",
+            )
+        };
+        out.push_str(&body);
+        out.push_str("\n  }\n");
+    }
+    out
 }
 
 /// Render methods in a companion namespace using FFI calls.
@@ -375,7 +442,6 @@ fn render_trait_methods_ffi(
             self_type,
             namespace,
             &uniffi_bindgen::interface::Type::String,
-            false,
         ));
     }
 
@@ -387,7 +453,6 @@ fn render_trait_methods_ffi(
             self_type,
             namespace,
             &uniffi_bindgen::interface::Type::String,
-            false,
         ));
     }
 
@@ -408,7 +473,6 @@ fn render_trait_methods_ffi(
             self_type,
             namespace,
             &uniffi_bindgen::interface::Type::UInt64,
-            false,
         ));
     }
 
@@ -432,7 +496,6 @@ fn render_trait_method_ffi(
     self_type: &uniffi_bindgen::interface::Type,
     namespace: &str,
     return_type: &uniffi_bindgen::interface::Type,
-    _is_async: bool,
 ) -> String {
     let mut out = String::new();
     let ffi_name = ffi::ffibuf_fn_method(namespace, parent_name, ffi_method_name);

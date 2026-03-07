@@ -36,7 +36,6 @@ _rt.registerCallbackVTable('Formatter', 'uniffi_ffi_callbacks_fn_init_callback_v
   },
 ]);
 
-/** Accepts a Formatter callback and uses it. */
 export class Processor {
   /** @internal */
   readonly _handle: bigint;
@@ -46,6 +45,7 @@ export class Processor {
   }
   private constructor(handle: bigint) {
     this._handle = handle;
+    _rt.registerPointer(this, 'uniffi_ffi_callbacks_fn_free_processor', handle);
   }
   /** @internal */
   static _fromHandle(handle: bigint): Processor { return new Processor(handle); }
@@ -77,6 +77,7 @@ export class Processor {
   free(): void {
     if (this._freed) return;
     this._freed = true;
+    _rt.unregisterPointer(this);
     _rt.callFree('uniffi_ffi_callbacks_fn_free_processor', this._handle);
   }
   [Symbol.dispose](): void { this.free(); }
