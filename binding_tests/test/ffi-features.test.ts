@@ -88,19 +88,21 @@ describe('Named constructors', () => {
   });
 
   it('named constructor throws on negative', () => {
-    expect(() => Widget.fromPositive(-1)).toThrow(BuildError);
     try {
       Widget.fromPositive(-1);
+      expect.fail('should have thrown');
     } catch (e) {
+      expect(e).toBeInstanceOf(BuildError);
       expect((e as BuildError).tag).toBe('InvalidInput');
     }
   });
 
   it('named constructor throws on overflow', () => {
-    expect(() => Widget.fromPositive(2_000_000)).toThrow(BuildError);
     try {
       Widget.fromPositive(2_000_000);
+      expect.fail('should have thrown');
     } catch (e) {
+      expect(e).toBeInstanceOf(BuildError);
       expect((e as BuildError).tag).toBe('Overflow');
     }
   });

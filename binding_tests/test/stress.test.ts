@@ -465,6 +465,7 @@ describe('stress: error handling', () => {
       // Error path
       try {
         FfiErrors.safeDivide(1, 0);
+        expect.fail('should have thrown');
       } catch (e) {
         expect((e as MathError).variant.tag).toBe('DivisionByZero');
       }
@@ -481,6 +482,7 @@ describe('stress: error handling', () => {
       } else {
         try {
           Parser.create('');
+          expect.fail('should have thrown');
         } catch (e) {
           expect((e as ParseError).variant.tag).toBe('InvalidInput');
         }
@@ -493,6 +495,7 @@ describe('stress: error handling', () => {
     for (let i = 0; i < 500; i++) {
       try {
         p.parseSection('nonexistent');
+        expect.fail('should have thrown');
       } catch (e) {
         expect((e as ParseError).variant.tag).toBe('MissingSection');
       }
@@ -502,15 +505,15 @@ describe('stress: error handling', () => {
     p.free();
   });
 
-  it('async errors under load', async () => {
+  it('async errors under load', async (ctx) => {
     let FfiAsync: typeof import('../generated/ffi_async.js').FfiAsync;
     try {
       const mod = await import('../generated/ffi_async.js');
       FfiAsync = mod.FfiAsync;
-      // Probe to check --export-table availability
       await FfiAsync.asyncAdd(1, 1);
     } catch {
-      return; // async not available
+      ctx.skip();
+      return;
     }
     const promises = Array.from({ length: 100 }, () =>
       FfiAsync.asyncDivide(1, 0).catch((e: unknown) => e),

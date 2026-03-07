@@ -62,12 +62,12 @@ describe('Async: errors (Throws)', () => {
   });
 
   it('async_divide throws DivisionByZero', async () => {
-    await expect(FfiAsync.asyncDivide(1, 0)).rejects.toThrow(AsyncError);
     try {
       await FfiAsync.asyncDivide(1, 0);
+      expect.fail('should have thrown');
     } catch (e) {
       expect(e).toBeInstanceOf(AsyncError);
-      expect((e as AsyncError).tag).toBe('DivisionByZero');
+      expect((e as AsyncError).variant.tag).toBe('DivisionByZero');
     }
   });
 });
@@ -96,11 +96,12 @@ describe('Async: object with async constructor and methods', () => {
 
   it('async method with throws — error', async () => {
     const counter = await AsyncCounter.create(2_000_000n);
-    await expect(counter.validate()).rejects.toThrow(AsyncError);
     try {
       await counter.validate();
+      expect.fail('should have thrown');
     } catch (e) {
-      expect((e as AsyncError).tag).toBe('InvalidInput');
+      expect(e).toBeInstanceOf(AsyncError);
+      expect((e as AsyncError).variant.tag).toBe('InvalidInput');
     }
     counter.free();
   });
