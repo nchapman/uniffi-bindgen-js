@@ -197,6 +197,7 @@ fn component_interface_to_metadata(
         namespace: ci.namespace().to_string(),
         namespace_docstring: ci.namespace_docstring().map(ToOwned::to_owned),
         local_crate: local_crate.to_string(),
+        ffi_namespace: ci.crate_name().to_string(),
         functions,
         errors,
         enums,

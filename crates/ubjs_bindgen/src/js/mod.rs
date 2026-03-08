@@ -187,12 +187,13 @@ pub fn generate_bindings(args: &GenerateArgs) -> Result<()> {
         .module_name
         .clone()
         .unwrap_or_else(|| pascal_case(&namespace));
+    let ffi_namespace = metadata.ffi_namespace.clone();
 
     fs::create_dir_all(&args.out_dir)
         .with_context(|| format!("failed to create output dir: {}", args.out_dir.display()))?;
 
     // Always generate FFI-direct output.
-    let content = render_ts(&module_name, &namespace, &metadata, &cfg)?;
+    let content = render_ts(&module_name, &namespace, &ffi_namespace, &metadata, &cfg)?;
     let out_file = args.out_dir.join(format!("{namespace}.ts"));
     fs::write(&out_file, &content)
         .with_context(|| format!("failed to write: {}", out_file.display()))?;
@@ -223,6 +224,7 @@ pub fn generate_bindings(args: &GenerateArgs) -> Result<()> {
 fn render_ts(
     module_name: &str,
     namespace: &str,
+    ffi_namespace: &str,
     metadata: &BindingsMetadata,
     cfg: &config::JsBindingsConfig,
 ) -> Result<String> {
@@ -235,9 +237,11 @@ fn render_ts(
     );
     out.push('\n');
 
-    // Top-level await: auto-load the co-located .wasm file
+    // Top-level await: auto-load the co-located .wasm file.
+    // The second arg is the FFI namespace (crate name) used to construct
+    // `ffi_{ns}_rustbuffer_*` export names — must match the Rust scaffolding.
     out.push_str(&format!(
-        "const _rt = await UniffiRuntime.load(new URL('./{namespace}.wasm', import.meta.url), '{namespace}');\n"
+        "const _rt = await UniffiRuntime.load(new URL('./{namespace}.wasm', import.meta.url), '{ffi_namespace}');\n"
     ));
 
     // External type imports
@@ -291,7 +295,7 @@ fn render_ts(
     for e in &metadata.errors {
         if !cfg.exclude.contains(&e.name) {
             out.push('\n');
-            out.push_str(&render_error_class(e, cfg, namespace));
+            out.push_str(&render_error_class(e, cfg, ffi_namespace));
         }
     }
 
@@ -299,7 +303,7 @@ fn render_ts(
     for r in &metadata.records {
         if !cfg.exclude.contains(&r.name) {
             out.push('\n');
-            out.push_str(&render_record_interface(r, cfg, namespace));
+            out.push_str(&render_record_interface(r, cfg, ffi_namespace));
         }
     }
 
@@ -307,7 +311,7 @@ fn render_ts(
     for e in &metadata.enums {
         if !cfg.exclude.contains(&e.name) {
             out.push('\n');
-            out.push_str(&render_enum_type(e, cfg, namespace));
+            out.push_str(&render_enum_type(e, cfg, ffi_namespace));
         }
     }
 
@@ -323,7 +327,7 @@ fn render_ts(
     for cb in &metadata.callback_interfaces {
         if !cfg.exclude.contains(&cb.name) {
             out.push('\n');
-            out.push_str(&ffi::gen_callback_vtable_registration(cb, namespace, cfg));
+            out.push_str(&ffi::gen_callback_vtable_registration(cb, ffi_namespace, cfg));
         }
     }
 
@@ -335,7 +339,7 @@ fn render_ts(
         .collect();
     for o in &visible_objects {
         out.push('\n');
-        out.push_str(&render_object_class(o, namespace, cfg));
+        out.push_str(&render_object_class(o, ffi_namespace, cfg));
     }
 
     // Serialization helpers for compound types (records, enums, errors)
@@ -346,7 +350,7 @@ fn render_ts(
             continue;
         }
         out.push('\n');
-        out.push_str(&ffi::gen_record_lower_fn(r, namespace, cfg));
+        out.push_str(&ffi::gen_record_lower_fn(r, ffi_namespace, cfg));
         out.push_str(&ffi::gen_record_lift_fn(r, cfg));
     }
     for e in &metadata.enums {
@@ -355,10 +359,10 @@ fn render_ts(
         }
         out.push('\n');
         if e.is_flat {
-            out.push_str(&ffi::gen_flat_enum_lower_fn(e, namespace));
+            out.push_str(&ffi::gen_flat_enum_lower_fn(e, ffi_namespace));
             out.push_str(&ffi::gen_flat_enum_lift_fn(e));
         } else {
-            out.push_str(&ffi::gen_data_enum_lower_fn(e, namespace, cfg));
+            out.push_str(&ffi::gen_data_enum_lower_fn(e, ffi_namespace, cfg));
             out.push_str(&ffi::gen_data_enum_lift_fn(e, cfg));
         }
     }
@@ -382,14 +386,14 @@ fn render_ts(
         out.push('\n');
         if error.is_flat {
             if needs_lower {
-                out.push_str(&ffi::gen_flat_error_value_lower_fn(error, namespace));
+                out.push_str(&ffi::gen_flat_error_value_lower_fn(error, ffi_namespace));
             }
             if needs_lift {
                 out.push_str(&ffi::gen_flat_error_value_lift_fn(error));
             }
         } else {
             if needs_lower {
-                out.push_str(&ffi::gen_rich_error_value_lower_fn(error, namespace, cfg));
+                out.push_str(&ffi::gen_rich_error_value_lower_fn(error, ffi_namespace, cfg));
             }
             if needs_lift {
                 out.push_str(&ffi::gen_rich_error_value_lift_fn(error, cfg));
@@ -485,7 +489,7 @@ fn render_ts(
         out.push_str(&render_jsdoc(metadata.namespace_docstring.as_deref(), ""));
         out.push_str(&format!("export namespace {module_name} {{\n"));
         for f in &visible_fns {
-            out.push_str(&render_function(f, namespace, cfg));
+            out.push_str(&render_function(f, ffi_namespace, cfg));
         }
         out.push_str("}\n");
     }
@@ -511,14 +515,14 @@ use render_helpers::{
 fn prepare_object_args(
     args: &[ArgDef],
     js_arg_names: &[String],
-    namespace: &str,
+    ffi_namespace: &str,
     indent: &str,
     out: &mut String,
 ) -> Vec<(String, uniffi_bindgen::interface::Type)> {
     let mut result = Vec::new();
     for (name, a) in js_arg_names.iter().zip(args.iter()) {
         if let uniffi_bindgen::interface::Type::Object { name: obj_name, .. } = &a.type_ {
-            let clone_fn = ffi::fn_clone(namespace, obj_name);
+            let clone_fn = ffi::fn_clone(ffi_namespace, obj_name);
             let clone_var = format!("_clone_{name}");
             out.push_str(&format!(
                 "{indent}const {clone_var} = _rt.cloneObjectHandle('{clone_fn}', {name}._handle);\n"
@@ -601,7 +605,7 @@ fn apply_custom_type_arg_lowering(
         .collect()
 }
 
-fn render_function(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfig) -> String {
+fn render_function(f: &FnDef, ffi_namespace: &str, cfg: &config::JsBindingsConfig) -> String {
     let mut out = String::new();
 
     let exported = cfg
@@ -613,7 +617,7 @@ fn render_function(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfig) -
     let params: Vec<String> = f.args.iter().map(render_param).collect();
     let ts_ret = ts_return_type(f.return_type.as_ref(), f.is_async);
 
-    let ffi_name = ffi::ffibuf_fn_func(namespace, &f.name);
+    let ffi_name = ffi::ffibuf_fn_func(ffi_namespace, &f.name);
 
     let throws_name = f.throws_type.as_ref().map(type_name);
 
@@ -646,7 +650,7 @@ fn render_function(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfig) -
         apply_custom_type_arg_lowering(&f.args, &js_arg_names, cfg, "    ", &mut out);
 
     // Clone Object-typed args (FFI scaffolding consumes handles)
-    let prepared = prepare_object_args(&f.args, &js_arg_names, namespace, "    ", &mut out);
+    let prepared = prepare_object_args(&f.args, &js_arg_names, ffi_namespace, "    ", &mut out);
     let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> = prepared
         .iter()
         .map(|(name, t)| (name.as_str(), t))
@@ -655,7 +659,7 @@ fn render_function(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfig) -
     let mut body = if f.is_async {
         ffi::gen_async_ffi_call(
             &ffi_name,
-            namespace,
+            ffi_namespace,
             &arg_pairs,
             f.return_type.as_ref(),
             throws_name.as_deref(),
@@ -665,7 +669,7 @@ fn render_function(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfig) -
     } else {
         ffi::gen_ffi_call(
             &ffi_name,
-            namespace,
+            ffi_namespace,
             &arg_pairs,
             f.return_type.as_ref(),
             throws_name.as_deref(),
@@ -687,7 +691,7 @@ fn render_function(f: &FnDef, namespace: &str, cfg: &config::JsBindingsConfig) -
 // FFI-direct object class rendering
 // ---------------------------------------------------------------------------
 
-fn render_object_class(o: &ObjectDef, namespace: &str, cfg: &config::JsBindingsConfig) -> String {
+fn render_object_class(o: &ObjectDef, ffi_namespace: &str, cfg: &config::JsBindingsConfig) -> String {
     let mut out = String::new();
     let name = &o.name;
 
@@ -715,7 +719,7 @@ fn render_object_class(o: &ObjectDef, namespace: &str, cfg: &config::JsBindingsC
         ));
     }
     out.push_str("    this._handle = handle;\n");
-    let free_fn = ffi::fn_free(namespace, name);
+    let free_fn = ffi::fn_free(ffi_namespace, name);
     out.push_str(&format!(
         "    _rt.registerPointer(this, '{free_fn}', handle);\n"
     ));
@@ -734,7 +738,7 @@ fn render_object_class(o: &ObjectDef, namespace: &str, cfg: &config::JsBindingsC
             o.constructors.iter().filter(|c| c.name != "new").collect();
 
         if let Some(ctor) = primary_ctor {
-            out.push_str(&render_ctor(ctor, name, namespace, "create", cfg));
+            out.push_str(&render_ctor(ctor, name, ffi_namespace, "create", cfg));
         }
 
         for ctor in named_ctors {
@@ -743,7 +747,7 @@ fn render_object_class(o: &ObjectDef, namespace: &str, cfg: &config::JsBindingsC
                 .get(&format!("{}.{}", name, ctor.name))
                 .map(|s| safe_js_identifier(s))
                 .unwrap_or_else(|| safe_js_identifier(&camel_case(&ctor.name)));
-            out.push_str(&render_ctor(ctor, name, namespace, &exported, cfg));
+            out.push_str(&render_ctor(ctor, name, ffi_namespace, &exported, cfg));
         }
     }
 
@@ -757,11 +761,11 @@ fn render_object_class(o: &ObjectDef, namespace: &str, cfg: &config::JsBindingsC
             .get(&format!("{}.{}", name, m.name))
             .map(|s| safe_js_identifier(s))
             .unwrap_or_else(|| safe_js_identifier(&camel_case(&m.name)));
-        out.push_str(&render_method(m, name, namespace, &exported, cfg));
+        out.push_str(&render_method(m, name, ffi_namespace, &exported, cfg));
     }
 
     // Synthesised trait methods (instance methods on the class)
-    out.push_str(&render_object_trait_methods(o, namespace, cfg));
+    out.push_str(&render_object_trait_methods(o, ffi_namespace, cfg));
 
     // free()
     out.push_str("  /** Releases the underlying WASM resource. Safe to call more than once. */\n");
@@ -769,7 +773,7 @@ fn render_object_class(o: &ObjectDef, namespace: &str, cfg: &config::JsBindingsC
     out.push_str("    if (this._freed) return;\n");
     out.push_str("    this._freed = true;\n");
     out.push_str("    _rt.unregisterPointer(this);\n");
-    let free_fn = ffi::fn_free(namespace, name);
+    let free_fn = ffi::fn_free(ffi_namespace, name);
     out.push_str(&format!("    _rt.callFree('{free_fn}', this._handle);\n"));
     out.push_str("  }\n");
 
@@ -786,7 +790,7 @@ fn render_object_class(o: &ObjectDef, namespace: &str, cfg: &config::JsBindingsC
 /// as instance methods on an object class using FFI calls.
 fn render_object_trait_methods(
     o: &ObjectDef,
-    namespace: &str,
+    ffi_namespace: &str,
     cfg: &config::JsBindingsConfig,
 ) -> String {
     let mut out = String::new();
@@ -797,7 +801,7 @@ fn render_object_trait_methods(
             "toString",
             method_name,
             name,
-            namespace,
+            ffi_namespace,
             &uniffi_bindgen::interface::Type::String,
             false, // has_other
             cfg,
@@ -809,7 +813,7 @@ fn render_object_trait_methods(
             "toDebugString",
             method_name,
             name,
-            namespace,
+            ffi_namespace,
             &uniffi_bindgen::interface::Type::String,
             false,
             cfg,
@@ -817,13 +821,13 @@ fn render_object_trait_methods(
     }
 
     if let Some(method_name) = &o.traits.eq {
-        let ffi_name = ffi::ffibuf_fn_method(namespace, name, method_name);
+        let ffi_name = ffi::ffibuf_fn_method(ffi_namespace, name, method_name);
         let handle_type = uniffi_bindgen::interface::Type::Object {
             name: name.to_string(),
             module_path: String::new(),
             imp: uniffi_bindgen::interface::ObjectImpl::Struct,
         };
-        let clone_fn = ffi::fn_clone(namespace, name);
+        let clone_fn = ffi::fn_clone(ffi_namespace, name);
 
         out.push_str(&format!("  equals(other: {name}): boolean {{\n"));
         out.push_str("    this._assertLive();\n");
@@ -841,7 +845,7 @@ fn render_object_trait_methods(
 
         let body = ffi::gen_ffi_call(
             &ffi_name,
-            namespace,
+            ffi_namespace,
             &arg_pairs,
             Some(&uniffi_bindgen::interface::Type::Boolean),
             None,
@@ -857,7 +861,7 @@ fn render_object_trait_methods(
             "hashCode",
             method_name,
             name,
-            namespace,
+            ffi_namespace,
             &uniffi_bindgen::interface::Type::UInt64,
             false,
             cfg,
@@ -865,13 +869,13 @@ fn render_object_trait_methods(
     }
 
     if let Some(method_name) = &o.traits.ord {
-        let ffi_name = ffi::ffibuf_fn_method(namespace, name, method_name);
+        let ffi_name = ffi::ffibuf_fn_method(ffi_namespace, name, method_name);
         let handle_type = uniffi_bindgen::interface::Type::Object {
             name: name.to_string(),
             module_path: String::new(),
             imp: uniffi_bindgen::interface::ObjectImpl::Struct,
         };
-        let clone_fn = ffi::fn_clone(namespace, name);
+        let clone_fn = ffi::fn_clone(ffi_namespace, name);
 
         out.push_str(&format!("  compareTo(other: {name}): number {{\n"));
         out.push_str("    this._assertLive();\n");
@@ -889,7 +893,7 @@ fn render_object_trait_methods(
 
         let body = ffi::gen_ffi_call(
             &ffi_name,
-            namespace,
+            ffi_namespace,
             &arg_pairs,
             Some(&uniffi_bindgen::interface::Type::Int8),
             None,
@@ -908,15 +912,15 @@ fn render_object_trait_method(
     exported: &str,
     ffi_method_name: &str,
     class_name: &str,
-    namespace: &str,
+    ffi_namespace: &str,
     return_type: &uniffi_bindgen::interface::Type,
     _has_other: bool,
     cfg: &config::JsBindingsConfig,
 ) -> String {
     let mut out = String::new();
     let ts_ret = ts_type_str(return_type);
-    let ffi_name = ffi::ffibuf_fn_method(namespace, class_name, ffi_method_name);
-    let clone_fn = ffi::fn_clone(namespace, class_name);
+    let ffi_name = ffi::ffibuf_fn_method(ffi_namespace, class_name, ffi_method_name);
+    let clone_fn = ffi::fn_clone(ffi_namespace, class_name);
 
     let handle_type = uniffi_bindgen::interface::Type::Object {
         name: class_name.to_string(),
@@ -935,7 +939,7 @@ fn render_object_trait_method(
 
     let body = ffi::gen_ffi_call(
         &ffi_name,
-        namespace,
+        ffi_namespace,
         &arg_pairs,
         Some(return_type),
         None,
@@ -950,7 +954,7 @@ fn render_object_trait_method(
 fn render_ctor(
     ctor: &CtorDef,
     class_name: &str,
-    namespace: &str,
+    ffi_namespace: &str,
     exported: &str,
     cfg: &config::JsBindingsConfig,
 ) -> String {
@@ -977,7 +981,7 @@ fn render_ctor(
         params.join(", ")
     ));
 
-    let ffi_name = ffi::ffibuf_fn_constructor(namespace, class_name, &ctor.name);
+    let ffi_name = ffi::ffibuf_fn_constructor(ffi_namespace, class_name, &ctor.name);
     let js_arg_names: Vec<String> = ctor
         .args
         .iter()
@@ -985,7 +989,7 @@ fn render_ctor(
         .collect();
 
     // Clone Object-typed args (FFI scaffolding consumes handles)
-    let prepared = prepare_object_args(&ctor.args, &js_arg_names, namespace, "    ", &mut out);
+    let prepared = prepare_object_args(&ctor.args, &js_arg_names, ffi_namespace, "    ", &mut out);
     let arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> = prepared
         .iter()
         .map(|(name, t)| (name.as_str(), t))
@@ -1001,7 +1005,7 @@ fn render_ctor(
     let body = if ctor.is_async {
         ffi::gen_async_ffi_call(
             &ffi_name,
-            namespace,
+            ffi_namespace,
             &arg_pairs,
             Some(&handle_type),
             throws_name.as_deref(),
@@ -1011,7 +1015,7 @@ fn render_ctor(
     } else {
         ffi::gen_ffi_call(
             &ffi_name,
-            namespace,
+            ffi_namespace,
             &arg_pairs,
             Some(&handle_type),
             throws_name.as_deref(),
@@ -1032,7 +1036,7 @@ fn render_ctor(
 fn render_method(
     m: &MethodDef,
     class_name: &str,
-    namespace: &str,
+    ffi_namespace: &str,
     exported: &str,
     cfg: &config::JsBindingsConfig,
 ) -> String {
@@ -1060,12 +1064,12 @@ fn render_method(
     out.push_str("    this._assertLive();\n");
 
     // Clone the handle before passing to FFI — the scaffolding consumes handles
-    let clone_fn = ffi::fn_clone(namespace, class_name);
+    let clone_fn = ffi::fn_clone(ffi_namespace, class_name);
     out.push_str(&format!(
         "    const _clonedHandle = _rt.cloneObjectHandle('{clone_fn}', this._handle);\n"
     ));
 
-    let ffi_name = ffi::ffibuf_fn_method(namespace, class_name, &m.name);
+    let ffi_name = ffi::ffibuf_fn_method(ffi_namespace, class_name, &m.name);
 
     // Method args: self handle (cloned) + user args
     let handle_type = uniffi_bindgen::interface::Type::Object {
@@ -1085,7 +1089,7 @@ fn render_method(
         apply_custom_type_arg_lowering(&m.args, &js_arg_names, cfg, "    ", &mut out);
 
     // Clone Object-typed user args (FFI scaffolding consumes handles)
-    let prepared = prepare_object_args(&m.args, &js_arg_names, namespace, "    ", &mut out);
+    let prepared = prepare_object_args(&m.args, &js_arg_names, ffi_namespace, "    ", &mut out);
 
     let mut arg_pairs: Vec<(&str, &uniffi_bindgen::interface::Type)> =
         vec![("_clonedHandle", &handle_type)];
@@ -1096,7 +1100,7 @@ fn render_method(
     let mut body = if m.is_async {
         ffi::gen_async_ffi_call(
             &ffi_name,
-            namespace,
+            ffi_namespace,
             &arg_pairs,
             m.return_type.as_ref(),
             throws_name.as_deref(),
@@ -1106,7 +1110,7 @@ fn render_method(
     } else {
         ffi::gen_ffi_call(
             &ffi_name,
-            namespace,
+            ffi_namespace,
             &arg_pairs,
             m.return_type.as_ref(),
             throws_name.as_deref(),

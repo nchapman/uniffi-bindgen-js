@@ -188,6 +188,10 @@ pub(super) struct BindingsMetadata {
     /// The module_path prefix for types local to this crate.
     /// For UDL mode this is `LOCAL_CRATE_SENTINEL`; for library mode it is the actual crate name.
     pub local_crate: String,
+    /// The FFI namespace used in exported symbol names (`ffi_{ffi_namespace}_rustbuffer_alloc`, etc.).
+    /// This is the crate name (matching `mod_path()` in `setup_scaffolding!`), NOT the user-facing
+    /// namespace. Upstream uniffi-bindgen calls this `ffi_namespace` and derives it from `crate_name`.
+    pub ffi_namespace: String,
     pub functions: Vec<FnDef>,
     pub errors: Vec<ErrorDef>,
     pub enums: Vec<EnumDef>,
@@ -203,6 +207,7 @@ impl Default for BindingsMetadata {
             namespace: String::new(),
             namespace_docstring: None,
             local_crate: LOCAL_CRATE_SENTINEL.to_string(),
+            ffi_namespace: LOCAL_CRATE_SENTINEL.to_string(),
             functions: Vec::new(),
             errors: Vec::new(),
             enums: Vec::new(),
