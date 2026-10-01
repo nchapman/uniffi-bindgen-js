@@ -41,6 +41,24 @@ fn run_golden_impl(
     expected_ts: &str,
     config: Option<PathBuf>,
 ) {
+    run_golden_impl_full(
+        fixture_name,
+        udl_file,
+        generated_ts,
+        expected_ts,
+        config,
+        None,
+    );
+}
+
+fn run_golden_impl_full(
+    fixture_name: &str,
+    udl_file: &str,
+    generated_ts: &str,
+    expected_ts: &str,
+    config: Option<PathBuf>,
+    crate_name: Option<&str>,
+) {
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let fixture = repo.join(format!("fixtures/{fixture_name}/src/{udl_file}"));
     let expected = repo.join(format!("fixtures/{fixture_name}/expected/{expected_ts}"));
@@ -55,7 +73,7 @@ fn run_golden_impl(
         source: fixture,
         out_dir: out_dir.clone(),
         config,
-        crate_name: None,
+        crate_name: crate_name.map(ToOwned::to_owned),
     })
     .expect("generation should succeed");
 
