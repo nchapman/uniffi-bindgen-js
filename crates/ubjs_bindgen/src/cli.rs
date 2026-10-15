@@ -26,7 +26,9 @@ pub struct GenerateArgs {
     pub out_dir: PathBuf,
     #[arg(long)]
     pub config: Option<PathBuf>,
-    /// Generate bindings only for this crate (default: first found).
-    #[arg(long, name = "crate")]
+    /// Generate bindings only for this crate (library mode), or override the
+    /// FFI symbol namespace when generating from UDL to match a real
+    /// compiled binary's crate name.
+    #[arg(long = "crate")]
     pub crate_name: Option<String>,
 }

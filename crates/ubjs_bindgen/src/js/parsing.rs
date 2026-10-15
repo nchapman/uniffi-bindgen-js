@@ -51,9 +51,18 @@ pub(super) fn parse_metadata(
 
     let udl = fs::read_to_string(source)
         .with_context(|| format!("failed to read UDL: {}", source.display()))?;
-    let ci = ComponentInterface::from_webidl(&udl, LOCAL_CRATE_SENTINEL)
+    // The FFI symbol names embedded in a real compiled binary are derived
+    // from the Rust crate's lib name (`CARGO_CRATE_NAME`), not the UDL
+    // `namespace` declaration. When the caller knows that name (e.g. to pair
+    // UDL-mode generation with a real `.wasm`/`.so` placed alongside the
+    // output — see README "UDL mode"), `--crate` lets them supply it so the
+    // generated FFI calls actually match the binary's exports. Without it we
+    // fall back to a stable placeholder, since UDL mode is also used
+    // standalone (e.g. for golden-testing generator output).
+    let local_crate = crate_name.unwrap_or(LOCAL_CRATE_SENTINEL);
+    let ci = ComponentInterface::from_webidl(&udl, local_crate)
         .with_context(|| format!("failed to parse UDL: {}", source.display()))?;
-    component_interface_to_metadata(ci, LOCAL_CRATE_SENTINEL)
+    component_interface_to_metadata(ci, local_crate)
 }
 
 /// Convert a `ComponentInterface` into our internal `BindingsMetadata`.
