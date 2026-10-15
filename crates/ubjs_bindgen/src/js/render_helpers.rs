@@ -143,6 +143,7 @@ pub(super) fn render_literal(lit: &Literal) -> String {
         Literal::Enum(variant_name, _) => format!("'{variant_name}'"),
         Literal::EmptySequence => "[]".to_string(),
         Literal::EmptyMap => "new Map()".to_string(),
+        Literal::EmptySet => "new Set()".to_string(),
         Literal::None => "null".to_string(),
         Literal::Some { inner } => match inner.as_ref() {
             DefaultValue::Default => "undefined".to_string(),
@@ -181,6 +182,9 @@ pub(super) fn ts_type_str(t: &Type) -> String {
                 format!("{inner}[]")
             }
         }
+        Type::Set { inner_type } => format!("Set<{}>", ts_type_str(inner_type)),
+        // `Box` is scaffolding-only; bindings use the inner type.
+        Type::Box { inner_type } => ts_type_str(inner_type),
         Type::Map {
             key_type,
             value_type,
