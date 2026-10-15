@@ -327,7 +327,11 @@ fn render_ts(
     for cb in &metadata.callback_interfaces {
         if !cfg.exclude.contains(&cb.name) {
             out.push('\n');
-            out.push_str(&ffi::gen_callback_vtable_registration(cb, ffi_namespace, cfg));
+            out.push_str(&ffi::gen_callback_vtable_registration(
+                cb,
+                ffi_namespace,
+                cfg,
+            ));
         }
     }
 
@@ -393,7 +397,11 @@ fn render_ts(
             }
         } else {
             if needs_lower {
-                out.push_str(&ffi::gen_rich_error_value_lower_fn(error, ffi_namespace, cfg));
+                out.push_str(&ffi::gen_rich_error_value_lower_fn(
+                    error,
+                    ffi_namespace,
+                    cfg,
+                ));
             }
             if needs_lift {
                 out.push_str(&ffi::gen_rich_error_value_lift_fn(error, cfg));
@@ -691,7 +699,11 @@ fn render_function(f: &FnDef, ffi_namespace: &str, cfg: &config::JsBindingsConfi
 // FFI-direct object class rendering
 // ---------------------------------------------------------------------------
 
-fn render_object_class(o: &ObjectDef, ffi_namespace: &str, cfg: &config::JsBindingsConfig) -> String {
+fn render_object_class(
+    o: &ObjectDef,
+    ffi_namespace: &str,
+    cfg: &config::JsBindingsConfig,
+) -> String {
     let mut out = String::new();
     let name = &o.name;
 

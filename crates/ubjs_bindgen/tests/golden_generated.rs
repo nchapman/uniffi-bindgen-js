@@ -110,6 +110,39 @@ fn golden_arithmetic_fixture() {
     run_golden("arithmetic", "arithmetic.udl", "arithmetic.ts");
 }
 
+/// `--crate` in UDL mode must override the FFI symbol namespace (PR #2): the
+/// generated symbols derive from the supplied crate name instead of the
+/// `crate_name` sentinel, so the bindings match a real binary's exports.
+#[test]
+fn udl_mode_crate_override_sets_ffi_namespace() {
+    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let fixture = repo.join("fixtures/arithmetic/src/arithmetic.udl");
+    let out_dir = repo.join("target/test-generated-js/arithmetic-crate-override");
+    let _ = fs::remove_dir_all(&out_dir);
+
+    uniffi_bindgen_js::js::generate_bindings(&GenerateArgs {
+        source: fixture,
+        out_dir: out_dir.clone(),
+        config: None,
+        crate_name: Some("arithmetic_lib".to_string()),
+    })
+    .expect("generation should succeed");
+
+    let generated = fs::read_to_string(out_dir.join("arithmetic.ts")).expect("generated file");
+    assert!(
+        generated.contains("uniffi_ffibuffer_arithmetic_lib_fn_func_divide"),
+        "FFI symbols should use the --crate override, got:\n{generated}"
+    );
+    assert!(
+        generated.contains("UniffiRuntime.load") && generated.contains("'arithmetic_lib'"),
+        "runtime load should reference the overridden namespace"
+    );
+    assert!(
+        !generated.contains("uniffi_ffibuffer_crate_name_"),
+        "sentinel namespace must not leak into overridden output"
+    );
+}
+
 #[test]
 fn golden_geometry_fixture() {
     run_golden("geometry", "geometry.udl", "geometry.ts");
