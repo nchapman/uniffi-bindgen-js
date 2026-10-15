@@ -1054,6 +1054,14 @@ export class UniFFIWriter {
     }
   }
 
+  // Sets share the sequence wire format (i32 length + items).
+  writeSet<T>(values: Set<T>, writeInner: (w: UniFFIWriter, v: T) => void): void {
+    this.writeI32(values.size);
+    for (const v of values) {
+      writeInner(this, v);
+    }
+  }
+
   writeMap<K, V>(
     map: Map<K, V>,
     writeKey: (w: UniFFIWriter, k: K) => void,
@@ -1192,6 +1200,15 @@ export class UniFFIReader {
     const result: T[] = [];
     for (let i = 0; i < count; i++) {
       result.push(readInner(this));
+    }
+    return result;
+  }
+
+  readSet<T>(readInner: (r: UniFFIReader) => T): Set<T> {
+    const count = this.readI32();
+    const result = new Set<T>();
+    for (let i = 0; i < count; i++) {
+      result.add(readInner(this));
     }
     return result;
   }

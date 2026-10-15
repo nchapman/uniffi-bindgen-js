@@ -56,9 +56,12 @@ pub(super) fn element_count(t: &Type) -> usize {
         | Type::Timestamp
         | Type::Optional { .. }
         | Type::Sequence { .. }
+        | Type::Set { .. }
         | Type::Map { .. }
         | Type::Record { .. }
         | Type::Enum { .. } => 3,
+        // `Box` is scaffolding-only; bindings use the inner type's repr.
+        Type::Box { inner_type } => element_count(inner_type),
         Type::Custom { .. } => unreachable!("resolve_custom strips Custom"),
     }
 }
@@ -152,9 +155,11 @@ pub(super) fn rust_future_type_suffix(return_type: Option<&Type>) -> &'static st
                 | Type::Timestamp
                 | Type::Optional { .. }
                 | Type::Sequence { .. }
+                | Type::Set { .. }
                 | Type::Map { .. }
                 | Type::Record { .. }
                 | Type::Enum { .. } => "rust_buffer",
+                Type::Box { inner_type } => rust_future_type_suffix(Some(inner_type)),
                 Type::Custom { .. } => unreachable!("resolve_custom strips Custom"),
             }
         }
@@ -283,6 +288,13 @@ fn gen_lower_expr(var: &str, t: &Type, namespace: &str, w: &str, cfg: &JsBinding
             let inner_lower = gen_lower_expr("_v", inner_type, namespace, "_w", cfg);
             format!("{w}.writeSequence({var}, (_w, _v) => {{ {inner_lower}; }})")
         }
+        // Sets share the sequence wire format (i32 length + items).
+        Type::Set { inner_type } => {
+            let inner_lower = gen_lower_expr("_v", inner_type, namespace, "_w", cfg);
+            format!("{w}.writeSet({var}, (_w, _v) => {{ {inner_lower}; }})")
+        }
+        // `Box` is scaffolding-only; lower the inner type directly.
+        Type::Box { inner_type } => gen_lower_expr(var, inner_type, namespace, w, cfg),
         Type::Map {
             key_type,
             value_type,
@@ -353,6 +365,11 @@ fn gen_lift_expr(reader_var: &str, t: &Type, cfg: &JsBindingsConfig) -> String {
             let inner_lift = gen_lift_expr("_r", inner_type, cfg);
             format!("{reader_var}.readSequence((_r) => {inner_lift})")
         }
+        Type::Set { inner_type } => {
+            let inner_lift = gen_lift_expr("_r", inner_type, cfg);
+            format!("{reader_var}.readSet((_r) => {inner_lift})")
+        }
+        Type::Box { inner_type } => gen_lift_expr(reader_var, inner_type, cfg),
         Type::Map {
             key_type,
             value_type,
@@ -1168,9 +1185,11 @@ fn wasm_type_str(t: &Type) -> &'static str {
         | Type::Timestamp
         | Type::Optional { .. }
         | Type::Sequence { .. }
+        | Type::Set { .. }
         | Type::Map { .. }
         | Type::Record { .. }
         | Type::Enum { .. } => "i32",
+        Type::Box { inner_type } => wasm_type_str(inner_type),
         Type::Custom { .. } => unreachable!("resolve_custom strips Custom"),
     }
 }

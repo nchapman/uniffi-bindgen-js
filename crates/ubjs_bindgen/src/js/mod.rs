@@ -1557,3 +1557,71 @@ mod tests {
         assert_eq!(names_vec, vec!["AlphaEnum", "ZetaEnum"]);
     }
 }
+
+// ---------------------------------------------------------------------------
+// uniffi 0.32 Set/Box support tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod set_box_tests {
+    use uniffi_bindgen::interface::Type;
+
+    use super::ffi::*;
+    use super::render_helpers::ts_type_str;
+    use super::runtime_ts::RUNTIME_TS;
+
+    fn set_of(inner: Type) -> Type {
+        Type::Set {
+            inner_type: Box::new(inner),
+        }
+    }
+
+    #[test]
+    fn ts_type_str_renders_set() {
+        assert_eq!(
+            ts_type_str(&set_of(Type::String)),
+            "Set<string>".to_string()
+        );
+        assert_eq!(ts_type_str(&set_of(Type::Int64)), "Set<bigint>".to_string());
+    }
+
+    #[test]
+    fn ts_type_str_unwraps_box() {
+        let boxed = Type::Box {
+            inner_type: Box::new(Type::UInt32),
+        };
+        assert_eq!(ts_type_str(&boxed), "number".to_string());
+    }
+
+    #[test]
+    fn element_count_set_is_rust_buffer_box_is_inner() {
+        assert_eq!(element_count(&set_of(Type::String)), 3);
+        let boxed_u32 = Type::Box {
+            inner_type: Box::new(Type::UInt32),
+        };
+        assert_eq!(element_count(&boxed_u32), 1);
+        let boxed_set = Type::Box {
+            inner_type: Box::new(set_of(Type::Boolean)),
+        };
+        assert_eq!(element_count(&boxed_set), 3);
+    }
+
+    #[test]
+    fn rust_future_suffix_set_is_rust_buffer_box_is_inner() {
+        assert_eq!(
+            rust_future_type_suffix(Some(&set_of(Type::String))),
+            "rust_buffer"
+        );
+        let boxed_u32 = Type::Box {
+            inner_type: Box::new(Type::UInt32),
+        };
+        assert_eq!(rust_future_type_suffix(Some(&boxed_u32)), "u32");
+    }
+
+    #[test]
+    fn runtime_ts_has_set_codecs() {
+        // The runtime template must ship the wire codecs the generator emits.
+        assert!(RUNTIME_TS.contains("writeSet<T>"));
+        assert!(RUNTIME_TS.contains("readSet<T>"));
+    }
+}
