@@ -8,7 +8,7 @@ name = "ffi_errors"
 crate-type = ["cdylib"]
 
 [dependencies]
-uniffi = { version = "0.31.0", features = ["scaffolding-ffi-buffer-fns", "wasm-unstable-single-threaded"] }
+uniffi = { version = "0.32.2", features = ["scaffolding-ffi-buffer-fns", "wasm-unstable-single-threaded"] }
 thiserror = "1"
 
 [workspace]
